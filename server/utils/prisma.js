@@ -7,7 +7,12 @@ const globalForPrisma = globalThis
 function getDatabaseConfig(connectionString) {
   try {
     const parsed = new URL(connectionString)
-    return {
+    const useSsl =
+      parsed.searchParams.get('ssl-mode') === 'REQUIRED' ||
+      parsed.searchParams.get('ssl') === 'true' ||
+      parsed.hostname?.includes('aivencloud.com')
+
+    const config = {
       host: parsed.hostname || '127.0.0.1',
       port: parsed.port ? Number(parsed.port) : 3306,
       user: decodeURIComponent(parsed.username || 'root'),
@@ -17,6 +22,12 @@ function getDatabaseConfig(connectionString) {
       connectionLimit: 10,
       connectTimeout: 10000
     }
+
+    if (useSsl) {
+      config.ssl = { rejectUnauthorized: false }
+    }
+
+    return config
   } catch {
     return {
       connectionString,
