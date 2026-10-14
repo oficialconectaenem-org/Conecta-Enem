@@ -8,9 +8,19 @@ export default defineNuxtRouteMiddleware(async () => {
   }
 
   try {
-    const headers = import.meta.server
-      ? useRequestHeaders(['cookie'])
-      : undefined
+    let token = null
+    if (import.meta.client) {
+      try {
+        token = localStorage.getItem('conectar_enem_auth_token')
+      } catch {
+        // Ignora
+      }
+    }
+
+    const headers = {
+      ...(import.meta.server ? useRequestHeaders(['cookie']) : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
 
     const response = await $fetch('/api/auth/me', {
       headers,

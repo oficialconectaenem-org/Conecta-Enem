@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Redações Recebidas — Painel do Professor | Conectar ENEM'
+  title: 'Redações Recebidas — Painel do Professor | Conecta Enem'
 })
 
 const loading = ref(true)

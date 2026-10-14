@@ -1,5 +1,5 @@
 <template>
-  <section class="py-24 transition-colors duration-200 dark:bg-zinc-950">
+  <section class="bg-white py-24 transition-colors duration-200 dark:bg-zinc-950">
     <div class="mx-auto max-w-7xl px-5 lg:px-8">
       <div
         class="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[var(--color-primary)] to-[var(--color-primary-dark)] px-6 py-14 text-center text-white shadow-2xl shadow-purple-500/20 sm:px-12 dark:shadow-purple-950/40"

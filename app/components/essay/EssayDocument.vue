@@ -1,5 +1,6 @@
 <script setup>
 import EssayAnnotationLayer from './EssayAnnotationLayer.vue'
+import { calculateEssayMetrics, calculateEnemLines } from '#shared/utils/essay-metrics'
 
 const props = defineProps({
   content: {
@@ -52,6 +53,54 @@ const emit = defineEmits([
 ])
 
 const textContainer = ref(null)
+const ruledContentEl = ref(null)
+const measuredVisualLines = ref(null)
+const metrics = computed(() => calculateEssayMetrics(props.content, props.title))
+
+function measureLines() {
+  if (ruledContentEl.value && props.content?.trim()) {
+    const isNarrow = typeof window !== 'undefined' && (window.innerWidth < 768 || ruledContentEl.value.clientWidth < 640)
+    if (isNarrow) {
+      measuredVisualLines.value = calculateEnemLines(props.content, 110)
+      return
+    }
+    const h = ruledContentEl.value.clientHeight || ruledContentEl.value.offsetHeight
+    if (h > 0) {
+      measuredVisualLines.value = Math.max(1, Math.round(h / 36))
+    }
+  } else {
+    measuredVisualLines.value = 0
+  }
+}
+
+watch(() => props.content, () => {
+  nextTick(measureLines)
+})
+
+onMounted(() => {
+  nextTick(measureLines)
+  window.addEventListener('resize', measureLines)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', measureLines)
+})
+
+const effectiveLines = computed(() => {
+  if (measuredVisualLines.value !== null && props.content?.trim()) {
+    return measuredVisualLines.value
+  }
+  return metrics.value.lines
+})
+
+const linesStatusBadge = computed(() => {
+  const l = effectiveLines.value
+  if (l === 0) return 'Folha em branco'
+  if (l < 8) return 'Menos de 8 linhas (Nota Zero no ENEM)'
+  if (l <= 30) return 'Extensão oficial ideal (8 a 30)'
+  return `Ultrapassou limite em ${l - 30} linha(s)!`
+})
+
 const selectionPopover = ref({
   show: false,
   x: 0,
@@ -299,16 +348,16 @@ function handleTextClick(e) {
 </script>
 
 <template>
-  <div class="relative w-full flex justify-center py-2 sm:py-6 px-1 sm:px-4">
+  <div class="relative w-full overflow-x-auto flex justify-start sm:justify-center py-2 sm:py-6 px-1 sm:px-4">
     <!-- Papel Pautado Oficial ENEM -->
     <div
       ref="textContainer"
-      class="relative w-full max-w-[850px] min-h-[960px] bg-[#fcfbfa] dark:bg-[#18181b] rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-8 md:p-10 font-serif text-slate-800 dark:text-zinc-100 transition-all select-text overflow-hidden"
+      class="relative w-full min-w-[700px] max-w-[850px] min-h-[960px] bg-[#fcfbfa] dark:bg-[#18181b] rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 transition-all select-text overflow-hidden"
       @mouseup="handleMouseUp"
       @click="handleTextClick"
     >
       <!-- Cabeçalho da Folha de Redação -->
-      <div class="border-b-2 border-slate-300 dark:border-zinc-800 pb-3 mb-6 select-none font-sans">
+      <div class="border-b-2 border-slate-300 dark:border-zinc-800 pb-3 mb-4 select-none font-sans">
         <div class="flex items-center justify-between">
           <div class="flex items-center gap-2 text-purple-800 dark:text-purple-400 font-black text-xs uppercase tracking-wider">
             <span class="material-symbols-rounded text-lg">school</span>
@@ -319,6 +368,69 @@ function handleTextClick(e) {
         <div v-if="theme" class="mt-2 text-xs font-semibold text-slate-700 dark:text-zinc-300">
           <strong class="text-purple-900 dark:text-purple-300">Tema:</strong> {{ theme }}
         </div>
+      </div>
+
+      <!-- Barra de Métricas Oficiais da Redação (Linhas, Parágrafos, Palavras e Períodos) -->
+      <div class="mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2 font-sans select-none">
+        <!-- Linhas -->
+        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Linhas ENEM</span>
+          <div class="flex items-baseline gap-1 mt-0.5">
+            <span
+              class="text-base font-black"
+              :class="effectiveLines > 30 ? 'text-rose-600 dark:text-rose-400' : effectiveLines >= 8 ? 'text-emerald-600 dark:text-emerald-400' : effectiveLines > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'"
+            >
+              {{ effectiveLines }}
+            </span>
+            <span class="text-[11px] font-bold text-slate-400">/ 30</span>
+          </div>
+          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5" :title="linesStatusBadge">
+            {{ linesStatusBadge }}
+          </span>
+        </div>
+
+        <!-- Parágrafos -->
+        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Parágrafos</span>
+          <div class="mt-0.5">
+            <span class="text-base font-black text-indigo-700 dark:text-indigo-400">{{ metrics.paragraphs }}</span>
+          </div>
+          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5" :title="metrics.paragraphStatus.badge">
+            {{ metrics.paragraphs === 4 ? '4 (Padrão ENEM)' : metrics.paragraphStatus.badge }}
+          </span>
+        </div>
+
+        <!-- Palavras -->
+        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Palavras</span>
+          <div class="mt-0.5">
+            <span class="text-base font-black text-purple-700 dark:text-purple-400">{{ metrics.words }}</span>
+          </div>
+          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+            {{ metrics.words >= 250 && metrics.words <= 350 ? 'Ideal (250 a 350)' : 'Total de vocábulos' }}
+          </span>
+        </div>
+
+        <!-- Frases / Períodos -->
+        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Períodos / Frases</span>
+          <div class="mt-0.5">
+            <span class="text-base font-black text-slate-700 dark:text-zinc-200">{{ metrics.sentences }}</span>
+          </div>
+          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5">
+            Estrutura sintática
+          </span>
+        </div>
+      </div>
+
+      <!-- Alertas de Linhas do ENEM se houver -->
+      <div v-if="effectiveLines > 30" class="mb-4 rounded-xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-2.5 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2 select-none">
+        <span class="material-symbols-rounded text-base shrink-0">error</span>
+        <span>Atenção: A redação possui <strong>{{ effectiveLines }} linhas</strong> (ultrapassa o limite oficial de 30 linhas do ENEM).</span>
+      </div>
+      <div v-else-if="effectiveLines > 0 && effectiveLines < 8" class="mb-4 rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 select-none">
+        <span class="material-symbols-rounded text-base shrink-0">warning</span>
+        <span>Critério ENEM: Textos com menos de 8 linhas recebem <strong>Nota Zero</strong> por extensão insuficiente.</span>
       </div>
 
       <!-- Título da Redação (se houver) -->
@@ -383,14 +495,20 @@ function handleTextClick(e) {
 
       <!-- Linhas Numeradas e Folha Pautada Oficial ENEM -->
       <div class="relative flex text-sm sm:text-base tracking-normal select-text">
-        <!-- Coluna de Números das Linhas (1 a 30) perfeitamente alinhadas com as pautas -->
-        <div class="w-9 shrink-0 select-none border-r-2 border-red-300 dark:border-red-900/60 mr-4 flex flex-col font-sans text-[11px] font-bold text-slate-400 dark:text-zinc-500">
+        <!-- Coluna de Números das Linhas (1 a 30+) perfeitamente alinhadas com as pautas -->
+        <div class="w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex flex-col font-mono text-xs">
           <div
-            v-for="lineNum in 30"
+            v-for="lineNum in Math.max(30, effectiveLines)"
             :key="lineNum"
-            class="h-[36px] flex items-center justify-end pr-2.5 transition-colors"
+            class="h-[36px] flex items-center justify-end font-bold transition-colors select-none"
+            :class="{
+              'text-purple-600 dark:text-purple-400 font-black bg-purple-100/60 dark:bg-purple-950/40 rounded-l': lineNum <= effectiveLines && lineNum <= 30,
+              'text-slate-300 dark:text-zinc-700 font-normal': lineNum > effectiveLines && lineNum <= 30,
+              'text-rose-600 dark:text-rose-400 font-black bg-rose-100/70 dark:bg-rose-950/40 rounded-l': lineNum > 30
+            }"
+            :title="lineNum <= 30 ? `Linha ${lineNum} do ENEM` : `Linha ${lineNum} (Excede o limite do ENEM)`"
           >
-            {{ lineNum }}
+            {{ lineNum.toString().padStart(2, '0') }}
           </div>
         </div>
 
@@ -411,10 +529,9 @@ function handleTextClick(e) {
           />
 
           <!-- Texto do Aluno assentado na malha pautada -->
-          <div
-            class="ruled-paper-text w-full min-h-[1080px] font-serif text-slate-800 dark:text-zinc-100 whitespace-pre-wrap select-text outline-none"
-            v-html="renderFullContentHtml()"
-          ></div>
+          <div class="ruled-paper-text w-full min-h-[1080px] font-sans text-slate-800 dark:text-zinc-100 select-text outline-none">
+            <div ref="ruledContentEl" class="whitespace-pre-wrap select-text" v-html="renderFullContentHtml()"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -425,6 +542,9 @@ function handleTextClick(e) {
 .ruled-paper-text {
   line-height: 36px !important;
   font-size: 15px;
+  font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  letter-spacing: 0.01em;
+  padding: 0 14px !important;
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0px,
@@ -435,17 +555,8 @@ function handleTextClick(e) {
   background-size: 100% 36px;
   background-position: 0 0;
   box-sizing: border-box;
-}
-
-:global(html.dark) .ruled-paper-text,
-:global([data-theme="dark"]) .ruled-paper-text {
-  background-image: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    transparent 35px,
-    rgba(96, 165, 250, 0.22) 35px,
-    rgba(96, 165, 250, 0.22) 36px
-  );
+  text-align: justify !important;
+  text-justify: inter-word !important;
 }
 
 .popover-enter-active, .popover-leave-active {

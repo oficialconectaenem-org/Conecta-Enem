@@ -1,6 +1,7 @@
 import { defineEventHandler, getRouterParam, readBody, createError } from 'h3'
 import { requireTeacher } from '#server/utils/require-teacher'
 import prisma from '#server/utils/prisma'
+import { essayCorrectionSchema } from '#shared/validators/essay'
 
 export default defineEventHandler(async (event) => {
   const teacher = await requireTeacher(event)
@@ -30,34 +31,40 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const c1Score = Math.max(0, Math.min(200, parseInt(body.c1Score ?? 0, 10)))
-  const c2Score = Math.max(0, Math.min(200, parseInt(body.c2Score ?? 0, 10)))
-  const c3Score = Math.max(0, Math.min(200, parseInt(body.c3Score ?? 0, 10)))
-  const c4Score = Math.max(0, Math.min(200, parseInt(body.c4Score ?? 0, 10)))
-  const c5Score = Math.max(0, Math.min(200, parseInt(body.c5Score ?? 0, 10)))
-  const totalScore = c1Score + c2Score + c3Score + c4Score + c5Score
+  const validation = essayCorrectionSchema.safeParse(body)
+  if (!validation.success) {
+    const errorDetails = validation.error.flatten().fieldErrors
+    throw createError({
+      statusCode: 422,
+      statusMessage: 'Valores de correção inválidos segundo as regras do ENEM.',
+      data: { errors: errorDetails }
+    })
+  }
+
+  const val = validation.data
+  const totalScore = val.c1Score + val.c2Score + val.c3Score + val.c4Score + val.c5Score
 
   const correctionData = {
-    c1Score,
-    c2Score,
-    c3Score,
-    c4Score,
-    c5Score,
+    c1Score: val.c1Score,
+    c2Score: val.c2Score,
+    c3Score: val.c3Score,
+    c4Score: val.c4Score,
+    c5Score: val.c5Score,
     totalScore,
-    c1Comment: body.c1Comment || null,
-    c2Comment: body.c2Comment || null,
-    c3Comment: body.c3Comment || null,
-    c4Comment: body.c4Comment || null,
-    c5Comment: body.c5Comment || null,
-    justification1: body.justification1 || body.c1Comment || null,
-    justification2: body.justification2 || body.c2Comment || null,
-    justification3: body.justification3 || body.c3Comment || null,
-    justification4: body.justification4 || body.c4Comment || null,
-    justification5: body.justification5 || body.c5Comment || null,
-    positivePoints: body.positivePoints || null,
-    improvements: body.improvements || null,
-    generalComment: body.generalComment || body.generalFeedback || null,
-    generalFeedback: body.generalFeedback || body.generalComment || null
+    c1Comment: val.c1Comment || null,
+    c2Comment: val.c2Comment || null,
+    c3Comment: val.c3Comment || null,
+    c4Comment: val.c4Comment || null,
+    c5Comment: val.c5Comment || null,
+    justification1: val.justification1 || val.c1Comment || null,
+    justification2: val.justification2 || val.c2Comment || null,
+    justification3: val.justification3 || val.c3Comment || null,
+    justification4: val.justification4 || val.c4Comment || null,
+    justification5: val.justification5 || val.c5Comment || null,
+    positivePoints: val.positivePoints || null,
+    improvements: val.improvements || null,
+    generalComment: val.generalComment || val.generalFeedback || null,
+    generalFeedback: val.generalFeedback || val.generalComment || null
   }
 
   // Upsert na correção
@@ -74,7 +81,7 @@ export default defineEventHandler(async (event) => {
   })
 
   // Se o body indicar status ou se for finalização
-  const newStatus = body.status || 'GRADED'
+  const newStatus = val.status || 'GRADED'
   await prisma.essay.update({
     where: { id: essay.id },
     data: { status: newStatus }

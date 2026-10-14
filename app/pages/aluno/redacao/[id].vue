@@ -3,6 +3,7 @@ import EssayToolbar from '~/components/essay/EssayToolbar.vue'
 import EssayDocument from '~/components/essay/EssayDocument.vue'
 import EssayCommentsPanel from '~/components/essay/EssayCommentsPanel.vue'
 import EssayCompetencies from '~/components/essay/EssayCompetencies.vue'
+import { calculateEssayMetrics } from '#shared/utils/essay-metrics'
 
 definePageMeta({
   layout: 'default'
@@ -15,9 +16,9 @@ useSeoMeta({
   title: 'Visualizar Redação & Correção — Área do Aluno'
 })
 
-const { isDark, toggleTheme } = useTheme()
 const loading = ref(true)
 const essay = ref(null)
+const essayMetrics = computed(() => calculateEssayMetrics(essay.value?.content || '', essay.value?.title || ''))
 const annotations = ref([])
 const showAnnotations = ref(true)
 const showCommentsMobileDrawer = ref(false)
@@ -122,6 +123,23 @@ onMounted(() => {
               >
                 {{ essay?.status === 'GRADED' ? 'Corrigida' : 'Aguardando' }}
               </span>
+
+              <!-- Badges de Métricas Oficiais -->
+              <div v-if="essay?.content" class="hidden md:flex items-center gap-1.5 ml-1">
+                <span
+                  class="text-[10px] font-bold px-2 py-0.5 rounded-md border"
+                  :class="essayMetrics.lines > 30 ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' : essayMetrics.lines >= 8 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'"
+                  :title="essayMetrics.linesStatus.badge"
+                >
+                  {{ essayMetrics.lines }} linhas
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800" :title="essayMetrics.paragraphStatus.badge">
+                  {{ essayMetrics.paragraphs }} parágrafos
+                </span>
+                <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                  {{ essayMetrics.words }} palavras
+                </span>
+              </div>
             </div>
             <p v-if="essay?.theme" class="text-[11px] text-slate-400 dark:text-zinc-500 truncate max-w-xs sm:max-w-md">
               Tema: {{ essay.theme }}
@@ -129,7 +147,7 @@ onMounted(() => {
           </div>
         </div>
 
-        <!-- Lado Direito: Alternar Abas, Nota Oficial e Botão Dark Mode -->
+        <!-- Lado Direito: Alternar Abas e Nota Oficial -->
         <div class="flex items-center gap-2 shrink-0">
           <div v-if="essay?.status === 'GRADED' && essay?.correction" class="hidden sm:flex items-center gap-1.5 rounded-xl bg-purple-600 px-2.5 py-1 text-white shadow-xs">
             <span class="text-[9px] font-bold text-purple-200 uppercase">Nota</span>
@@ -172,17 +190,6 @@ onMounted(() => {
             </button>
           </div>
 
-          <!-- Botão Dark Mode Switcher -->
-          <button
-            type="button"
-            :title="isDark ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'"
-            @click="toggleTheme"
-            class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition cursor-pointer"
-          >
-            <span class="material-symbols-rounded text-lg">
-              {{ isDark ? 'light_mode' : 'dark_mode' }}
-            </span>
-          </button>
         </div>
       </div>
 
@@ -302,44 +309,36 @@ onMounted(() => {
 
     <!-- Drawer Lateral de Comentários para Mobile/Tablet do Aluno -->
     <Teleport to="body">
-      <Transition name="slide">
-        <div v-if="showCommentsMobileDrawer" class="fixed inset-0 z-50 flex justify-end">
-          <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs" @click="showCommentsMobileDrawer = false"></div>
-          <div class="relative w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col z-10 border-l border-slate-200 dark:border-zinc-800">
-            <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900">
-              <div class="flex items-center gap-2 text-purple-700 dark:text-purple-400">
-                <span class="material-symbols-rounded text-xl">fact_check</span>
-                <h3 class="text-sm font-black text-slate-900 dark:text-zinc-100">Anotações do Professor</h3>
-              </div>
-              <button
-                type="button"
-                @click="showCommentsMobileDrawer = false"
-                class="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
-              >
-                <span class="material-symbols-rounded text-xl">close</span>
-              </button>
+      <div v-if="showCommentsMobileDrawer" class="fixed inset-0 z-50 flex justify-end">
+        <div
+          class="fixed inset-0 bg-slate-900/60 backdrop-blur-2xs transition-opacity duration-200"
+          @click="showCommentsMobileDrawer = false"
+        ></div>
+        <div class="relative w-full max-w-md bg-white dark:bg-zinc-900 h-full shadow-2xl flex flex-col z-10 border-l border-slate-200 dark:border-zinc-800 animate-in slide-in-from-right duration-250">
+          <div class="flex items-center justify-between p-4 border-b border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900">
+            <div class="flex items-center gap-2 text-purple-700 dark:text-purple-400">
+              <span class="material-symbols-rounded text-xl">fact_check</span>
+              <h3 class="text-sm font-black text-slate-900 dark:text-zinc-100">Anotações do Professor</h3>
             </div>
+            <button
+              type="button"
+              @click="showCommentsMobileDrawer = false"
+              class="h-8 w-8 rounded-xl flex items-center justify-center text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-xl">close</span>
+            </button>
+          </div>
 
-            <div class="flex-1 overflow-y-auto">
-              <EssayCommentsPanel
-                :annotations="annotations"
-                :selected-annotation-id="selectedAnnotation?.id"
-                :read-only="true"
-                @select-annotation="selectedAnnotation = $event; showCommentsMobileDrawer = false"
-              />
-            </div>
+          <div class="flex-1 overflow-y-auto">
+            <EssayCommentsPanel
+              :annotations="annotations"
+              :selected-annotation-id="selectedAnnotation?.id"
+              :read-only="true"
+              @select-annotation="selectedAnnotation = $event; showCommentsMobileDrawer = false"
+            />
           </div>
         </div>
-      </Transition>
+      </div>
     </Teleport>
   </div>
 </template>
-
-<style scoped>
-.slide-enter-active, .slide-leave-active {
-  transition: transform 0.25s ease-out;
-}
-.slide-enter-from, .slide-leave-to {
-  transform: translateX(100%);
-}
-</style>

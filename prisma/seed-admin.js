@@ -1,6 +1,8 @@
 import 'dotenv/config'
 import { randomBytes, scryptSync } from 'node:crypto'
 import { PrismaClient } from '@prisma/client'
+import { PrismaMariaDb } from '@prisma/adapter-mariadb'
+import mariadb from 'mariadb'
 
 function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')
@@ -14,9 +16,20 @@ async function main() {
     throw new Error('DATABASE_URL não encontrada no ambiente.')
   }
 
-  const prisma = new PrismaClient()
+  const parsed = new URL(connectionString)
+  const pool = mariadb.createPool({
+    host: parsed.hostname || '127.0.0.1',
+    port: parsed.port ? Number(parsed.port) : 3306,
+    user: decodeURIComponent(parsed.username || 'root'),
+    password: decodeURIComponent(parsed.password || ''),
+    database: parsed.pathname ? parsed.pathname.replace(/^\//, '') : 'conectar_enem',
+    allowPublicKeyRetrieval: true
+  })
 
-  const name = process.env.ADMIN_NAME || 'Administrador Conectar ENEM'
+  const adapter = new PrismaMariaDb(pool)
+  const prisma = new PrismaClient({ adapter })
+
+  const name = process.env.ADMIN_NAME || 'Administrador Conecta Enem'
   const email = (process.env.ADMIN_EMAIL || 'oficialconectaenem@gmail.com').trim().toLowerCase()
   const password = process.env.ADMIN_PASSWORD || 'Admin@Conecta2026'
 
@@ -103,6 +116,7 @@ async function main() {
     process.exit(1)
   } finally {
     await prisma.$disconnect()
+    await pool.end()
   }
 }
 

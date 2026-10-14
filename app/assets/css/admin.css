@@ -1,159 +1,59 @@
 /* app/assets/css/admin.css */
 
 :root {
-  --admin-primary: #7c3aed;
-  --admin-primary-hover: #6d28d9;
-  --admin-primary-soft: #f5f3ff;
-  --admin-primary-text: #7c3aed;
+  --admin-primary: #6d28d9;
+  --admin-primary-hover: #4c1d95;
+  --admin-primary-soft: #eee8fb;
+  --admin-primary-text: #5b21b6;
 
-  --admin-bg: #f8f9fc;
+  --admin-bg: #f6f4fb;
   --admin-surface: #ffffff;
-  --admin-surface-subtle: #f8fafc;
-  --admin-sidebar: #ffffff;
-  --admin-header: rgba(255, 255, 255, 0.95);
+  --admin-surface-subtle: #f0edf6;
+  --admin-sidebar: #fcfbff;
+  --admin-header: rgba(252, 251, 255, 0.96);
 
-  --admin-text: #0f172a;
-  --admin-text-secondary: #475569;
-  --admin-text-muted: #64748b;
+  --admin-text: #211b2d;
+  --admin-text-secondary: #514b60;
+  --admin-text-muted: #686275;
 
-  --admin-border: #e2e8f0;
-  --admin-border-subtle: #f1f5f9;
-  --admin-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --admin-shadow-hover: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.08);
+  --admin-border: #e3deeb;
+  --admin-border-subtle: #efebf4;
+  --admin-shadow: 0 1px 2px rgba(39, 24, 65, 0.04), 0 8px 24px rgba(39, 24, 65, 0.045);
+  --admin-shadow-hover: 0 12px 28px rgba(76, 29, 149, 0.12);
 
   color-scheme: light;
 }
 
-.dark,
-[data-theme='dark'] {
-  --admin-primary: #a78bfa;
-  --admin-primary-hover: #c4b5fd;
-  --admin-primary-soft: rgba(139, 92, 246, 0.16);
-  --admin-primary-text: #c4b5fd;
-
-  --admin-bg: #09090b;
-  --admin-surface: #121216;
-  --admin-surface-subtle: #18181c;
-  --admin-sidebar: #0e0e11;
-  --admin-header: rgba(14, 14, 17, 0.94);
-
-  --admin-text: #f8fafc;
-  --admin-text-secondary: #cbd5e1;
-  --admin-text-muted: #94a3b8;
-
-  --admin-border: #27272a;
-  --admin-border-subtle: #1e1e24;
-  --admin-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.35);
-  --admin-shadow-hover: 0 10px 20px -3px rgba(0, 0, 0, 0.5);
-
-  color-scheme: dark;
+.admin-shell {
+  font-size: 15px;
+  line-height: 1.55;
 }
 
-/* ========================================================
-   DARK MODE OVERRIDES PARA ELEMENTOS DO ADMIN
-   ======================================================== */
-
-.dark .admin-shell,
-[data-theme='dark'] .admin-shell {
-  background-color: var(--admin-bg) !important;
-  color: var(--admin-text) !important;
+.admin-shell h1 {
+  border-inline-start: 3px solid var(--admin-primary);
+  padding-inline-start: 12px;
+  letter-spacing: -0.035em;
+  line-height: 1.2;
 }
 
-.dark .admin-shell .admin-sidebar,
-[data-theme='dark'] .admin-shell .admin-sidebar {
-  background: var(--admin-sidebar) !important;
-  border-color: var(--admin-border) !important;
+.admin-shell [class~='text-[10px]'] {
+  font-size: 11px;
+  line-height: 1.4;
 }
 
-.dark .admin-shell header,
-[data-theme='dark'] .admin-shell header {
-  background-color: var(--admin-header) !important;
-  border-color: var(--admin-border) !important;
+.admin-shell [class~='text-[11px]'] {
+  font-size: 12px;
+  line-height: 1.45;
 }
 
-.dark .admin-shell .bg-white,
-[data-theme='dark'] .admin-shell .bg-white {
-  background-color: var(--admin-surface) !important;
-  color: var(--admin-text) !important;
+.admin-shell :where(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--admin-primary);
+  outline-offset: 3px;
 }
 
-.dark .admin-shell .bg-zinc-50,
-.dark .admin-shell .bg-slate-50,
-[data-theme='dark'] .admin-shell .bg-zinc-50,
-[data-theme='dark'] .admin-shell .bg-slate-50 {
-  background-color: var(--admin-surface-subtle) !important;
-}
-
-.dark .admin-shell .border-zinc-200,
-.dark .admin-shell .border-zinc-100,
-.dark .admin-shell .border-zinc-300,
-.dark .admin-shell .border-slate-200,
-[data-theme='dark'] .admin-shell .border-zinc-200,
-[data-theme='dark'] .admin-shell .border-zinc-100,
-[data-theme='dark'] .admin-shell .border-zinc-300,
-[data-theme='dark'] .admin-shell .border-slate-200 {
-  border-color: var(--admin-border) !important;
-}
-
-.dark .admin-shell .divide-zinc-200,
-.dark .admin-shell .divide-zinc-100,
-[data-theme='dark'] .admin-shell .divide-zinc-200,
-[data-theme='dark'] .admin-shell .divide-zinc-100 {
-  border-color: var(--admin-border) !important;
-}
-
-.dark .admin-shell .text-zinc-900,
-.dark .admin-shell .text-zinc-800,
-[data-theme='dark'] .admin-shell .text-zinc-900,
-[data-theme='dark'] .admin-shell .text-zinc-800 {
-  color: var(--admin-text) !important;
-}
-
-.dark .admin-shell .text-zinc-700,
-.dark .admin-shell .text-zinc-600,
-[data-theme='dark'] .admin-shell .text-zinc-700,
-[data-theme='dark'] .admin-shell .text-zinc-600 {
-  color: var(--admin-text-secondary) !important;
-}
-
-.dark .admin-shell .text-zinc-500,
-.dark .admin-shell .text-zinc-400,
-[data-theme='dark'] .admin-shell .text-zinc-500,
-[data-theme='dark'] .admin-shell .text-zinc-400 {
-  color: var(--admin-text-muted) !important;
-}
-
-.dark .admin-shell input,
-.dark .admin-shell textarea,
-.dark .admin-shell select,
-[data-theme='dark'] .admin-shell input,
-[data-theme='dark'] .admin-shell textarea,
-[data-theme='dark'] .admin-shell select {
-  background-color: var(--admin-surface-subtle) !important;
-  color: var(--admin-text) !important;
-  border-color: var(--admin-border) !important;
-}
-
-.dark .admin-shell input::placeholder,
-.dark .admin-shell textarea::placeholder,
-[data-theme='dark'] .admin-shell input::placeholder,
-[data-theme='dark'] .admin-shell textarea::placeholder {
-  color: var(--admin-text-muted) !important;
-}
-
-/* Modal and cards refinement */
-.dark .admin-shell .shadow-xs,
-.dark .admin-shell .shadow-sm,
-.dark .admin-shell .shadow-md,
-[data-theme='dark'] .admin-shell .shadow-xs,
-[data-theme='dark'] .admin-shell .shadow-sm,
-[data-theme='dark'] .admin-shell .shadow-md {
-  box-shadow: var(--admin-shadow) !important;
-}
-
-.dark .admin-shell tr:hover,
-[data-theme='dark'] .admin-shell tr:hover {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+.admin-shell button,
+.admin-shell a {
+  -webkit-tap-highlight-color: transparent;
 }
 
 /* Material symbols */

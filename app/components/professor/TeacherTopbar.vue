@@ -14,7 +14,6 @@ const emit = defineEmits([
 ])
 
 const authStore = useAuthStore()
-const { isDark, toggleTheme } = useTheme()
 const teacherName = computed(() => authStore.user?.name || 'Professor')
 
 const initials = computed(() => {
@@ -51,18 +50,6 @@ const initials = computed(() => {
     </div>
 
     <div class="flex items-center gap-3">
-      <!-- Dark Mode Switcher -->
-      <button
-        type="button"
-        :title="isDark ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'"
-        class="w-[38px] h-[38px] flex items-center justify-center rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-        @click="toggleTheme"
-      >
-        <span class="material-symbols-rounded text-lg">
-          {{ isDark ? 'dark_mode' : 'light_mode' }}
-        </span>
-      </button>
-
       <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 font-black text-xs border border-purple-200/60 dark:border-purple-800/40">
           {{ initials }}

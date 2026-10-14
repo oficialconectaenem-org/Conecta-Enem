@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 const props = defineProps({
   collapsed: {
     type: Boolean,
@@ -98,7 +98,7 @@ async function handleLogout() {
         <span class="admin-brand__icon">
           <img
             src="/images/logo conta.png"
-            alt="Logo Conectar ENEM"
+            alt="Logo Conecta Enem"
             class="h-full w-full object-contain"
           />
         </span>
@@ -107,7 +107,7 @@ async function handleLogout() {
           v-if="!collapsed"
           class="admin-brand__text"
         >
-          <strong>Conectar ENEM</strong>
+          <strong>Conecta Enem</strong>
           <small>Administração</small>
         </span>
       </NuxtLink>
@@ -240,12 +240,6 @@ async function handleLogout() {
   flex-shrink: 0;
   overflow: hidden;
   padding: 2px;
-}
-
-[data-theme='dark'] .admin-brand__icon,
-.dark .admin-brand__icon {
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .admin-brand__text {

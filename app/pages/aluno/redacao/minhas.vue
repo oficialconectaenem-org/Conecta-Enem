@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({
@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Minhas Redações — Área do Aluno | Conectar ENEM'
+  title: 'Minhas Redações — Área do Aluno | Conecta Enem'
 })
 
 const authStore = useAuthStore()

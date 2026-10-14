@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Nova Aula — Conectar ENEM Admin'
+  title: 'Nova Aula — Conecta Enem Admin'
 })
 
 const route = useRoute()

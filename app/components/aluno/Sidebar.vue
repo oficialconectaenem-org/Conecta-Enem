@@ -32,6 +32,11 @@ const navigation = [
     label: 'Redação',
     to: '/aluno/redacao',
     icon: 'material-symbols:edit-note'
+  },
+  {
+    label: 'Perfil',
+    to: '/aluno/perfil',
+    icon: 'material-symbols:person'
   }
 ]
 
@@ -41,6 +46,21 @@ function isActive(path) {
   }
 
   return route.path.startsWith(path)
+}
+
+const { logout } = useAuth()
+const loggingOut = ref(false)
+
+async function handleLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
+  try {
+    await logout()
+  } catch (err) {
+    console.error('Erro ao sair:', err)
+  } finally {
+    loggingOut.value = false
+  }
 }
 
 function toggle() {
@@ -75,7 +95,7 @@ function toggle() {
     <div
       class="
         flex
-        h-20
+        h-[72px]
         shrink-0
         items-center
         border-b
@@ -116,7 +136,7 @@ function toggle() {
         >
           <img
             src="/images/logo conta.png"
-            alt="Logo Conectar ENEM"
+            alt="Logo Conecta Enem"
             class="h-full w-full object-contain"
           />
         </div>
@@ -134,7 +154,7 @@ function toggle() {
               text-[var(--student-text)]
             "
           >
-            Conectar ENEM
+            Conecta Enem
           </p>
 
           <p
@@ -259,8 +279,49 @@ function toggle() {
         border-t
         border-[var(--student-border)]
         p-3
+        space-y-2
       "
     >
+      <!-- BOTÃO SAIR / ENCERRAR SESSÃO -->
+      <button
+        type="button"
+        @click="handleLogout"
+        :disabled="loggingOut"
+        :title="props.collapsed ? 'Encerrar sessão' : undefined"
+        class="
+          flex
+          h-11
+          w-full
+          items-center
+          gap-3
+          rounded-xl
+          border
+          border-red-500/20
+          bg-red-500/10
+          font-bold
+          text-red-600
+          dark:text-red-400
+          transition
+          hover:bg-red-500/20
+          cursor-pointer
+          disabled:opacity-50
+        "
+        :class="
+          props.collapsed
+            ? 'justify-center px-3'
+            : 'px-4'
+        "
+      >
+        <span class="material-symbols-rounded text-xl shrink-0">logout</span>
+
+        <span
+          v-if="!props.collapsed"
+          class="text-sm truncate"
+        >
+          Sair da conta
+        </span>
+      </button>
+
       <button
         type="button"
         class="

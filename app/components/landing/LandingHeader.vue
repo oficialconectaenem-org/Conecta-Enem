@@ -27,27 +27,34 @@ async function handleInstall() {
       <NuxtLink
         to="/"
         class="flex items-center gap-3"
-        aria-label="Conectar ENEM"
+        aria-label="Conecta Enem"
       >
         <div
           class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl overflow-hidden border border-purple-100 dark:border-zinc-800 shadow-sm p-0.5 bg-white dark:bg-zinc-900"
         >
-          <img src="/images/logo conta.png" alt="Logo Conectar ENEM" class="h-full w-full object-contain" />
+          <img src="/images/logo conta.png" alt="Logo Conecta Enem" class="h-full w-full object-contain" />
         </div>
 
         <span
           class="text-lg font-extrabold tracking-tight text-[var(--color-primary-dark)] dark:text-purple-400"
         >
-          Conectar ENEM
+          Conecta Enem
         </span>
       </NuxtLink>
 
-      <nav class="hidden items-center gap-8 md:flex">
+      <nav class="hidden items-center gap-8 lg:flex">
         <a
           href="#recursos"
           class="text-sm font-medium text-zinc-600 transition hover:text-[var(--color-primary)] dark:text-zinc-300 dark:hover:text-purple-400"
         >
           Recursos
+        </a>
+
+        <a
+          href="#analise"
+          class="text-sm font-medium text-zinc-600 transition hover:text-[var(--color-primary)] dark:text-zinc-300 dark:hover:text-purple-400"
+        >
+          Análise
         </a>
 
         <a
@@ -72,7 +79,7 @@ async function handleInstall() {
         </a>
       </nav>
 
-      <div class="hidden items-center gap-3 md:flex">
+      <div class="hidden items-center gap-3 lg:flex">
         <!-- BOTÃO INSTALAR APP PWA -->
         <button
           v-if="!isInstalled"
@@ -99,7 +106,7 @@ async function handleInstall() {
         </NuxtLink>
       </div>
 
-      <div class="flex items-center gap-2 md:hidden">
+      <div class="flex items-center gap-2 lg:hidden">
         <button
           type="button"
           class="rounded-lg p-2 text-xl text-zinc-700 dark:text-zinc-200"
@@ -114,7 +121,7 @@ async function handleInstall() {
 
     <div
       v-if="mobileMenuOpen"
-      class="border-t border-purple-100 bg-white px-5 py-5 transition-colors md:hidden dark:border-zinc-800 dark:bg-zinc-900"
+      class="border-t border-purple-100 bg-white px-5 py-5 transition-colors lg:hidden dark:border-zinc-800 dark:bg-zinc-900"
     >
       <nav class="flex flex-col gap-4">
         <a
@@ -123,6 +130,14 @@ async function handleInstall() {
           @click="closeMenu"
         >
           Recursos
+        </a>
+
+        <a
+          href="#analise"
+          class="font-medium text-zinc-700 hover:text-purple-600 dark:text-zinc-200 dark:hover:text-purple-400"
+          @click="closeMenu"
+        >
+          Análise
         </a>
 
         <a
@@ -193,7 +208,7 @@ async function handleInstall() {
                 <img src="/images/icone mobile.png" alt="App Icon" class="h-full w-full object-contain" />
               </div>
               <div>
-                <h3 class="text-sm font-black text-zinc-900 dark:text-white">Instalar Conectar ENEM</h3>
+                <h3 class="text-sm font-black text-zinc-900 dark:text-white">Instalar Conecta Enem</h3>
                 <p class="text-[11px] text-purple-600 dark:text-purple-400 font-bold">App Oficial no seu celular ou PC</p>
               </div>
             </div>

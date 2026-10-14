@@ -20,9 +20,9 @@ if (tipo !== 'professor') {
 }
 
 useSeoMeta({
-  title: 'Cadastro de Professor — Conectar ENEM',
+  title: 'Cadastro de Professor — Conecta Enem',
   description:
-    'Cadastro de professor de redação do Conectar ENEM.'
+    'Cadastro de professor de redação do Conecta Enem.'
 })
 </script>
 

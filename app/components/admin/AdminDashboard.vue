@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 const adminNavigation = inject('adminNavigation', null)
 
 const loading = ref(true)
@@ -56,7 +56,7 @@ onMounted(() => {
         Painel de Administração
       </h1>
       <p class="mt-1 text-xs sm:text-sm text-zinc-500">
-        Visão geral e métricas em tempo real da plataforma Conectar ENEM.
+        Visão geral e métricas em tempo real da plataforma Conecta Enem.
       </p>
     </div>
 

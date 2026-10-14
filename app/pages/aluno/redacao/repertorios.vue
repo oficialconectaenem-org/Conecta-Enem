@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 definePageMeta({
   layout: 'aluno'
 })
 
 useSeoMeta({
-  title: 'Repertórios Socioculturais — Conectar ENEM'
+  title: 'Repertórios Socioculturais — Conecta Enem'
 })
 
 const { data, pending, error } = await useFetch('/api/student/redacao/repertoires')

@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import QuestionForm from '~/components/admin/questions/QuestionForm.vue'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Nova Questão — Conectar ENEM Admin'
+  title: 'Nova Questão — Conecta Enem Admin'
 })
 
 function onCreated() {

@@ -5,7 +5,7 @@ const features = [
   { icon: 'edit_note', title: 'Laboratório de Redação', description: 'Escreva com textos motivadores reais, consulte bancos de argumentos e receba correções.', tone: 'emerald' },
   { icon: 'auto_stories', title: 'Repertórios Socioculturais', description: 'Banco completo com pensadores, livros, dados e citações para enriquecer seus textos.', tone: 'rose' },
   { icon: 'school', title: 'Turmas de Professores', description: 'Participe de turmas exclusivas com professores para envio e correção direta de redações.', tone: 'orange' },
-  { icon: 'psychology', title: 'Evolução & Desempenho', description: 'Acompanhe seu progresso diário, quantidade de exercícios resolvidos e notas médias.', tone: 'fuchsia' }
+  { icon: 'monitoring', title: 'Análise de Desempenho & IA', description: 'Acompanhe notas médias, curva de evolução e receba diagnósticos das 5 competências por inteligência artificial.', tone: 'fuchsia' }
 ]
 </script>
 

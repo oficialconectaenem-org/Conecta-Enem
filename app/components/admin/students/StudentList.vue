@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 const loading = ref(true)
 const searchStudent = ref('')
 const students = ref([])
@@ -50,7 +50,7 @@ onMounted(() => {
           Alunos Cadastrados
         </h1>
         <p class="text-xs sm:text-sm text-zinc-500 mt-1">
-          Gerencie e acompanhe todos os estudantes da plataforma Conectar ENEM.
+          Gerencie e acompanhe todos os estudantes da plataforma Conecta Enem.
         </p>
       </div>
 

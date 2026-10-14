@@ -1,11 +1,11 @@
-<script setup>
+﻿<script setup>
 definePageMeta({
   layout: 'admin',
   middleware: 'admin'
 })
 
 useSeoMeta({
-  title: 'Painel Administrativo — Conectar ENEM'
+  title: 'Painel Administrativo — Conecta Enem'
 })
 
 const activeSection = ref('dashboard')

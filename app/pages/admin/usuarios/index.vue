@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import UserManager from '~/components/admin/users/UserManager.vue'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Usuários — Conectar ENEM'
+  title: 'Usuários — Conecta Enem'
 })
 </script>
 

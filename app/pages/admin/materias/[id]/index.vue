@@ -11,7 +11,7 @@ definePageMeta({
 
 
 useSeoMeta({
-  title: 'Gerenciar matéria — Conectar ENEM'
+  title: 'Gerenciar matéria — Conecta Enem'
 })
 
 

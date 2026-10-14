@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'br.com.conectarenem.app',
-  appName: 'Conectar ENEM',
+  appName: 'Conecta Enem',
   webDir: '.output/public',
   server: {
     // Para testar em desenvolvimento com live-reload no celular, descomente e coloque seu IP local:

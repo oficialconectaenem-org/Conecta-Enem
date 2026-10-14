@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 definePageMeta({
   layout: 'aluno'
 })
 
 useSeoMeta({
-  title: 'Banco de Argumentos — Conectar ENEM'
+  title: 'Banco de Argumentos — Conecta Enem'
 })
 
 const { data, pending, error } = await useFetch('/api/student/redacao/arguments')

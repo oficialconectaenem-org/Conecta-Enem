@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <footer
     id="sobre"
     class="border-t border-purple-100 bg-white transition-colors duration-200 dark:border-zinc-800 dark:bg-zinc-950"
@@ -14,13 +14,13 @@
           <div
             class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden border border-purple-100 p-0.5 bg-white dark:border-zinc-800 dark:bg-zinc-900"
           >
-            <img src="/images/logo conta.png" alt="Logo Conectar ENEM" class="h-full w-full object-contain" />
+            <img src="/images/logo conta.png" alt="Logo Conecta Enem" class="h-full w-full object-contain" />
           </div>
 
           <span
             class="font-bold text-[var(--color-primary-dark)] dark:text-purple-400"
           >
-            Conectar ENEM
+            Conecta Enem
           </span>
         </NuxtLink>
 
@@ -92,7 +92,7 @@
         class="mx-auto flex max-w-7xl flex-col gap-2 px-5 py-6 text-sm text-zinc-400 dark:text-zinc-500 sm:flex-row sm:items-center sm:justify-between lg:px-8"
       >
         <span>
-          © {{ new Date().getFullYear() }} Conectar ENEM.
+          © {{ new Date().getFullYear() }} Conecta Enem.
         </span>
 
         <span>

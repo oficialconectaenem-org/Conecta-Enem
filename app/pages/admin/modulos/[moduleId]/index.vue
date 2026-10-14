@@ -61,7 +61,7 @@ function getYoutubeId(url) {
   return m ? m[1] : null
 }
 
-useSeoMeta({ title: 'Aulas do Módulo — Admin | Conectar ENEM' })
+useSeoMeta({ title: 'Aulas do Módulo — Admin | Conecta Enem' })
 
 onMounted(loadLessons)
 </script>

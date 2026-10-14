@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import SubjectForm from '~/components/admin/SubjectForm.vue'
 import { useSubjects } from '~/composables/useSubjects'
 
@@ -8,7 +8,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Nova matéria — Conectar ENEM'
+  title: 'Nova matéria — Conecta Enem'
 })
 
 const {

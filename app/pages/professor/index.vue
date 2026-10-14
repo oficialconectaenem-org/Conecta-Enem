@@ -10,7 +10,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Painel do Professor — Conectar ENEM'
+  title: 'Painel do Professor — Conecta Enem'
 })
 
 const authStore = useAuthStore()
@@ -19,7 +19,8 @@ const { getClassrooms, createClassroom, deleteClassroom } = useTeacherClassrooms
 const teacherName = computed(() => {
   const name = authStore.user?.name?.trim()
   if (!name) return 'Professor'
-  return name.split(/\s+/)[0]
+  const clean = name.replace(/^(Prof\.?|Professor(a)?)\s+/i, '')
+  return clean.split(/\s+/)[0] || name
 })
 
 const loading = ref(true)

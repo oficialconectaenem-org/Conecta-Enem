@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import RedacaoManager from '~/components/admin/redacao/RedacaoManager.vue'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Laboratório de Redação — Administração | Conectar ENEM'
+  title: 'Laboratório de Redação — Administração | Conecta Enem'
 })
 </script>
 

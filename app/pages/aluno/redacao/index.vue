@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Redação — Área do Aluno | Conectar ENEM'
+  title: 'Redação — Área do Aluno | Conecta Enem'
 })
 
 const authStore = useAuthStore()
@@ -21,8 +21,8 @@ const userName = computed(() => {
 
 const redacaoActions = [
   {
-    title: 'Nova redação',
-    description: 'Envie uma nova redação para correção.',
+    title: 'Nova Redação & Correção com IA',
+    description: 'Escreva na folha oficial de 30 linhas do ENEM com correção instantânea por IA e envio ao professor.',
     icon: 'edit_square',
     to: '/aluno/redacao/nova'
   },
@@ -102,9 +102,18 @@ onMounted(() => {
           </div>
 
           <div class="min-w-0">
-            <h3 class="text-base font-bold text-[var(--student-text)] transition group-hover:text-[var(--student-primary-text)]">
-              {{ card.title }}
-            </h3>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-[var(--student-text)] transition group-hover:text-[var(--student-primary-text)]">
+                {{ card.title }}
+              </h3>
+              <span
+                v-if="card.badge"
+                class="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 px-2 py-0.5 text-[10px] font-black tracking-wide text-white shadow-xs"
+              >
+                <span class="material-symbols-rounded text-xs">bolt</span>
+                {{ card.badge }}
+              </span>
+            </div>
             <p class="mt-0.5 text-xs text-[var(--student-text-secondary)] truncate sm:text-sm">
               {{ card.description }}
             </p>

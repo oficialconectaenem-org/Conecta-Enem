@@ -8,7 +8,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Visualizar módulo — Conectar ENEM'
+  title: 'Visualizar módulo — Conecta Enem'
 })
 
 const route = useRoute()

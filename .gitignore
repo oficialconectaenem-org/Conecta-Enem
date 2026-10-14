@@ -27,6 +27,9 @@ generated/
 Thumbs.db
 .fleet/
 .idea/
+.vscode/
+*.dump.html
+.nuxt_*_dump.html
 
 # Local AI/tool configuration
 .agents/

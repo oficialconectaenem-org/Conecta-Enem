@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Conectar ENEM</string>
-    <string name="title_activity_main">Conectar ENEM</string>
+    <string name="app_name">Conecta Enem</string>
+    <string name="title_activity_main">Conecta Enem</string>
     <string name="package_name">br.com.conectarenem.app</string>
     <string name="custom_url_scheme">br.com.conectarenem.app</string>
 </resources>

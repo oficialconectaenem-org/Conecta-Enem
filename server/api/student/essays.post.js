@@ -1,42 +1,35 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { getAuthenticatedUser } from '#server/services/auth.service'
 import prisma from '#server/utils/prisma'
+import { essaySubmissionSchema } from '#shared/validators/essay'
 
 export default defineEventHandler(async (event) => {
   const user = await getAuthenticatedUser(event)
   const body = await readBody(event)
 
-  if (!body.theme || !body.theme.trim()) {
+  const validation = essaySubmissionSchema.safeParse(body)
+  if (!validation.success) {
+    const errorDetails = validation.error.flatten().fieldErrors
+    const firstErrorMessage =
+      validation.error.issues?.[0]?.message || 'Dados da redação inválidos.'
+
     throw createError({
-      statusCode: 400,
-      statusMessage: 'O tema da redação é obrigatório.'
+      statusCode: 422,
+      statusMessage: firstErrorMessage,
+      data: { errors: errorDetails }
     })
   }
 
-  const submissionType = body.submissionType === 'IMAGE' ? 'IMAGE' : 'TEXT'
-
-  if (submissionType === 'TEXT' && (!body.content || !body.content.trim())) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'O texto da redação é obrigatório.'
-    })
-  }
-
-  if (submissionType === 'IMAGE' && !body.imageUrl) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'A foto da folha de redação é obrigatória.'
-    })
-  }
+  const { theme, title, classroomId, submissionType, content, imageUrl } = validation.data
 
   const essay = await prisma.essay.create({
     data: {
       studentId: user.id,
-      classroomId: body.classroomId || null,
-      theme: body.theme.trim(),
-      title: body.title?.trim() || null,
-      content: submissionType === 'TEXT' ? body.content.trim() : null,
-      imageUrl: submissionType === 'IMAGE' ? body.imageUrl : null,
+      classroomId: classroomId || null,
+      theme,
+      title: title || null,
+      content: submissionType === 'TEXT' ? content : null,
+      imageUrl: submissionType === 'IMAGE' ? imageUrl : null,
       submissionType,
       status: 'PENDING'
     }

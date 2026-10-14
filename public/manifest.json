@@ -1,6 +1,6 @@
 {
-  "name": "Conectar ENEM",
-  "short_name": "ConectarENEM",
+  "name": "Conecta Enem",
+  "short_name": "ConectaEnem",
   "description": "Plataforma de estudos, questões e correção de redações para o ENEM",
   "start_url": "/",
   "display": "standalone",

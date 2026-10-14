@@ -2,6 +2,10 @@
 import { useAuthStore } from '~/stores/auth'
 import { useAuth } from '~/composables/useAuth'
 
+definePageMeta({
+  layout: 'auth'
+})
+
 const route = useRoute()
 const token = computed(() => route.params.token)
 
@@ -16,7 +20,7 @@ const joinedSuccess = ref(false)
 const alreadyMember = ref(false)
 
 useSeoMeta({
-  title: () => invite.value?.name ? `Convite: ${invite.value.name} — Conectar ENEM` : 'Convite para Turma — Conectar ENEM'
+  title: () => invite.value?.name ? `Convite: ${invite.value.name} — Conecta Enem` : 'Convite para Turma — Conecta Enem'
 })
 
 async function fetchInvite() {
@@ -28,7 +32,8 @@ async function fetchInvite() {
       invite.value = res.invite
     }
   } catch (err) {
-    error.value = err.data?.message || 'Convite não encontrado ou inválido.'
+    console.error('Erro ao buscar convite:', err)
+    error.value = err.data?.statusMessage || 'Convite não encontrado ou link expirado.'
   } finally {
     loading.value = false
   }
@@ -36,8 +41,8 @@ async function fetchInvite() {
 
 async function handleJoin() {
   if (!authStore.isLoggedIn) {
-    // Redirecionar para login guardando a URL de retorno
-    return navigateTo(`/login?redirect=/convite/${token.value}`)
+    await navigateTo(`/login?redirect=/convite/${token.value}`)
+    return
   }
 
   joining.value = true
@@ -45,17 +50,17 @@ async function handleJoin() {
 
   try {
     const res = await $fetch(`/api/invite/${token.value}/join`, {
-      method: 'POST',
-      credentials: 'include'
+      method: 'POST'
     })
 
-    if (res.alreadyMember) {
+    if (res?.alreadyMember) {
       alreadyMember.value = true
     } else {
       joinedSuccess.value = true
     }
   } catch (err) {
-    error.value = err.data?.message || 'Não foi possível ingressar na turma.'
+    console.error('Erro ao ingressar:', err)
+    error.value = err.data?.statusMessage || 'Erro ao ingressar na turma.'
   } finally {
     joining.value = false
   }
@@ -79,52 +84,24 @@ onMounted(async () => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-slate-50 flex flex-col justify-between p-4 sm:p-6 lg:p-8 font-sans">
-    <!-- Header Simples -->
-    <header class="w-full max-w-lg mx-auto flex items-center justify-between py-2">
-      <NuxtLink to="/" class="flex items-center gap-2.5">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl overflow-hidden border border-slate-200 bg-white shadow-sm p-0.5">
-          <img
-            src="/images/logo conta.png"
-            alt="Logo Conectar ENEM"
-            class="h-full w-full object-contain"
-          />
-        </div>
-        <span class="font-extrabold text-slate-900 tracking-tight text-base">
-          Conectar ENEM
-        </span>
-      </NuxtLink>
-
-      <NuxtLink
-        v-if="!authStore.isLoggedIn"
-        :to="`/login?redirect=/convite/${token}`"
-        class="text-xs font-bold text-purple-700 hover:text-purple-900 transition"
-      >
-        Entrar na conta
-      </NuxtLink>
-      <div v-else class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-        <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
-        {{ authStore.user?.name }}
-      </div>
-    </header>
-
+  <main class="w-full max-w-lg mx-auto p-4 sm:p-6 font-sans">
     <!-- Card Central de Convite -->
-    <div class="w-full max-w-lg mx-auto my-auto py-6">
+    <div class="w-full">
       <!-- Loading State -->
-      <div v-if="loading" class="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl shadow-purple-500/5 text-center space-y-4 animate-pulse">
-        <div class="h-16 w-16 bg-slate-100 rounded-3xl mx-auto"></div>
-        <div class="h-6 bg-slate-100 rounded w-3/4 mx-auto"></div>
-        <div class="h-4 bg-slate-100 rounded w-1/2 mx-auto"></div>
-        <div class="h-12 bg-slate-100 rounded-2xl w-full mt-6"></div>
+      <div v-if="loading" class="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-8 shadow-xl text-center space-y-4 animate-pulse">
+        <div class="h-16 w-16 bg-slate-100 dark:bg-zinc-800 rounded-3xl mx-auto"></div>
+        <div class="h-6 bg-slate-100 dark:bg-zinc-800 rounded w-3/4 mx-auto"></div>
+        <div class="h-4 bg-slate-100 dark:bg-zinc-800 rounded w-1/2 mx-auto"></div>
+        <div class="h-12 bg-slate-100 dark:bg-zinc-800 rounded-2xl w-full mt-6"></div>
       </div>
 
       <!-- Erro ou Link Expirado/Inválido -->
-      <div v-else-if="error && !invite" class="rounded-3xl border border-red-100 bg-white p-8 shadow-xl shadow-red-500/5 text-center space-y-4">
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 text-red-600">
+      <div v-else-if="error && !invite" class="rounded-3xl border border-red-100 dark:border-red-900/50 bg-white dark:bg-zinc-900 p-8 shadow-xl text-center space-y-4">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400">
           <span class="material-symbols-rounded text-3xl">link_off</span>
         </div>
-        <h1 class="text-xl font-black text-slate-900">Convite Indisponível</h1>
-        <p class="text-xs sm:text-sm text-slate-500 leading-relaxed">
+        <h1 class="text-xl font-black text-slate-900 dark:text-zinc-100">Convite Indisponível</h1>
+        <p class="text-xs sm:text-sm text-slate-500 dark:text-zinc-400 leading-relaxed">
           {{ error }}
         </p>
         <div class="pt-4">
@@ -139,15 +116,15 @@ onMounted(async () => {
       </div>
 
       <!-- Sucesso ao Ingressar -->
-      <div v-else-if="joinedSuccess || alreadyMember" class="rounded-3xl border border-emerald-100 bg-white p-8 shadow-xl shadow-emerald-500/5 text-center space-y-4">
-        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 text-emerald-600">
+      <div v-else-if="joinedSuccess || alreadyMember" class="rounded-3xl border border-emerald-100 dark:border-emerald-900/50 bg-white dark:bg-zinc-900 p-8 shadow-xl text-center space-y-4">
+        <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400">
           <span class="material-symbols-rounded text-3xl">verified</span>
         </div>
-        <h1 class="text-xl font-black text-slate-900">
+        <h1 class="text-xl font-black text-slate-900 dark:text-zinc-100">
           {{ alreadyMember ? 'Você já faz parte desta turma!' : 'Matrícula Realizada com Sucesso!' }}
         </h1>
-        <p class="text-xs sm:text-sm text-slate-600 leading-relaxed">
-          Você agora está conectado à turma <strong>{{ invite?.name }}</strong> do professor <strong>{{ invite?.teacherName }}</strong>.
+        <p class="text-xs sm:text-sm text-slate-600 dark:text-zinc-400 leading-relaxed">
+          Você agora está conectado à turma <strong class="text-slate-800 dark:text-zinc-200">{{ invite?.name }}</strong> do professor <strong class="text-slate-800 dark:text-zinc-200">{{ invite?.teacherName }}</strong>.
         </p>
         <div class="pt-4">
           <NuxtLink
@@ -161,60 +138,60 @@ onMounted(async () => {
       </div>
 
       <!-- Detalhes do Convite e Ação de Entrada -->
-      <div v-else-if="invite" class="rounded-3xl border border-slate-200 bg-white p-6 sm:p-8 shadow-xl shadow-purple-500/5">
+      <div v-else-if="invite" class="rounded-3xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 sm:p-8 shadow-xl">
         <!-- Ícone e Tag -->
         <div class="flex items-center justify-between mb-4">
-          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 text-purple-700 font-bold">
+          <div class="flex h-12 w-12 items-center justify-center rounded-2xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 font-bold">
             <span class="material-symbols-rounded text-2xl">groups</span>
           </div>
-          <span class="rounded-full bg-purple-50 px-3 py-1 text-xs font-black text-purple-700">
+          <span class="rounded-full bg-purple-50 dark:bg-purple-950/60 border border-purple-200 dark:border-purple-800/60 px-3 py-1 text-xs font-black text-purple-700 dark:text-purple-300">
             Convite Oficial
           </span>
         </div>
 
         <!-- Título e Professor -->
         <div>
-          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Você foi convidado para:</span>
-          <h1 class="mt-1 text-2xl font-black text-slate-900 leading-tight">
+          <span class="text-xs font-semibold text-slate-400 dark:text-zinc-500 uppercase tracking-wider">Você foi convidado para:</span>
+          <h1 class="mt-1 text-2xl font-black text-slate-900 dark:text-zinc-100 leading-tight">
             {{ invite.name }}
           </h1>
-          <p class="mt-2 text-xs sm:text-sm text-slate-600 flex items-center gap-1.5">
-            <span class="material-symbols-rounded text-purple-600 text-base">person</span>
-            Professor: <strong class="text-slate-800">{{ invite.teacherName }}</strong>
+          <p class="mt-2 text-xs sm:text-sm text-slate-600 dark:text-zinc-400 flex items-center gap-1.5">
+            <span class="material-symbols-rounded text-purple-600 dark:text-purple-400 text-base">person</span>
+            Professor: <strong class="text-slate-800 dark:text-zinc-200">{{ invite.teacherName }}</strong>
           </p>
         </div>
 
-        <p v-if="invite.description" class="mt-3 rounded-2xl bg-slate-50 p-3.5 text-xs text-slate-600 leading-relaxed border border-slate-100">
+        <p v-if="invite.description" class="mt-3 rounded-2xl bg-slate-50 dark:bg-zinc-800/60 p-3.5 text-xs text-slate-600 dark:text-zinc-300 leading-relaxed border border-slate-100 dark:border-zinc-700/60">
           {{ invite.description }}
         </p>
 
         <!-- Informações de Limite / Status -->
         <div class="mt-5 grid grid-cols-2 gap-2 text-xs">
-          <div class="rounded-2xl bg-slate-50 p-3">
-            <span class="text-[10px] font-bold text-slate-400 uppercase">Alunos na turma</span>
-            <p class="mt-0.5 font-black text-slate-800">
+          <div class="rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-800 p-3">
+            <span class="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Alunos na turma</span>
+            <p class="mt-0.5 font-black text-slate-800 dark:text-zinc-200">
               {{ invite.currentStudents }}
-              <span v-if="invite.maxStudents" class="text-slate-400 font-normal">/ {{ invite.maxStudents }}</span>
+              <span v-if="invite.maxStudents" class="text-slate-400 dark:text-zinc-500 font-normal">/ {{ invite.maxStudents }}</span>
             </p>
           </div>
 
-          <div class="rounded-2xl bg-slate-50 p-3">
-            <span class="text-[10px] font-bold text-slate-400 uppercase">Validade</span>
-            <p class="mt-0.5 font-bold text-slate-800 text-[11px] truncate">
+          <div class="rounded-2xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-100 dark:border-zinc-800 p-3">
+            <span class="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase">Validade</span>
+            <p class="mt-0.5 font-bold text-slate-800 dark:text-zinc-200 text-[11px] truncate">
               {{ invite.expiresAt ? formatDate(invite.expiresAt) : 'Sem data limite' }}
             </p>
           </div>
         </div>
 
         <!-- Alertas de Limite ou Expiração -->
-        <div v-if="!invite.canJoin" class="mt-4 rounded-2xl bg-red-50 p-3.5 text-xs text-red-700 font-semibold flex items-center gap-2">
+        <div v-if="!invite.canJoin" class="mt-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-3.5 text-xs text-red-700 dark:text-red-300 font-semibold flex items-center gap-2">
           <span class="material-symbols-rounded text-base shrink-0">warning</span>
           <span v-if="invite.isExpired">Este convite expirou e não aceita mais novos alunos.</span>
           <span v-else-if="invite.isFull">Esta turma atingiu a lotação máxima permitida.</span>
           <span v-else>Esta turma não está aceitando novos alunos no momento.</span>
         </div>
 
-        <div v-if="error" class="mt-4 rounded-2xl bg-red-50 p-3.5 text-xs text-red-700 font-semibold">
+        <div v-if="error" class="mt-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 p-3.5 text-xs text-red-700 dark:text-red-300 font-semibold">
           {{ error }}
         </div>
 
@@ -225,7 +202,7 @@ onMounted(async () => {
             type="button"
             :disabled="joining"
             @click="handleJoin"
-            class="w-full flex items-center justify-center gap-2 rounded-2xl bg-purple-600 py-3.5 px-4 text-sm font-black text-white hover:bg-purple-700 shadow-lg shadow-purple-600/25 transition disabled:opacity-50 active:scale-98"
+            class="w-full flex items-center justify-center gap-2 rounded-2xl bg-purple-600 py-3.5 px-4 text-sm font-black text-white hover:bg-purple-700 shadow-lg shadow-purple-600/25 transition disabled:opacity-50 active:scale-98 cursor-pointer"
           >
             <span v-if="joining" class="material-symbols-rounded animate-spin text-base">progress_activity</span>
             <span v-else class="material-symbols-rounded text-base">how_to_reg</span>
@@ -235,17 +212,12 @@ onMounted(async () => {
           <NuxtLink
             v-if="!authStore.isLoggedIn"
             :to="`/cadastro?redirect=/convite/${token}`"
-            class="w-full block text-center rounded-2xl border border-slate-200 py-3 px-4 text-xs font-bold text-slate-700 hover:bg-slate-50 transition"
+            class="w-full block text-center rounded-2xl border border-slate-200 dark:border-zinc-700 py-3 px-4 text-xs font-bold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition"
           >
             Não tem uma conta? Cadastre-se grátis
           </NuxtLink>
         </div>
       </div>
     </div>
-
-    <!-- Footer simples -->
-    <footer class="w-full max-w-lg mx-auto text-center py-2 text-[11px] text-slate-400">
-      Conectar ENEM — Plataforma gratuita de preparação para o ENEM.
-    </footer>
   </main>
 </template>

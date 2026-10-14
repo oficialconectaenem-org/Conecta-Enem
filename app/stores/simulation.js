@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { calculateTriScore } from '#shared/utils/enem-tri'
 
 export const useSimulationStore = defineStore('simulation', {
   state: () => ({
@@ -37,6 +38,28 @@ export const useSimulationStore = defineStore('simulation', {
 
     isFinished: (state) => {
       return !!state.finishedAt
+    },
+
+    /**
+     * Calcula o resultado com estimativa TRI e coerência pedagógica
+     */
+    triResult: (state) => {
+      if (!state.questions || state.questions.length === 0) {
+        return null
+      }
+
+      const evaluatedItems = state.questions.map((q) => {
+        const selectedOptionId = state.answers[q.id]
+        const correctOption = q.options?.find((opt) => opt.isCorrect)
+        const isCorrect = correctOption ? selectedOptionId === correctOption.id : false
+
+        return {
+          difficulty: q.difficulty,
+          isCorrect
+        }
+      })
+
+      return calculateTriScore(evaluatedItems)
     }
   },
 
@@ -48,7 +71,7 @@ export const useSimulationStore = defineStore('simulation', {
     }) {
       this.simulation = simulation
       this.attemptId = attemptId
-      this.questions = questions
+      this.questions = questions || []
       this.answers = {}
       this.currentQuestionIndex = 0
       this.startedAt = new Date().toISOString()

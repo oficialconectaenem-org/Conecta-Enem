@@ -1,5 +1,5 @@
-<script setup>
-import { useAuthStore } from '~/stores/auth'
+<script setup>import { useAuthStore } from '~/stores/auth'
+import { useAuth } from '~/composables/useAuth'
 
 const props = defineProps({
   collapsed: {
@@ -19,6 +19,8 @@ const emit = defineEmits([
 
 const route = useRoute()
 const authStore = useAuthStore()
+const { logout } = useAuth()
+const loggingOut = ref(false)
 
 const teacherName = computed(() => authStore.user?.name || 'Professor')
 
@@ -60,11 +62,14 @@ function handleItemClick() {
 }
 
 async function handleLogout() {
+  if (loggingOut.value) return
+  loggingOut.value = true
   try {
-    await $fetch('/api/auth/logout', { method: 'POST' }).catch(() => null)
+    await logout()
+  } catch (err) {
+    console.error('Erro ao sair:', err)
   } finally {
-    authStore.clearUser()
-    navigateTo('/login')
+    loggingOut.value = false
   }
 }
 </script>
@@ -89,7 +94,7 @@ async function handleLogout() {
         <span class="w-11 h-11 flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200/60 dark:border-zinc-700/50 shrink-0 overflow-hidden p-0.5">
           <img
             src="/images/logo conta.png"
-            alt="Logo Conectar ENEM"
+            alt="Logo Conecta Enem"
             class="h-full w-full object-contain"
           />
         </span>
@@ -98,7 +103,7 @@ async function handleLogout() {
           v-if="!collapsed"
           class="flex flex-col text-left"
         >
-          <strong class="text-xs font-black text-slate-900 dark:text-zinc-100 leading-tight">Conectar ENEM</strong>
+          <strong class="text-xs font-black text-slate-900 dark:text-zinc-100 leading-tight">Conecta Enem</strong>
           <small class="text-[11px] font-bold text-purple-600 dark:text-purple-400">Painel do Professor</small>
         </span>
       </NuxtLink>

@@ -21,7 +21,7 @@ const mascoteSrc = '/images/mascote-conectar-enem.png.png'
 
 <template>
   <main
-    class="relative flex min-h-screen items-center justify-center overflow-hidden px-5 py-10"
+    class="relative flex flex-1 items-center justify-center overflow-hidden px-5 py-4 sm:py-6 lg:py-8"
   >
     <!-- Fundo -->
     <div
@@ -34,11 +34,11 @@ const mascoteSrc = '/images/mascote-conectar-enem.png.png'
 
     <!-- Card principal -->
     <div
-      class="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-zinc-800/80 bg-[#121215] shadow-2xl shadow-purple-950/40 lg:grid-cols-[1fr_1.05fr]"
+      class="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-200/90 dark:border-zinc-800/80 bg-white dark:bg-[#121215] shadow-2xl shadow-purple-900/10 dark:shadow-purple-950/40 lg:grid-cols-[1fr_1.05fr] transition-colors duration-200"
     >
       <!-- LADO ESQUERDO -->
       <section
-        class="relative hidden min-h-[700px] overflow-hidden bg-gradient-to-br from-purple-950 via-purple-900 to-indigo-950 p-10 text-white lg:flex lg:flex-col lg:justify-between border-r border-zinc-800/50"
+        class="relative hidden min-h-[700px] overflow-hidden bg-gradient-to-br from-purple-800 via-purple-900 to-indigo-950 dark:from-purple-950 dark:via-purple-900 dark:to-indigo-950 p-10 text-white lg:flex lg:flex-col lg:justify-between border-r border-purple-200/30 dark:border-zinc-800/50"
       >
         <div
           class="absolute -left-24 -top-24 h-64 w-64 rounded-full bg-purple-500/20 blur-2xl pointer-events-none"
@@ -49,7 +49,7 @@ const mascoteSrc = '/images/mascote-conectar-enem.png.png'
         <div class="relative z-10">
           <img
             :src="mascoteSrc"
-            alt="Mascote do Conectar ENEM"
+            alt="Mascote do Conecta Enem"
             width="360"
             height="360"
             class="mx-auto w-full max-w-[320px] object-contain drop-shadow-xl"
@@ -77,13 +77,13 @@ const mascoteSrc = '/images/mascote-conectar-enem.png.png'
 
       <!-- LADO DIREITO -->
       <section
-        class="flex min-h-[700px] items-center bg-[#18181b] p-6 sm:p-10 lg:p-12"
+        class="flex min-h-[700px] items-center bg-white dark:bg-[#18181b] p-6 sm:p-10 lg:p-12 transition-colors duration-200"
       >
         <div class="mx-auto w-full max-w-md">
 
           <img
             :src="mascoteSrc"
-            alt="Mascote do Conectar ENEM"
+            alt="Mascote do Conecta Enem"
             width="160"
             height="160"
             class="mx-auto mb-6 w-32 object-contain sm:w-36 lg:hidden"

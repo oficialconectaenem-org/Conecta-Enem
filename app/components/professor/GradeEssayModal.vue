@@ -1,4 +1,6 @@
 <script setup>
+import { calculateEssayMetrics } from '#shared/utils/essay-metrics'
+
 const props = defineProps({
   show: Boolean,
   essay: Object,
@@ -6,6 +8,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['close', 'save'])
+const metrics = computed(() => calculateEssayMetrics(props.essay?.content || '', props.essay?.title || ''))
 
 const form = reactive({
   c1Score: 160,
@@ -120,11 +123,33 @@ function handleSave() {
                 <h4 class="text-sm font-black text-slate-900 mt-0.5 dark:text-zinc-100">{{ essay?.theme }}</h4>
               </div>
 
-              <div class="flex-1 rounded-2xl border border-slate-200 bg-slate-50/30 p-5 overflow-y-auto dark:border-zinc-800 dark:bg-zinc-950/60">
+              <!-- Badges de Métricas Oficiais ENEM -->
+              <div v-if="essay?.content" class="grid grid-cols-3 gap-2">
+                <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-2 text-center shadow-2xs">
+                  <span class="block text-[10px] font-black uppercase text-slate-400">Linhas ENEM</span>
+                  <span class="text-xs font-black" :class="metrics.lines > 30 ? 'text-rose-600' : metrics.lines >= 8 ? 'text-emerald-600' : 'text-amber-600'">
+                    {{ metrics.lines }} / 30
+                  </span>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-2 text-center shadow-2xs">
+                  <span class="block text-[10px] font-black uppercase text-slate-400">Parágrafos</span>
+                  <span class="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                    {{ metrics.paragraphs }} ({{ metrics.paragraphs === 4 ? 'Ideal' : 'Estrutura' }})
+                  </span>
+                </div>
+                <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900/80 p-2 text-center shadow-2xs">
+                  <span class="block text-[10px] font-black uppercase text-slate-400">Palavras</span>
+                  <span class="text-xs font-black text-purple-600 dark:text-purple-400">
+                    {{ metrics.words }}
+                  </span>
+                </div>
+              </div>
+
+              <div class="flex-1 rounded-2xl border border-slate-200 bg-slate-50/30 p-5 overflow-y-auto dark:border-zinc-800 dark:bg-zinc-950/60 font-sans">
                 <h5 v-if="essay?.title" class="text-center font-bold text-slate-800 mb-4 text-sm underline decoration-purple-300 dark:text-zinc-100">
                   {{ essay.title }}
                 </h5>
-                <div class="prose prose-sm max-w-none text-slate-700 font-serif leading-relaxed whitespace-pre-wrap select-text text-sm dark:text-zinc-200">
+                <div class="prose prose-sm max-w-none text-slate-800 font-sans leading-relaxed whitespace-pre-wrap select-text text-sm dark:text-zinc-200 text-justify" style="text-align: justify; text-justify: inter-word;">
                   {{ essay?.content }}
                 </div>
               </div>
@@ -154,7 +179,7 @@ function handleSave() {
                     :key="score"
                     type="button"
                     @click="form[comp.key] = score"
-                    class="flex-1 py-1 rounded-xl text-xs font-bold transition text-center"
+                    class="flex-1 min-h-[38px] py-1 rounded-xl text-xs font-bold transition text-center active:scale-95 cursor-pointer"
                     :class="form[comp.key] === score ? 'bg-purple-600 text-white font-black shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-700'"
                   >
                     {{ score }}

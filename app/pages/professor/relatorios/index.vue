@@ -5,7 +5,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Relatórios — Painel do Professor | Conectar ENEM'
+  title: 'Relatórios — Painel do Professor | Conecta Enem'
 })
 </script>
 

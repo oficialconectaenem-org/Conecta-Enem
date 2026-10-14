@@ -59,8 +59,6 @@ const tools = [
   { id: 'highlighter', label: 'Marca-texto', icon: 'ink_highlighter' },
   { id: 'underline', label: 'Sublinhar', icon: 'format_underlined' },
   { id: 'strike', label: 'Riscar / Tachar Simples', icon: 'strikethrough_s' },
-  { id: 'circle', label: 'Circular', icon: 'radio_button_unchecked' },
-  { id: 'arrow', label: 'Seta Indicativa', icon: 'arrow_outward' },
   { id: 'comment', label: 'Comentário Marginal', icon: 'add_comment' },
   { id: 'eraser', label: 'Borracha', icon: 'ink_eraser' }
 ]

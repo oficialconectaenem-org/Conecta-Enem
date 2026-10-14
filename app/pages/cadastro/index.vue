@@ -7,9 +7,9 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Criar conta — Conectar ENEM',
+  title: 'Criar conta — Conecta Enem',
   description:
-    'Crie gratuitamente sua conta de aluno no Conectar ENEM.'
+    'Crie gratuitamente sua conta de aluno no Conecta Enem.'
 })
 </script>
 

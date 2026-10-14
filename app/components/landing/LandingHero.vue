@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { usePwaInstall } from '~/composables/usePwaInstall'
 
 const { isInstalled, isIos, promptInstall } = usePwaInstall()
@@ -136,7 +136,7 @@ async function handleInstallHero() {
                 <img src="/images/icone mobile.png" alt="App Icon" class="h-full w-full object-contain" />
               </div>
               <div>
-                <h3 class="text-sm font-black text-zinc-900 dark:text-white">Instalar Conectar ENEM</h3>
+                <h3 class="text-sm font-black text-zinc-900 dark:text-white">Instalar Conecta Enem</h3>
                 <p class="text-[11px] text-purple-600 dark:text-purple-400 font-bold">App Oficial no seu celular ou PC</p>
               </div>
             </div>

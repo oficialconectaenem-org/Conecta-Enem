@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import { useSubjects } from '~/composables/useSubjects'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Matérias — Conectar ENEM'
+  title: 'Matérias — Conecta Enem'
 })
 
 const {

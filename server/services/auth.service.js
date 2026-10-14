@@ -1,23 +1,32 @@
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+import { randomBytes, scrypt, timingSafeEqual } from 'node:crypto'
+import { promisify } from 'node:util'
 import { createError, getCookie, getHeader, setCookie, deleteCookie } from 'h3'
 import prisma from '#server/utils/prisma'
+
+const scryptAsync = promisify(scrypt)
 
 const SESSION_COOKIE_NAME = 'better-auth.session_token'
 const SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
-function hashPassword(password) {
+export async function hashPassword(password) {
   const salt = randomBytes(16).toString('hex')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return `${salt}:${hash}`
+  const derivedKey = await scryptAsync(password, salt, 64)
+  return `${salt}:${derivedKey.toString('hex')}`
 }
 
-function verifyPassword(password, storedPassword) {
+export async function verifyPassword(password, storedPassword) {
   if (!storedPassword || !storedPassword.includes(':')) {
     return false
   }
   const [salt, originalHash] = storedPassword.split(':')
-  const hash = scryptSync(password, salt, 64).toString('hex')
-  return timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(originalHash, 'hex'))
+  const derivedKey = await scryptAsync(password, salt, 64)
+  const originalBuffer = Buffer.from(originalHash, 'hex')
+
+  if (derivedKey.length !== originalBuffer.length) {
+    return false
+  }
+
+  return timingSafeEqual(derivedKey, originalBuffer)
 }
 
 function formatUser(user) {
@@ -43,13 +52,15 @@ async function createSession(event, userId) {
     }
   })
 
-  setCookie(event, SESSION_COOKIE_NAME, token, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    path: '/',
-    expires: expiresAt
-  })
+  if (event) {
+    setCookie(event, SESSION_COOKIE_NAME, token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      expires: expiresAt
+    })
+  }
 
   return token
 }
@@ -72,11 +83,11 @@ export async function registerUser({
   if (existingUser) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'J? existe uma conta com este email.'
+      statusMessage: 'Já existe uma conta com este email.'
     })
   }
 
-  const hashedPassword = hashPassword(password)
+  const hashedPassword = await hashPassword(password)
 
   try {
     const user = await prisma.$transaction(async (tx) => {
@@ -109,13 +120,15 @@ export async function registerUser({
       return createdUser
     })
 
+    let token = null
     if (event) {
-      await createSession(event, user.id)
+      token = await createSession(event, user.id)
     }
 
     return {
       success: true,
-      user: formatUser(user)
+      user: formatUser(user),
+      token
     }
   } catch (error) {
     console.error('ERRO AO CRIAR CONTA NO BANCO:', error)
@@ -154,7 +167,11 @@ export async function loginUser({
     (acc) => acc.providerId === 'credential'
   )
 
-  if (!credentialAccount || !verifyPassword(password, credentialAccount.password)) {
+  const isPasswordValid = credentialAccount
+    ? await verifyPassword(password, credentialAccount.password)
+    : false
+
+  if (!credentialAccount || !isPasswordValid) {
     throw createError({
       statusCode: 401,
       statusMessage: 'Email ou senha incorretos.'
@@ -164,7 +181,7 @@ export async function loginUser({
   if (!user.active) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Esta conta est? desativada.'
+      statusMessage: 'Esta conta está desativada.'
     })
   }
 
@@ -173,20 +190,22 @@ export async function loginUser({
       statusCode: 403,
       statusMessage:
         role === 'TEACHER'
-          ? 'Esta conta n?o possui acesso como professor.'
+          ? 'Esta conta não possui acesso como professor.'
           : role === 'ADMIN'
-            ? 'Acesso administrativo necess?rio.'
-            : 'Esta conta n?o possui acesso como aluno.'
+            ? 'Acesso administrativo necessário.'
+            : 'Esta conta não possui acesso como aluno.'
     })
   }
 
+  let token = null
   if (event) {
-    await createSession(event, user.id)
+    token = await createSession(event, user.id)
   }
 
   return {
     success: true,
-    user: formatUser(user)
+    user: formatUser(user),
+    token
   }
 }
 
@@ -199,7 +218,7 @@ export async function getAuthenticatedUser(event) {
   if (!token) {
     throw createError({
       statusCode: 401,
-      statusMessage: 'Usu?rio n?o autenticado.'
+      statusMessage: 'Usuário não autenticado.'
     })
   }
 
@@ -215,7 +234,7 @@ export async function getAuthenticatedUser(event) {
   if (!session || !session.user) {
     throw createError({
       statusCode: 401,
-      statusMessage: 'Usu?rio n?o autenticado.'
+      statusMessage: 'Usuário não autenticado.'
     })
   }
 
@@ -225,14 +244,14 @@ export async function getAuthenticatedUser(event) {
     deleteCookie(event, 'auth_session')
     throw createError({
       statusCode: 401,
-      statusMessage: 'Sess?o expirada.'
+      statusMessage: 'Sessão expirada.'
     })
   }
 
   if (!session.user.active) {
     throw createError({
       statusCode: 403,
-      statusMessage: 'Esta conta est? desativada.'
+      statusMessage: 'Esta conta está desativada.'
     })
   }
 
@@ -242,7 +261,8 @@ export async function getAuthenticatedUser(event) {
 export async function logoutUser(event) {
   const token =
     getCookie(event, SESSION_COOKIE_NAME) ||
-    getCookie(event, 'auth_session')
+    getCookie(event, 'auth_session') ||
+    getHeader(event, 'authorization')?.replace('Bearer ', '')
 
   if (token) {
     await prisma.session.delete({ where: { token } }).catch(() => {})

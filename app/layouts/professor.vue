@@ -1,9 +1,6 @@
 <script setup>
 import TeacherSidebar from '~/components/professor/TeacherSidebar.vue'
 import TeacherTopbar from '~/components/professor/TeacherTopbar.vue'
-import { useTheme } from '~/composables/useTheme'
-
-const { theme, isDark } = useTheme()
 
 const sidebarCollapsed = ref(false)
 const mobileSidebarOpen = ref(false)
@@ -22,11 +19,7 @@ function closeMobileSidebar() {
 </script>
 
 <template>
-  <div
-    class="teacher-shell min-h-screen bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 transition-colors duration-200"
-    :data-theme="theme"
-    :class="{ dark: isDark }"
-  >
+  <div class="teacher-shell min-h-screen bg-slate-50 text-slate-900">
     <TeacherSidebar
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileSidebarOpen"

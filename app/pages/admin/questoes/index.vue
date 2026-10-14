@@ -1,4 +1,4 @@
-<script setup>
+﻿<script setup>
 import QuestionManagement from '~/components/admin/questions/index.vue'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Banco de Questões — Conectar ENEM Admin'
+  title: 'Banco de Questões — Conecta Enem Admin'
 })
 </script>
 

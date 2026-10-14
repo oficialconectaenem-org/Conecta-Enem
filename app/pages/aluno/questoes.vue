@@ -6,7 +6,7 @@ definePageMeta({
 })
 
 useSeoMeta({
-  title: 'Banco de Questões — Conectar ENEM'
+  title: 'Banco de Questões — Conecta Enem'
 })
 
 const { questions, loading, error, getQuestions } = useQuestions()
@@ -564,12 +564,12 @@ onMounted(() => {
         </div>
 
         <!-- ACTIONS & CONFIRM BUTTON -->
-        <div class="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--student-border)] pt-6">
-          <div class="flex items-center gap-2">
+        <div class="mt-8 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 border-t border-[var(--student-border)] pt-6">
+          <div class="flex items-center justify-between sm:justify-start gap-2">
             <button
               type="button"
               :disabled="currentIndex === 0"
-              class="inline-flex items-center gap-1 rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40"
+              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40 active:scale-98 cursor-pointer"
               @click="prevQuestion"
             >
               <Icon name="material-symbols:arrow-back-rounded" class="text-base" />
@@ -579,7 +579,7 @@ onMounted(() => {
             <button
               type="button"
               :disabled="currentIndex >= filteredQuestions.length - 1"
-              class="inline-flex items-center gap-1 rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40"
+              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40 active:scale-98 cursor-pointer"
               @click="nextQuestion"
             >
               <span>Próxima</span>
@@ -591,18 +591,18 @@ onMounted(() => {
             <button
               v-if="currentQuestionAnswer"
               type="button"
-              class="inline-flex items-center gap-1 rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)]"
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-5 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] active:scale-98 cursor-pointer"
               @click="resetCurrentQuestion"
             >
               <Icon name="material-symbols:refresh-rounded" class="text-base" />
-              <span>Refazer</span>
+              <span>Refazer questão</span>
             </button>
 
             <button
               v-if="!currentQuestionAnswer"
               type="button"
               :disabled="!selectedOption"
-              class="inline-flex items-center gap-2 rounded-xl bg-[var(--student-primary-solid)] px-6 py-3 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition hover:opacity-95 disabled:opacity-40"
+              class="w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-[var(--student-primary-solid)] px-6 py-3 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition hover:opacity-95 disabled:opacity-40 active:scale-98 cursor-pointer"
               @click="submitAnswer"
             >
               <span>Confirmar resposta</span>

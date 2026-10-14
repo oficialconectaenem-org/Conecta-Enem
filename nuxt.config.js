@@ -10,15 +10,6 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
-  colorMode: {
-    preference: 'light',
-    fallback: 'light',
-    classPrefix: '',
-    classSuffix: '',
-    dataValue: 'theme',
-    storageKey: 'conectar-enem-student-theme'
-  },
-
   css: [
     '~/assets/css/main.css',
     '~/assets/css/student-theme.css',
@@ -26,7 +17,13 @@ export default defineNuxtConfig({
   ],
 
   runtimeConfig: {
-    public: {}
+    geminiApiKey: process.env.GEMINI_API_KEY || '',
+    resendApiKey: process.env.RESEND_API_KEY || '',
+    resendFromEmail: process.env.RESEND_FROM_EMAIL || 'Conecta Enem <onboarding@resend.dev>',
+    public: {
+      apiBase: process.env.NUXT_PUBLIC_API_BASE || '',
+      siteUrl: process.env.NUXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+    }
   },
 
   app: {
@@ -36,12 +33,16 @@ export default defineNuxtConfig({
         { name: 'mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-capable', content: 'yes' },
         { name: 'apple-mobile-web-app-status-bar-style', content: 'black-translucent' },
-        { name: 'apple-mobile-web-app-title', content: 'Conectar ENEM' }
+        { name: 'apple-mobile-web-app-title', content: 'Conecta Enem' }
       ],
       link: [
         { rel: 'icon', type: 'image/png', href: '/images/icone mobile.png' },
         { rel: 'manifest', href: '/manifest.json' },
-        { rel: 'apple-touch-icon', href: '/images/icone mobile.png' }
+        { rel: 'apple-touch-icon', href: '/images/icone mobile.png' },
+        {
+          rel: 'stylesheet',
+          href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0'
+        }
       ]
     }
   }

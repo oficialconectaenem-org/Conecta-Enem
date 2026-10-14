@@ -1,5 +1,6 @@
 <template>
   <section id="redacao" class="relative isolate overflow-hidden bg-gradient-to-br from-[#1b0c36] via-[#24104c] to-[#120526] py-24 text-white sm:py-32">
+    <div id="analise" class="absolute top-0"></div>
     <div class="absolute -right-32 -top-32 -z-10 h-96 w-96 rounded-full bg-fuchsia-600/25 blur-3xl" />
     <div class="absolute -bottom-48 left-1/3 -z-10 h-96 w-96 rounded-full bg-violet-600/25 blur-3xl" />
     

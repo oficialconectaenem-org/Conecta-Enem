@@ -1,10 +1,10 @@
-<script setup>
+﻿<script setup>
 definePageMeta({
   layout: 'aluno',
 })
 
 useSeoMeta({
-  title: 'Aulas — Conectar ENEM',
+  title: 'Aulas — Conecta Enem',
   description: 'Assista às aulas organizadas por matéria e módulo.'
 })
 

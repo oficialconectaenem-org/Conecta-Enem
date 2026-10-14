@@ -4,6 +4,7 @@ import EssayDocument from '~/components/essay/EssayDocument.vue'
 import EssayCommentsPanel from '~/components/essay/EssayCommentsPanel.vue'
 import EssayCompetencies from '~/components/essay/EssayCompetencies.vue'
 import EssayCommentModal from '~/components/essay/EssayCommentModal.vue'
+import { calculateEssayMetrics } from '#shared/utils/essay-metrics'
 
 definePageMeta({
   layout: 'professor',
@@ -15,14 +16,13 @@ const router = useRouter()
 const essayId = route.params.id
 
 useSeoMeta({
-  title: 'Estúdio de Correção de Redação — Conectar ENEM'
+  title: 'Estúdio de Correção de Redação — Conecta Enem'
 })
-
-const { isDark, toggleTheme } = useTheme()
 
 // Estados da Redação
 const loading = ref(true)
 const essay = ref(null)
+const essayMetrics = computed(() => calculateEssayMetrics(essay.value?.content || '', essay.value?.title || ''))
 const annotations = ref([])
 const history = ref([])
 const historyIndex = ref(-1)
@@ -326,6 +326,23 @@ onBeforeUnmount(() => {
             >
               {{ essay.classroom.name }}
             </span>
+
+            <!-- Badges de Métricas Oficiais -->
+            <div v-if="essay?.content" class="hidden md:flex items-center gap-1.5 ml-1">
+              <span
+                class="text-[10px] font-bold px-2 py-0.5 rounded-md border"
+                :class="essayMetrics.lines > 30 ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-800' : essayMetrics.lines >= 8 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800' : 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800'"
+                :title="essayMetrics.linesStatus.badge"
+              >
+                {{ essayMetrics.lines }} linhas
+              </span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-800" :title="essayMetrics.paragraphStatus.badge">
+                {{ essayMetrics.paragraphs }} parágrafos
+              </span>
+              <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+                {{ essayMetrics.words }} palavras
+              </span>
+            </div>
           </div>
           <p class="text-[11px] text-slate-400 dark:text-zinc-500 truncate max-w-xs sm:max-w-md">
             {{ essay?.theme || 'Tema da Redação' }}
@@ -357,18 +374,6 @@ onBeforeUnmount(() => {
             <span class="hidden sm:inline">5 Competências</span>
           </button>
         </div>
-
-        <!-- Botão Dark Mode Switcher -->
-        <button
-          type="button"
-          :title="isDark ? 'Ativar Modo Claro' : 'Ativar Modo Escuro'"
-          @click="toggleTheme"
-          class="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 dark:border-zinc-700/80 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-zinc-700 transition cursor-pointer"
-        >
-          <span class="material-symbols-rounded text-lg">
-            {{ isDark ? 'light_mode' : 'dark_mode' }}
-          </span>
-        </button>
 
         <!-- Botão Finalizar Correção -->
         <button
