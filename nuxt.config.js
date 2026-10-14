@@ -10,6 +10,10 @@ export default defineNuxtConfig({
     '@pinia/nuxt'
   ],
 
+  ui: {
+    colorMode: false
+  },
+
   css: [
     '~/assets/css/main.css',
     '~/assets/css/student-theme.css',
