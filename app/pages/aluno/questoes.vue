@@ -150,13 +150,25 @@ const studentActiveImageIndex = ref(0)
 
 function getQuestionImages(q) {
   if (!q) return []
+  let list = []
   if (q.images) {
     try {
       const parsed = typeof q.images === 'string' ? JSON.parse(q.images) : q.images
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed
+          .map((item, idx) => {
+            if (typeof item === 'string') return { url: item, title: `Imagem ${idx + 1}` }
+            if (item && item.url) return { url: item.url, title: item.title || `Imagem ${idx + 1}` }
+            return null
+          })
+          .filter(Boolean)
+      }
     } catch {}
   }
-  return q.imageUrl ? [q.imageUrl] : []
+  if (list.length === 0 && q.imageUrl) {
+    list = [{ url: q.imageUrl, title: 'Imagem 1' }]
+  }
+  return list
 }
 
 // Watch current question changes to reset selected option
@@ -559,13 +571,19 @@ onMounted(() => {
           v-if="getQuestionImages(currentQuestion).length > 0"
           class="mt-6 space-y-3"
         >
-          <!-- IMAGEM EM DESTAQUE -->
-          <div class="rounded-2xl border border-[var(--student-border)] bg-[var(--student-card-muted,#f8fafc)] p-3 text-center">
-            <img
-              :src="getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0]"
-              alt="Imagem da questão"
-              class="max-h-96 mx-auto rounded-xl object-contain shadow-xs"
-            />
+          <!-- IMAGEM EM DESTAQUE COM TÍTULO -->
+          <div class="rounded-2xl border border-[var(--student-border)] bg-[var(--student-card-muted,#f8fafc)] p-4 text-center space-y-2">
+            <div class="inline-flex items-center gap-1.5 rounded-lg bg-[var(--student-primary-soft)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--student-primary-text)]">
+              <Icon name="material-symbols:image-rounded" class="text-sm" />
+              <span>{{ (getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.title }}</span>
+            </div>
+            <div>
+              <img
+                :src="(getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.url"
+                :alt="(getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.title"
+                class="max-h-96 mx-auto rounded-xl object-contain shadow-xs"
+              />
+            </div>
           </div>
 
           <!-- SELETOR DE IMAGENS QUANDO MAIS DE UMA -->
@@ -577,19 +595,19 @@ onMounted(() => {
               v-for="(img, idx) in getQuestionImages(currentQuestion)"
               :key="idx"
               type="button"
-              class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition cursor-pointer"
+              class="relative flex flex-col items-center shrink-0 overflow-hidden rounded-xl border-2 transition cursor-pointer p-1 bg-[var(--student-surface)]"
               :class="studentActiveImageIndex === idx
-                ? 'border-purple-600 ring-2 ring-purple-600/30'
+                ? 'border-[var(--student-primary-solid)] ring-2 ring-[var(--student-primary-solid)]/30'
                 : 'border-[var(--student-border)] opacity-70 hover:opacity-100'"
               @click="studentActiveImageIndex = idx"
             >
               <img
-                :src="img"
-                alt="Miniatura"
-                class="h-full w-full object-contain bg-slate-100 dark:bg-zinc-800 p-0.5"
+                :src="img.url"
+                :alt="img.title"
+                class="h-12 w-16 object-contain bg-slate-100 dark:bg-zinc-800 rounded-lg p-0.5"
               />
-              <span class="absolute bottom-0 inset-x-0 bg-black/60 text-[9px] font-bold text-white text-center py-0.5">
-                {{ idx + 1 }}
+              <span class="mt-1 text-[10px] font-bold text-[var(--student-text-secondary)] truncate max-w-[70px]">
+                {{ img.title || (idx + 1) }}
               </span>
             </button>
           </div>
@@ -860,15 +878,19 @@ onMounted(() => {
         </p>
 
         <div v-if="getQuestionImages(q).length > 0" class="mt-4">
-          <div class="flex flex-wrap gap-2">
+          <div class="flex flex-wrap gap-3">
             <div
               v-for="(img, imgIdx) in getQuestionImages(q)"
               :key="imgIdx"
-              class="relative max-h-72 overflow-hidden rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] p-1"
+              class="relative overflow-hidden rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] p-2 space-y-1.5"
             >
+              <div v-if="img.title" class="inline-flex items-center gap-1 rounded-md bg-[var(--student-primary-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--student-primary-text)]">
+                <Icon name="material-symbols:image-rounded" class="text-xs" />
+                <span>{{ img.title }}</span>
+              </div>
               <img
-                :src="img"
-                alt="Imagem da questão"
+                :src="img.url"
+                :alt="img.title || 'Imagem da questão'"
                 class="max-h-64 rounded-lg object-contain"
               />
             </div>

@@ -28,26 +28,48 @@ export default defineEventHandler(async (event) => {
   let imagesList = []
   if (Array.isArray(body.images)) {
     imagesList = body.images
-      .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+      .map((img, idx) => {
+        if (typeof img === "string" && img.trim()) {
+          return { url: img.trim(), title: `Imagem ${idx + 1}` }
+        }
+        if (img && typeof img === "object" && img.url) {
+          return {
+            url: String(img.url).trim(),
+            title: img.title?.trim() || `Imagem ${idx + 1}`
+          }
+        }
+        return null
+      })
       .filter(Boolean)
   } else if (typeof body.images === "string" && body.images.trim()) {
     try {
       const parsed = JSON.parse(body.images)
       if (Array.isArray(parsed)) {
         imagesList = parsed
-          .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+          .map((img, idx) => {
+            if (typeof img === "string" && img.trim()) {
+              return { url: img.trim(), title: `Imagem ${idx + 1}` }
+            }
+            if (img && typeof img === "object" && img.url) {
+              return {
+                url: String(img.url).trim(),
+                title: img.title?.trim() || `Imagem ${idx + 1}`
+              }
+            }
+            return null
+          })
           .filter(Boolean)
       }
     } catch {
-      imagesList = [body.images.trim()]
+      imagesList = [{ url: body.images.trim(), title: "Imagem 1" }]
     }
   }
 
   if (!imagesList.length && body.imageUrl?.trim()) {
-    imagesList = [body.imageUrl.trim()]
+    imagesList = [{ url: body.imageUrl.trim(), title: "Imagem 1" }]
   }
 
-  const primaryImageUrl = imagesList[0] || (body.imageUrl?.trim() || null)
+  const primaryImageUrl = imagesList[0]?.url || (body.imageUrl?.trim() || null)
   const imagesJson = imagesList.length > 0 ? JSON.stringify(imagesList) : null
 
   const question = await prisma.question.create({

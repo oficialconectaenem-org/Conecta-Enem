@@ -102,13 +102,25 @@ const activeViewingImageIndex = ref(0)
 
 function getQuestionImages(q) {
   if (!q) return []
+  let list = []
   if (q.images) {
     try {
       const parsed = typeof q.images === 'string' ? JSON.parse(q.images) : q.images
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean)
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        list = parsed
+          .map((item, idx) => {
+            if (typeof item === 'string') return { url: item, title: `Imagem ${idx + 1}` }
+            if (item && item.url) return { url: item.url, title: item.title || `Imagem ${idx + 1}` }
+            return null
+          })
+          .filter(Boolean)
+      }
     } catch {}
   }
-  return q.imageUrl ? [q.imageUrl] : []
+  if (list.length === 0 && q.imageUrl) {
+    list = [{ url: q.imageUrl, title: 'Imagem 1' }]
+  }
+  return list
 }
 
 function handleView(question) {
@@ -329,13 +341,19 @@ onMounted(() => {
               v-if="getQuestionImages(viewingQuestion).length > 0"
               class="mt-4 space-y-3"
             >
-              <!-- IMAGEM EM DESTAQUE -->
-              <div class="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-3 text-center">
-                <img
-                  :src="getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0]"
-                  alt="Imagem da questão"
-                  class="max-h-80 mx-auto rounded-xl object-contain shadow-xs"
-                />
+              <!-- IMAGEM EM DESTAQUE COM TÍTULO -->
+              <div class="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-lg bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-purple-800">
+                  <span class="material-symbols-rounded text-sm">image</span>
+                  <span>{{ (getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.title }}</span>
+                </div>
+                <div>
+                  <img
+                    :src="(getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.url"
+                    :alt="(getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.title"
+                    class="max-h-80 mx-auto rounded-xl object-contain shadow-xs"
+                  />
+                </div>
               </div>
 
               <!-- MINIATURAS SE HOUVER MAIS DE UMA -->
@@ -347,19 +365,19 @@ onMounted(() => {
                   v-for="(img, idx) in getQuestionImages(viewingQuestion)"
                   :key="idx"
                   type="button"
-                  class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition"
+                  class="relative flex flex-col items-center shrink-0 overflow-hidden rounded-xl border-2 transition p-1 bg-white"
                   :class="activeViewingImageIndex === idx
                     ? 'border-purple-600 ring-2 ring-purple-600/20'
                     : 'border-zinc-200 opacity-70 hover:opacity-100'"
                   @click="activeViewingImageIndex = idx"
                 >
                   <img
-                    :src="img"
-                    alt="Miniatura"
-                    class="h-full w-full object-contain bg-zinc-100 p-0.5"
+                    :src="img.url"
+                    :alt="img.title"
+                    class="h-12 w-16 object-contain bg-zinc-100 rounded-lg p-0.5"
                   />
-                  <span class="absolute bottom-0 inset-x-0 bg-black/60 text-[9px] font-bold text-white text-center py-0.5">
-                    {{ idx + 1 }}
+                  <span class="mt-1 text-[10px] font-bold text-zinc-700 truncate max-w-[70px]">
+                    {{ img.title || (idx + 1) }}
                   </span>
                 </button>
               </div>

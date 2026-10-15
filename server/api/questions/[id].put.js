@@ -30,22 +30,44 @@ export default defineEventHandler(async (event) => {
     let imagesList = []
     if (Array.isArray(body.images)) {
       imagesList = body.images
-        .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+        .map((img, idx) => {
+          if (typeof img === "string" && img.trim()) {
+            return { url: img.trim(), title: `Imagem ${idx + 1}` }
+          }
+          if (img && typeof img === "object" && img.url) {
+            return {
+              url: String(img.url).trim(),
+              title: img.title?.trim() || `Imagem ${idx + 1}`
+            }
+          }
+          return null
+        })
         .filter(Boolean)
     } else if (typeof body.images === "string" && body.images.trim()) {
       try {
         const parsed = JSON.parse(body.images)
         if (Array.isArray(parsed)) {
           imagesList = parsed
-            .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+            .map((img, idx) => {
+              if (typeof img === "string" && img.trim()) {
+                return { url: img.trim(), title: `Imagem ${idx + 1}` }
+              }
+              if (img && typeof img === "object" && img.url) {
+                return {
+                  url: String(img.url).trim(),
+                  title: img.title?.trim() || `Imagem ${idx + 1}`
+                }
+              }
+              return null
+            })
             .filter(Boolean)
         }
       } catch {
-        imagesList = [body.images.trim()]
+        imagesList = [{ url: body.images.trim(), title: "Imagem 1" }]
       }
     }
     imagesUpdate.images = imagesList.length > 0 ? JSON.stringify(imagesList) : null
-    imagesUpdate.imageUrl = imagesList[0] || null
+    imagesUpdate.imageUrl = imagesList[0]?.url || null
   } else if (body.imageUrl !== undefined) {
     imagesUpdate.imageUrl = body.imageUrl?.trim() || null
   }

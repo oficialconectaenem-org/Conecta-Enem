@@ -48,28 +48,79 @@ const form = reactive({
 })
 
 const newImageUrl = ref('')
+const newImageTitle = ref('')
 const imageInputMode = ref('file') // 'file' ou 'url'
 const fileInputRef = ref(null)
 const previewingIndex = ref(0)
 
+function toRoman(num) {
+  const romanMap = [
+    { value: 10, symbol: 'X' },
+    { value: 9, symbol: 'IX' },
+    { value: 5, symbol: 'V' },
+    { value: 4, symbol: 'IV' },
+    { value: 1, symbol: 'I' }
+  ]
+  let result = ''
+  let n = num
+  for (const { value, symbol } of romanMap) {
+    while (n >= value) {
+      result += symbol
+      n -= value
+    }
+  }
+  return result || String(num)
+}
+
+function getImageUrl(item) {
+  if (!item) return ''
+  return typeof item === 'object' ? (item.url || '') : item
+}
+
+function getImageTitle(item, idx = 0) {
+  if (!item) return `Imagem ${idx + 1}`
+  if (typeof item === 'object' && item.title) return item.title
+  return `Imagem ${idx + 1}`
+}
+
 const activePreviewImage = computed(() => {
   if (form.images && form.images.length > 0) {
     const idx = Math.min(previewingIndex.value, form.images.length - 1)
-    return form.images[idx]
+    const item = form.images[idx]
+    return getImageUrl(item)
   }
   return form.imageUrl ? form.imageUrl.trim() : null
 })
 
+const activePreviewTitle = computed(() => {
+  if (form.images && form.images.length > 0) {
+    const idx = Math.min(previewingIndex.value, form.images.length - 1)
+    const item = form.images[idx]
+    return getImageTitle(item, idx)
+  }
+  return 'Imagem 1'
+})
+
 function isBase64Image(str) {
-  return typeof str === 'string' && str.startsWith('data:image/')
+  const url = typeof str === 'object' ? (str?.url || '') : str
+  return typeof url === 'string' && url.startsWith('data:image/')
 }
 
 function addImageByUrl() {
   const url = newImageUrl.value.trim()
   if (!url) return
   if (!form.images) form.images = []
-  form.images.push(url)
+
+  const nextIdx = form.images.length + 1
+  const title = newImageTitle.value.trim() || `Texto ${toRoman(nextIdx)}`
+
+  form.images.push({
+    url,
+    title
+  })
+
   newImageUrl.value = ''
+  newImageTitle.value = ''
   previewingIndex.value = form.images.length - 1
 }
 
@@ -83,12 +134,16 @@ function handleFileUpload(event) {
 
   if (!form.images) form.images = []
 
-  Array.from(files).forEach(file => {
+  Array.from(files).forEach((file) => {
     if (!file.type.startsWith('image/')) return
     const reader = new FileReader()
     reader.onload = (e) => {
       if (e.target?.result) {
-        form.images.push(e.target.result)
+        const nextIdx = form.images.length + 1
+        form.images.push({
+          url: e.target.result,
+          title: `Texto ${toRoman(nextIdx)}`
+        })
         previewingIndex.value = form.images.length - 1
       }
     }
@@ -182,21 +237,34 @@ function prepareEdit() {
         ? JSON.parse(props.question.images)
         : props.question.images
       if (Array.isArray(parsed)) {
-        loadedImages = parsed.filter(Boolean)
+        loadedImages = parsed
+          .map((item, idx) => {
+            if (typeof item === 'string' && item.trim()) {
+              return { url: item.trim(), title: `Imagem ${idx + 1}` }
+            }
+            if (item && item.url) {
+              return {
+                url: String(item.url).trim(),
+                title: item.title?.trim() || `Imagem ${idx + 1}`
+              }
+            }
+            return null
+          })
+          .filter(Boolean)
       }
     } catch {
       if (typeof props.question.images === 'string' && props.question.images.trim()) {
-        loadedImages = [props.question.images.trim()]
+        loadedImages = [{ url: props.question.images.trim(), title: 'Imagem 1' }]
       }
     }
   }
 
   if (loadedImages.length === 0 && props.question.imageUrl) {
-    loadedImages = [props.question.imageUrl.trim()]
+    loadedImages = [{ url: props.question.imageUrl.trim(), title: 'Imagem 1' }]
   }
 
   form.images = loadedImages
-  form.imageUrl = loadedImages[0] || ''
+  form.imageUrl = loadedImages[0]?.url || ''
   previewingIndex.value = 0
 
   // Fill options
@@ -247,8 +315,23 @@ async function submit() {
 
   submitting.value = true
 
-  const imageList = Array.isArray(form.images) ? form.images.filter(Boolean) : []
-  const primaryImage = imageList[0] || (form.imageUrl?.trim() || null)
+  const imageList = Array.isArray(form.images)
+    ? form.images
+        .map((img, idx) => {
+          if (typeof img === 'string' && img.trim()) {
+            return { url: img.trim(), title: `Imagem ${idx + 1}` }
+          }
+          if (img && img.url) {
+            return {
+              url: String(img.url).trim(),
+              title: img.title?.trim() || `Imagem ${idx + 1}`
+            }
+          }
+          return null
+        })
+        .filter(Boolean)
+    : []
+  const primaryImage = imageList[0]?.url || (form.imageUrl?.trim() || null)
 
   const payload = {
     subjectId: form.subjectId,
@@ -496,37 +579,48 @@ onMounted(() => {
       </div>
 
       <!-- INPUT: INSERIR LINK (URL) -->
-      <div v-else class="space-y-2">
-        <div class="flex gap-2">
-          <input
-            v-model="newImageUrl"
-            type="url"
-            class="form-input flex-1"
-            placeholder="Cole o link da imagem (ex: https://exemplo.com/imagem.png)"
-            @keydown.enter.prevent="addImageByUrl"
-          />
-          <button
-            type="button"
-            class="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-purple-700 disabled:opacity-50"
-            :disabled="!newImageUrl.trim()"
-            @click="addImageByUrl"
-          >
-            <span class="material-symbols-rounded text-base">add</span>
-            Adicionar
-          </button>
+      <div v-else class="space-y-3">
+        <div class="grid gap-2 sm:grid-cols-3">
+          <div class="sm:col-span-1">
+            <input
+              v-model="newImageTitle"
+              type="text"
+              class="form-input text-xs"
+              placeholder="Título (ex: Texto I, Imagem 1, Figura)"
+              @keydown.enter.prevent="addImageByUrl"
+            />
+          </div>
+          <div class="sm:col-span-2 flex gap-2">
+            <input
+              v-model="newImageUrl"
+              type="url"
+              class="form-input flex-1 text-xs"
+              placeholder="Cole o link da imagem (https://exemplo.com/imagem.png)"
+              @keydown.enter.prevent="addImageByUrl"
+            />
+            <button
+              type="button"
+              class="flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-bold text-white transition hover:bg-purple-700 disabled:opacity-50 shrink-0"
+              :disabled="!newImageUrl.trim()"
+              @click="addImageByUrl"
+            >
+              <span class="material-symbols-rounded text-base">add</span>
+              Adicionar
+            </button>
+          </div>
         </div>
         <p class="text-xs text-zinc-500">
-          Dica: Cole o link e clique em "Adicionar" ou pressione Enter.
+          Você pode adicionar múltiplos links. Defina um título como <strong>Texto I</strong>, <strong>Imagem 1</strong> ou <strong>Figura I</strong> para cada um.
         </p>
       </div>
 
       <!-- LISTA DE MINIATURAS DAS IMAGENS ADICIONADAS -->
       <div v-if="form.images.length > 0" class="space-y-3 pt-2">
         <p class="text-xs font-bold uppercase tracking-wider text-zinc-500">
-          Imagens anexadas ({{ form.images.length }}) — Clique em uma para pré-visualizar:
+          Imagens anexadas ({{ form.images.length }}) — Edite o título e clique para pré-visualizar:
         </p>
 
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           <div
             v-for="(img, idx) in form.images"
             :key="idx"
@@ -537,9 +631,9 @@ onMounted(() => {
             @click="selectPreview(idx)"
           >
             <!-- IMAGEM THUMBNAIL -->
-            <div class="relative h-28 w-full bg-zinc-100 flex items-center justify-center overflow-hidden">
+            <div class="relative h-32 w-full bg-zinc-100 flex items-center justify-center overflow-hidden">
               <img
-                :src="img"
+                :src="getImageUrl(img)"
                 alt="Miniatura"
                 class="h-full w-full object-contain p-1"
               />
@@ -565,15 +659,18 @@ onMounted(() => {
               </button>
             </div>
 
-            <!-- LEGENDA DA MINIATURA -->
-            <div class="flex items-center justify-between bg-zinc-50 px-2 py-1.5 text-[11px] font-semibold text-zinc-600">
-              <span>Imagem {{ idx + 1 }}{{ idx === 0 ? ' (Principal)' : '' }}</span>
-              <span
-                v-if="previewingIndex === idx"
-                class="text-purple-600 font-bold"
-              >
-                Ativa
-              </span>
+            <!-- CAMPO DE TÍTULO EDITÁVEL DA IMAGEM -->
+            <div class="bg-zinc-50 p-2 border-t border-zinc-100">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-bold uppercase text-purple-700">Título:</span>
+                <input
+                  v-model="img.title"
+                  type="text"
+                  class="w-full rounded-lg border border-zinc-200 bg-white px-2 py-1 text-xs font-semibold text-zinc-800 outline-none focus:border-purple-500"
+                  :placeholder="`Ex: Texto ${toRoman(idx + 1)}`"
+                  @click.stop
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -584,7 +681,7 @@ onMounted(() => {
           class="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-xs"
         >
           <div class="mb-2 flex items-center justify-between text-xs font-bold text-zinc-500 uppercase tracking-wider">
-            <span>Pré-visualização ampliada (Imagem {{ previewingIndex + 1 }} de {{ form.images.length }})</span>
+            <span class="text-purple-700 font-extrabold text-sm">{{ activePreviewTitle }}</span>
             <span
               class="rounded-md px-2 py-0.5 text-[11px] font-bold"
               :class="isBase64Image(activePreviewImage)
@@ -598,7 +695,7 @@ onMounted(() => {
           <div class="flex items-center justify-center rounded-xl bg-zinc-50 p-2">
             <img
               :src="activePreviewImage"
-              alt="Pré-visualização da questão"
+              :alt="activePreviewTitle"
               class="max-h-96 w-auto rounded-lg object-contain shadow-xs"
               @error="errorMessage = 'Não foi possível carregar a imagem selecionada.'"
             />
