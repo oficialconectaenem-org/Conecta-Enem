@@ -151,12 +151,14 @@ async function handleSubmit() {
           Senha
         </label>
 
+        <!-- TODO: Reativar botão "Esqueci minha senha" quando o fluxo de recuperação estiver completo
         <NuxtLink
           :to="`/esqueci-senha?role=${isTeacher ? 'TEACHER' : 'STUDENT'}`"
           class="text-xs font-bold text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition cursor-pointer"
         >
           Esqueci minha senha
         </NuxtLink>
+        -->
       </div>
 
       <div class="relative">

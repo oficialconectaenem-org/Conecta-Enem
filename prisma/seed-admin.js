@@ -30,7 +30,7 @@ async function main() {
   const prisma = new PrismaClient({ adapter })
 
   const name = process.env.ADMIN_NAME || 'Administrador Conecta Enem'
-  const email = (process.env.ADMIN_EMAIL || 'oficialconectaenem@gmail.com').trim().toLowerCase()
+  const email = (process.env.ADMIN_EMAIL || 'oficialconectaenem@gmail.com').trim().toLowerCase() 
   const password = process.env.ADMIN_PASSWORD || 'Admin@Conecta2026'
 
   console.log(`Verificando/Criando usuário administrador: ${email}`)

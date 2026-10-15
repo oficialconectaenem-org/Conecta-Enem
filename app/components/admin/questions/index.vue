@@ -98,12 +98,27 @@ function clearFilters() {
   filters.year = ''
 }
 
+const activeViewingImageIndex = ref(0)
+
+function getQuestionImages(q) {
+  if (!q) return []
+  if (q.images) {
+    try {
+      const parsed = typeof q.images === 'string' ? JSON.parse(q.images) : q.images
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean)
+    } catch {}
+  }
+  return q.imageUrl ? [q.imageUrl] : []
+}
+
 function handleView(question) {
   viewingQuestion.value = question
+  activeViewingImageIndex.value = 0
 }
 
 function closeView() {
   viewingQuestion.value = null
+  activeViewingImageIndex.value = 0
 }
 
 function handleEdit(question) {
@@ -309,16 +324,45 @@ onMounted(() => {
               {{ viewingQuestion.statement }}
             </div>
 
-            <!-- IMAGEM -->
+            <!-- IMAGENS DA QUESTÃO -->
             <div
-              v-if="viewingQuestion.imageUrl"
-              class="mt-4 text-center"
+              v-if="getQuestionImages(viewingQuestion).length > 0"
+              class="mt-4 space-y-3"
             >
-              <img
-                :src="viewingQuestion.imageUrl"
-                alt="Imagem da questão"
-                class="max-h-72 mx-auto rounded-xl border border-zinc-200 object-contain shadow-xs"
-              />
+              <!-- IMAGEM EM DESTAQUE -->
+              <div class="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-3 text-center">
+                <img
+                  :src="getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0]"
+                  alt="Imagem da questão"
+                  class="max-h-80 mx-auto rounded-xl object-contain shadow-xs"
+                />
+              </div>
+
+              <!-- MINIATURAS SE HOUVER MAIS DE UMA -->
+              <div
+                v-if="getQuestionImages(viewingQuestion).length > 1"
+                class="flex items-center justify-center gap-2 overflow-x-auto py-1"
+              >
+                <button
+                  v-for="(img, idx) in getQuestionImages(viewingQuestion)"
+                  :key="idx"
+                  type="button"
+                  class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition"
+                  :class="activeViewingImageIndex === idx
+                    ? 'border-purple-600 ring-2 ring-purple-600/20'
+                    : 'border-zinc-200 opacity-70 hover:opacity-100'"
+                  @click="activeViewingImageIndex = idx"
+                >
+                  <img
+                    :src="img"
+                    alt="Miniatura"
+                    class="h-full w-full object-contain bg-zinc-100 p-0.5"
+                  />
+                  <span class="absolute bottom-0 inset-x-0 bg-black/60 text-[9px] font-bold text-white text-center py-0.5">
+                    {{ idx + 1 }}
+                  </span>
+                </button>
+              </div>
             </div>
 
             <!-- ALTERNATIVAS -->
@@ -348,8 +392,20 @@ onMounted(() => {
                   {{ option.letter }}
                 </span>
 
-                <div class="flex-1 text-sm text-zinc-800 leading-relaxed pt-1">
-                  {{ option.text || option.content || "(Sem texto)" }}
+                <div class="flex-1 text-sm text-zinc-800 leading-relaxed pt-1 space-y-2">
+                  <div v-if="option.text || option.content">
+                    {{ option.text || option.content }}
+                  </div>
+                  <div v-if="option.imageUrl" class="pt-1">
+                    <img
+                      :src="option.imageUrl"
+                      alt="Imagem da alternativa"
+                      class="max-h-48 rounded-xl border border-zinc-200 bg-zinc-50 p-1 object-contain"
+                    />
+                  </div>
+                  <div v-if="!option.text && !option.content && !option.imageUrl" class="text-zinc-400 italic">
+                    (Sem conteúdo)
+                  </div>
                 </div>
 
                 <span

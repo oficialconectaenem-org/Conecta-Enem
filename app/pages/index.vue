@@ -60,9 +60,9 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="isRedirecting || authStore.user?.active" class="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#09090b] text-white">
-    <div class="h-10 w-10 animate-spin rounded-full border-4 border-purple-500 border-t-transparent mb-4"></div>
-    <p class="text-sm font-medium text-zinc-400">Entrando no Conecta Enem...</p>
+  <div v-if="isRedirecting || authStore.user?.active" class="fixed inset-0 z-50 flex flex-col items-center justify-center text-white" style="background:linear-gradient(150deg,#16063a 0%,#42118a 48%,#721db4 100%)">
+    <div class="h-10 w-10 animate-spin rounded-full border-4 border-purple-300 border-t-transparent mb-4"></div>
+    <p class="text-sm font-medium text-purple-200/80">Entrando no Conecta Enem...</p>
   </div>
 
   <div v-else>

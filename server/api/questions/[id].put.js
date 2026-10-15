@@ -24,6 +24,32 @@ export default defineEventHandler(async (event) => {
     })
   }
 
+  // Handle images
+  let imagesUpdate = {}
+  if (body.images !== undefined) {
+    let imagesList = []
+    if (Array.isArray(body.images)) {
+      imagesList = body.images
+        .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+        .filter(Boolean)
+    } else if (typeof body.images === "string" && body.images.trim()) {
+      try {
+        const parsed = JSON.parse(body.images)
+        if (Array.isArray(parsed)) {
+          imagesList = parsed
+            .map(img => typeof img === "string" ? img.trim() : (img?.url || ""))
+            .filter(Boolean)
+        }
+      } catch {
+        imagesList = [body.images.trim()]
+      }
+    }
+    imagesUpdate.images = imagesList.length > 0 ? JSON.stringify(imagesList) : null
+    imagesUpdate.imageUrl = imagesList[0] || null
+  } else if (body.imageUrl !== undefined) {
+    imagesUpdate.imageUrl = body.imageUrl?.trim() || null
+  }
+
   // Update question base fields
   await prisma.question.update({
     where: { id },
@@ -32,7 +58,7 @@ export default defineEventHandler(async (event) => {
       title: body.title !== undefined ? (body.title?.trim() || null) : exists.title,
       statement: body.statement !== undefined ? body.statement.trim() : exists.statement,
       explanation: body.explanation !== undefined ? (body.explanation?.trim() || null) : exists.explanation,
-      imageUrl: body.imageUrl !== undefined ? (body.imageUrl?.trim() || null) : exists.imageUrl,
+      ...imagesUpdate,
       difficulty: body.difficulty || exists.difficulty,
       year: body.year !== undefined ? (body.year ? Number(body.year) : null) : exists.year,
       correctAnswer: body.correctAnswer || exists.correctAnswer,
@@ -51,7 +77,8 @@ export default defineEventHandler(async (event) => {
       data: body.options.map(option => ({
         questionId: id,
         letter: option.letter,
-        text: option.text?.trim() || ""
+        text: option.text?.trim() || "",
+        imageUrl: option.imageUrl?.trim() || null
       }))
     })
   }

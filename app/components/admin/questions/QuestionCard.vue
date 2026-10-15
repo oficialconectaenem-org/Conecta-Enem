@@ -90,6 +90,16 @@ const alternativesCount = computed(() => {
   }
   return 0
 })
+
+const imagesCount = computed(() => {
+  if (props.question?.images) {
+    try {
+      const parsed = typeof props.question.images === 'string' ? JSON.parse(props.question.images) : props.question.images
+      if (Array.isArray(parsed)) return parsed.filter(Boolean).length
+    } catch {}
+  }
+  return props.question?.imageUrl ? 1 : 0
+})
 </script>
 
 <template>
@@ -110,6 +120,14 @@ const alternativesCount = computed(() => {
           :class="difficulty.class"
         >
           {{ difficulty.label }}
+        </span>
+
+        <span
+          v-if="imagesCount > 0"
+          class="inline-flex items-center gap-1 rounded-lg bg-purple-50 border border-purple-200/80 px-2 py-0.5 text-[10px] font-bold text-purple-700"
+        >
+          <span class="material-symbols-rounded text-[13px]">image</span>
+          {{ imagesCount }} {{ imagesCount === 1 ? 'img' : 'imgs' }}
         </span>
       </div>
 

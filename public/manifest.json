@@ -4,7 +4,7 @@
   "description": "Plataforma de estudos, questões e correção de redações para o ENEM",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#09090b",
+  "background_color": "#16063a",
   "theme_color": "#7c3aed",
   "orientation": "portrait-primary",
   "icons": [

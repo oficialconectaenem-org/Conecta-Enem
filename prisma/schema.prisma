@@ -340,7 +340,8 @@ model Question {
   title         String?
   statement     String       @db.Text
   explanation   String?      @db.Text
-  imageUrl      String?      @map("image_url")
+  imageUrl      String?      @map("image_url") @db.LongText
+  images        String?      @db.LongText
   difficulty    Difficulty
   year          Int?
   correctAnswer OptionLetter
@@ -364,7 +365,8 @@ model QuestionOption {
   id         String       @id @default(uuid())
   questionId String       @map("question_id")
   letter     OptionLetter
-  text       String       @db.Text
+  text       String?      @db.Text
+  imageUrl   String?      @map("image_url") @db.LongText
 
   question Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
 

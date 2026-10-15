@@ -27,10 +27,16 @@ const selectedOption = ref(null) // 'A', 'B', 'C', 'D', 'E'
 const sessionAnswers = reactive({}) // { [questionId]: { selected: 'A', correct: true/false, answeredAt: Date } }
 const viewMode = ref('PRACTICE') // 'PRACTICE' or 'LIST'
 
-// Fetch questions & subjects
+// Fetch questions, subjects & student answer history
 async function loadData() {
-  await getQuestions()
+  await Promise.all([
+    getQuestions(),
+    loadSubjects(),
+    loadAnswers()
+  ])
+}
 
+async function loadSubjects() {
   loadingSubjects.value = true
   try {
     const res = await $fetch('/api/subjects/active').catch(() => null)
@@ -44,6 +50,22 @@ async function loadData() {
     console.error('Erro ao carregar matérias:', err)
   } finally {
     loadingSubjects.value = false
+  }
+}
+
+async function loadAnswers() {
+  try {
+    const res = await $fetch('/api/student/questions/answers').catch(() => null)
+    if (res?.answers) {
+      Object.assign(sessionAnswers, res.answers)
+    }
+  } catch (err) {
+    console.warn('Erro ao carregar histórico de respostas do banco:', err)
+    // Fallback: tenta recuperar do localStorage
+    try {
+      const saved = localStorage.getItem('conecta_student_answers')
+      if (saved) Object.assign(sessionAnswers, JSON.parse(saved))
+    } catch {}
   }
 }
 
@@ -123,10 +145,25 @@ const accuracyRate = computed(() => {
   return Math.round((totalCorrect.value / totalAnswered.value) * 100)
 })
 
+// Images support
+const studentActiveImageIndex = ref(0)
+
+function getQuestionImages(q) {
+  if (!q) return []
+  if (q.images) {
+    try {
+      const parsed = typeof q.images === 'string' ? JSON.parse(q.images) : q.images
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean)
+    } catch {}
+  }
+  return q.imageUrl ? [q.imageUrl] : []
+}
+
 // Watch current question changes to reset selected option
 watch(
   () => currentQuestion.value?.id,
   (newId) => {
+    studentActiveImageIndex.value = 0
     if (newId && sessionAnswers[newId]) {
       selectedOption.value = sessionAnswers[newId].selected
     } else {
@@ -141,23 +178,58 @@ function selectOption(letter) {
   selectedOption.value = letter
 }
 
-function submitAnswer() {
+function saveAnswersToLocalStorage() {
+  try {
+    localStorage.setItem('conecta_student_answers', JSON.stringify(sessionAnswers))
+  } catch {}
+}
+
+async function submitAnswer() {
   if (!currentQuestion.value || !selectedOption.value || currentQuestionAnswer.value) return
 
   const q = currentQuestion.value
-  const isCorrect = String(selectedOption.value).toUpperCase() === String(q.correctAnswer).toUpperCase()
+  const option = selectedOption.value
+  const isCorrect = String(option).toUpperCase() === String(q.correctAnswer).toUpperCase()
 
+  // Atualização imediata no frontend
   sessionAnswers[q.id] = {
-    selected: selectedOption.value,
+    selected: option,
     correct: isCorrect,
     answeredAt: new Date()
   }
+  saveAnswersToLocalStorage()
+
+  // Persistência no banco de dados
+  try {
+    await $fetch('/api/student/questions/answer', {
+      method: 'POST',
+      body: {
+        questionId: q.id,
+        option
+      }
+    })
+  } catch (err) {
+    console.error('Erro ao salvar resposta no banco de dados:', err)
+  }
 }
 
-function resetCurrentQuestion() {
+async function resetCurrentQuestion() {
   if (!currentQuestion.value) return
-  delete sessionAnswers[currentQuestion.value.id]
+  const qId = currentQuestion.value.id
+  delete sessionAnswers[qId]
   selectedOption.value = null
+  saveAnswersToLocalStorage()
+
+  try {
+    await $fetch('/api/student/questions/reset', {
+      method: 'POST',
+      body: {
+        questionId: qId
+      }
+    })
+  } catch (err) {
+    console.error('Erro ao resetar questão no banco:', err)
+  }
 }
 
 function nextQuestion() {
@@ -192,6 +264,7 @@ function resetStats() {
     delete sessionAnswers[key]
   }
   selectedOption.value = null
+  saveAnswersToLocalStorage()
 }
 
 const difficultyLabels = {
@@ -481,16 +554,45 @@ onMounted(() => {
           {{ currentQuestion.statement }}
         </div>
 
-        <!-- IMAGEM -->
+        <!-- IMAGENS DA QUESTÃO -->
         <div
-          v-if="currentQuestion.imageUrl"
-          class="mt-6 text-center"
+          v-if="getQuestionImages(currentQuestion).length > 0"
+          class="mt-6 space-y-3"
         >
-          <img
-            :src="currentQuestion.imageUrl"
-            alt="Imagem da questão"
-            class="max-h-80 mx-auto rounded-2xl border border-[var(--student-border)] object-contain shadow-xs"
-          />
+          <!-- IMAGEM EM DESTAQUE -->
+          <div class="rounded-2xl border border-[var(--student-border)] bg-[var(--student-card-muted,#f8fafc)] p-3 text-center">
+            <img
+              :src="getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0]"
+              alt="Imagem da questão"
+              class="max-h-96 mx-auto rounded-xl object-contain shadow-xs"
+            />
+          </div>
+
+          <!-- SELETOR DE IMAGENS QUANDO MAIS DE UMA -->
+          <div
+            v-if="getQuestionImages(currentQuestion).length > 1"
+            class="flex items-center justify-center gap-2 overflow-x-auto py-1"
+          >
+            <button
+              v-for="(img, idx) in getQuestionImages(currentQuestion)"
+              :key="idx"
+              type="button"
+              class="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition cursor-pointer"
+              :class="studentActiveImageIndex === idx
+                ? 'border-purple-600 ring-2 ring-purple-600/30'
+                : 'border-[var(--student-border)] opacity-70 hover:opacity-100'"
+              @click="studentActiveImageIndex = idx"
+            >
+              <img
+                :src="img"
+                alt="Miniatura"
+                class="h-full w-full object-contain bg-slate-100 dark:bg-zinc-800 p-0.5"
+              />
+              <span class="absolute bottom-0 inset-x-0 bg-black/60 text-[9px] font-bold text-white text-center py-0.5">
+                {{ idx + 1 }}
+              </span>
+            </button>
+          </div>
         </div>
 
         <!-- ALTERNATIVAS -->
@@ -542,9 +644,21 @@ onMounted(() => {
               {{ option.letter }}
             </span>
 
-            <!-- OPTION TEXT -->
-            <div class="flex-1 pt-1 text-sm font-medium leading-relaxed text-[var(--student-text)]">
-              {{ option.text || "(Opção sem descrição)" }}
+            <!-- OPTION CONTENT: TEXTO E/OU FOTO -->
+            <div class="flex-1 pt-1 text-sm font-medium leading-relaxed text-[var(--student-text)] space-y-2">
+              <div v-if="option.text">
+                {{ option.text }}
+              </div>
+              <div v-if="option.imageUrl" class="pt-0.5">
+                <img
+                  :src="option.imageUrl"
+                  alt="Imagem da alternativa"
+                  class="max-h-56 rounded-xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1.5 object-contain shadow-xs"
+                />
+              </div>
+              <div v-if="!option.text && !option.imageUrl" class="text-xs text-[var(--student-text-muted)] italic">
+                (Opção sem descrição)
+              </div>
             </div>
 
             <!-- RESULT ICON -->
@@ -745,12 +859,20 @@ onMounted(() => {
           {{ q.statement }}
         </p>
 
-        <div v-if="q.imageUrl" class="mt-4">
-          <img
-            :src="q.imageUrl"
-            alt="Imagem da questão"
-            class="max-h-64 rounded-xl border border-[var(--student-border)] object-contain"
-          />
+        <div v-if="getQuestionImages(q).length > 0" class="mt-4">
+          <div class="flex flex-wrap gap-2">
+            <div
+              v-for="(img, imgIdx) in getQuestionImages(q)"
+              :key="imgIdx"
+              class="relative max-h-72 overflow-hidden rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] p-1"
+            >
+              <img
+                :src="img"
+                alt="Imagem da questão"
+                class="max-h-64 rounded-lg object-contain"
+              />
+            </div>
+          </div>
         </div>
 
         <!-- ALTERNATIVAS DO CARD -->
@@ -763,7 +885,16 @@ onMounted(() => {
             <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--student-card)] font-bold text-[var(--student-text)] border border-[var(--student-border)]">
               {{ opt.letter }}
             </span>
-            <span class="pt-0.5">{{ opt.text }}</span>
+            <div class="flex-1 pt-0.5 space-y-1">
+              <div v-if="opt.text">{{ opt.text }}</div>
+              <div v-if="opt.imageUrl">
+                <img
+                  :src="opt.imageUrl"
+                  alt="Imagem da alternativa"
+                  class="max-h-36 rounded-lg border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1 object-contain"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
