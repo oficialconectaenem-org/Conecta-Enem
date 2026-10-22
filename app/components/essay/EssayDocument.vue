@@ -119,6 +119,71 @@ const photoWidthClass = computed(() => {
   return 'max-w-full'
 })
 
+const showFullscreenPhotoModal = ref(false)
+
+function openOriginalImage() {
+  if (!props.imageUrl) return
+
+  // Se já for uma URL HTTP normal
+  if (props.imageUrl.startsWith('http://') || props.imageUrl.startsWith('https://')) {
+    window.open(props.imageUrl, '_blank', 'noopener,noreferrer')
+    return
+  }
+
+  // Se for data: URI (base64)
+  if (props.imageUrl.startsWith('data:')) {
+    try {
+      const parts = props.imageUrl.split(',')
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg'
+      const bstr = atob(parts[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      const blob = new Blob([u8arr], { type: mime })
+      const blobUrl = URL.createObjectURL(blob)
+
+      const win = window.open(blobUrl, '_blank')
+      if (!win) {
+        showFullscreenPhotoModal.value = true
+      }
+    } catch (err) {
+      console.warn('Falha ao abrir imagem via Blob URL:', err)
+      showFullscreenPhotoModal.value = true
+    }
+  } else {
+    window.open(props.imageUrl, '_blank')
+  }
+}
+
+function downloadPhoto() {
+  if (!props.imageUrl) return
+  try {
+    let downloadUrl = props.imageUrl
+    if (props.imageUrl.startsWith('data:')) {
+      const parts = props.imageUrl.split(',')
+      const mime = parts[0].match(/:(.*?);/)?.[1] || 'image/jpeg'
+      const bstr = atob(parts[1])
+      let n = bstr.length
+      const u8arr = new Uint8Array(n)
+      while (n--) {
+        u8arr[n] = bstr.charCodeAt(n)
+      }
+      const blob = new Blob([u8arr], { type: mime })
+      downloadUrl = URL.createObjectURL(blob)
+    }
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = `redacao-folha-${Date.now()}.jpg`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+  } catch (err) {
+    console.error('Falha ao baixar foto:', err)
+  }
+}
+
 function measureLines() {
   if (ruledContentEl.value && props.content?.trim()) {
     const isNarrow = typeof window !== 'undefined' && (window.innerWidth < 768 || ruledContentEl.value.clientWidth < 640)
@@ -559,17 +624,28 @@ function handleTextClick(e) {
             </button>
 
             <!-- Abrir imagem original em nova aba -->
-            <a
+            <button
               v-if="imageUrl"
-              :href="imageUrl"
-              target="_blank"
-              rel="noopener noreferrer"
+              type="button"
+              @click="openOriginalImage"
               class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer border border-slate-200/60 dark:border-zinc-600"
               title="Abrir imagem em tamanho original em outra aba"
             >
               <span class="material-symbols-rounded text-sm">open_in_new</span>
               <span class="hidden sm:inline">Abrir Original</span>
-            </a>
+            </button>
+
+            <!-- Tela Cheia / Zoom Modal -->
+            <button
+              v-if="imageUrl"
+              type="button"
+              @click="showFullscreenPhotoModal = true"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-purple-50 dark:bg-purple-950/50 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-purple-700 dark:text-purple-300 font-bold transition shadow-2xs cursor-pointer border border-purple-200 dark:border-purple-800/60"
+              title="Visualizar em tela cheia com zoom"
+            >
+              <span class="material-symbols-rounded text-sm">fullscreen</span>
+              <span class="hidden sm:inline">Tela Cheia</span>
+            </button>
           </div>
         </div>
 
@@ -711,6 +787,81 @@ function handleTextClick(e) {
       </div>
     </div>
   </div>
+
+  <!-- MODAL DE TELA CHEIA / LIGHTBOX DA FOLHA -->
+  <Teleport to="body">
+    <div
+      v-if="showFullscreenPhotoModal"
+      class="fixed inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-md animate-in fade-in duration-200"
+    >
+      <!-- Barra Superior do Lightbox -->
+      <div class="flex items-center justify-between px-4 py-3 bg-slate-900 border-b border-slate-800 text-white select-none">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-rounded text-purple-400">fullscreen</span>
+          <span class="text-xs sm:text-sm font-black">Visualizador da Folha Original</span>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <!-- Girar 90 graus -->
+          <button
+            type="button"
+            @click="rotateImage"
+            class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition cursor-pointer"
+            title="Girar foto em 90°"
+          >
+            <span class="material-symbols-rounded text-sm">rotate_right</span>
+            <span>Girar ({{ photoRotation }}°)</span>
+          </button>
+
+          <!-- Alternar Nitidez -->
+          <button
+            type="button"
+            @click="cycleFilterMode"
+            class="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
+            :class="photoFilterMode !== 'ORIGINAL' ? 'bg-purple-600 text-white' : 'bg-slate-800 text-slate-200 hover:bg-slate-700'"
+          >
+            <span class="material-symbols-rounded text-sm">auto_fix_high</span>
+            <span>{{ photoFilterLabel }}</span>
+          </button>
+
+          <!-- Baixar Foto -->
+          <button
+            type="button"
+            @click="downloadPhoto"
+            class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-200 transition cursor-pointer"
+            title="Baixar imagem original"
+          >
+            <span class="material-symbols-rounded text-sm">download</span>
+            <span class="hidden sm:inline">Baixar</span>
+          </button>
+
+          <!-- Fechar Lightbox -->
+          <button
+            type="button"
+            @click="showFullscreenPhotoModal = false"
+            class="h-8 w-8 rounded-full bg-slate-800 hover:bg-rose-600 text-slate-200 hover:text-white flex items-center justify-center transition ml-2 cursor-pointer"
+            title="Fechar"
+          >
+            <span class="material-symbols-rounded text-lg">close</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Imagem Central em Tamanho Completo com Scroll Livre -->
+      <div class="flex-1 overflow-auto p-4 sm:p-8 flex items-center justify-center" @click.self="showFullscreenPhotoModal = false">
+        <img
+          :src="imageUrl"
+          alt="Folha de redação manuscrita em tamanho original"
+          class="max-w-none max-h-none block object-contain shadow-2xl rounded-xl transition-all duration-200 select-none"
+          :style="{
+            transform: `rotate(${photoRotation}deg)`,
+            filter: photoFilterStyle,
+            imageRendering: '-webkit-optimize-contrast'
+          }"
+        />
+      </div>
+    </div>
+  </Teleport>
 </template>
 
 <style scoped>
