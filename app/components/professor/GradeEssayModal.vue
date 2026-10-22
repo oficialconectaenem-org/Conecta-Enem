@@ -154,8 +154,13 @@ function handleSave() {
                     <span class="material-symbols-rounded text-sm">photo_camera</span>
                     <span>Folha Manuscrita Enviada pelo Aluno</span>
                   </div>
-                  <div class="bg-black/5 dark:bg-black/30 rounded-xl p-2 text-center">
-                    <img :src="essay.imageUrl" alt="Folha de redação manuscrita" class="max-h-[600px] w-auto mx-auto object-contain rounded-lg shadow-sm" />
+                  <div class="bg-black/5 dark:bg-black/30 rounded-xl p-2 sm:p-3 text-center">
+                    <img
+                      :src="essay.imageUrl"
+                      alt="Folha de redação manuscrita"
+                      class="max-h-[800px] w-full mx-auto object-contain rounded-lg shadow-md"
+                      style="image-rendering: -webkit-optimize-contrast;"
+                    />
                   </div>
                 </div>
                 <div v-else class="prose prose-sm max-w-none text-slate-800 font-sans leading-relaxed whitespace-pre-wrap select-text text-sm dark:text-zinc-200 text-justify" style="text-align: justify; text-justify: inter-word;">

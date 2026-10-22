@@ -146,8 +146,13 @@ onMounted(() => {
           <h4 class="text-xs font-black uppercase tracking-wider text-[var(--student-text-secondary)]">
             Folha Manuscrita Enviada
           </h4>
-          <div class="text-center bg-slate-50 dark:bg-slate-900/50 p-2 rounded-2xl border border-[var(--student-border)]">
-            <img :src="selectedEssay.imageUrl" alt="Folha manuscrita" class="max-h-96 mx-auto rounded-xl object-contain shadow-xs" />
+          <div class="text-center bg-slate-50 dark:bg-slate-900/50 p-2 sm:p-3 rounded-2xl border border-[var(--student-border)]">
+            <img
+              :src="selectedEssay.imageUrl"
+              alt="Folha manuscrita"
+              class="w-full max-h-[750px] mx-auto rounded-xl object-contain shadow-sm"
+              style="image-rendering: -webkit-optimize-contrast;"
+            />
           </div>
         </div>
 

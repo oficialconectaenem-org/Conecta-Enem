@@ -70,15 +70,54 @@ const isPhotoSubmission = computed(() => {
 })
 
 const photoRotation = ref(0)
-const highContrast = ref(false)
+const photoFilterMode = ref('SHARP') // 'SHARP', 'HIGH_CONTRAST', 'ORIGINAL'
+const photoWidthMode = ref('FULL') // 'FULL' (100%), 'WIDE' (125%), 'ZOOM' (150%)
 
 function rotateImage() {
   photoRotation.value = (photoRotation.value + 90) % 360
 }
 
-function toggleHighContrast() {
-  highContrast.value = !highContrast.value
+function cycleFilterMode() {
+  if (photoFilterMode.value === 'SHARP') {
+    photoFilterMode.value = 'HIGH_CONTRAST'
+  } else if (photoFilterMode.value === 'HIGH_CONTRAST') {
+    photoFilterMode.value = 'ORIGINAL'
+  } else {
+    photoFilterMode.value = 'SHARP'
+  }
 }
+
+function cycleWidthMode() {
+  if (photoWidthMode.value === 'FULL') {
+    photoWidthMode.value = 'WIDE'
+  } else if (photoWidthMode.value === 'WIDE') {
+    photoWidthMode.value = 'ZOOM'
+  } else {
+    photoWidthMode.value = 'FULL'
+  }
+}
+
+const photoFilterStyle = computed(() => {
+  if (photoFilterMode.value === 'SHARP') {
+    return 'contrast(1.22) brightness(1.02) saturate(0.92)'
+  }
+  if (photoFilterMode.value === 'HIGH_CONTRAST') {
+    return 'contrast(1.55) brightness(0.96) grayscale(0.7)'
+  }
+  return 'none'
+})
+
+const photoFilterLabel = computed(() => {
+  if (photoFilterMode.value === 'SHARP') return 'Nitidez Máxima (Ativa)'
+  if (photoFilterMode.value === 'HIGH_CONTRAST') return 'Alto Contraste P&B'
+  return 'Original'
+})
+
+const photoWidthClass = computed(() => {
+  if (photoWidthMode.value === 'WIDE') return 'max-w-[1100px]'
+  if (photoWidthMode.value === 'ZOOM') return 'max-w-[1300px]'
+  return 'max-w-full'
+})
 
 function measureLines() {
   if (ruledContentEl.value && props.content?.trim()) {
@@ -375,7 +414,8 @@ function handleTextClick(e) {
     <!-- Papel Pautado Oficial ENEM -->
     <div
       ref="textContainer"
-      class="relative w-full min-w-[700px] max-w-[850px] min-h-[960px] bg-[#fcfbfa] dark:bg-[#18181b] rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 transition-all select-text overflow-hidden"
+      class="relative w-full transition-all select-text overflow-hidden rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 bg-[#fcfbfa] dark:bg-[#18181b]"
+      :class="isPhotoSubmission ? 'min-w-[720px] max-w-[1100px]' : 'min-w-[700px] max-w-[850px] min-h-[960px]'"
       @mouseup="handleMouseUp"
       @click="handleTextClick"
     >
@@ -474,33 +514,48 @@ function handleTextClick(e) {
       <div v-if="isPhotoSubmission" class="space-y-4">
         <!-- Barra de Ações Rápidas da Foto -->
         <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/60 text-xs">
-          <div class="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300">
+          <div class="flex items-center gap-2 font-bold text-slate-700 dark:text-zinc-300">
             <span class="material-symbols-rounded text-purple-600 text-base">image</span>
-            <span>Folha Manuscrita Original</span>
+            <span class="hidden sm:inline">Folha Manuscrita Original</span>
+            <span class="sm:hidden">Foto</span>
+            <span class="rounded-md bg-purple-100 dark:bg-purple-950/60 px-2 py-0.5 text-[10px] font-black text-purple-700 dark:text-purple-300 uppercase">
+              Alta Definição
+            </span>
           </div>
 
-          <div class="flex items-center gap-1.5">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <!-- Alternador de Tamanho da Folha: 100% Padrão / 125% Amplo / 150% Zoom -->
+            <button
+              type="button"
+              @click="cycleWidthMode"
+              class="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer border border-slate-200/60 dark:border-zinc-600"
+              title="Ajustar tamanho da imagem na tela"
+            >
+              <span class="material-symbols-rounded text-sm">zoom_in</span>
+              <span>Tamanho: <strong>{{ photoWidthMode === 'FULL' ? '100% Padrão' : photoWidthMode === 'WIDE' ? '125% Amplo' : '150% Zoom' }}</strong></span>
+            </button>
+
+            <!-- Alternador de Nitidez: Otimizada (Ativa) / Alto Contraste / Original -->
+            <button
+              type="button"
+              @click="cycleFilterMode"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold transition shadow-2xs cursor-pointer border"
+              :class="photoFilterMode !== 'ORIGINAL' ? 'bg-purple-600 text-white border-purple-600' : 'bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-600 border-slate-200/60 dark:border-zinc-600'"
+              title="Alternar filtro de nitidez e contraste para melhorar a caligrafia"
+            >
+              <span class="material-symbols-rounded text-sm">auto_fix_high</span>
+              <span>{{ photoFilterLabel }}</span>
+            </button>
+
             <!-- Girar 90 graus -->
             <button
               type="button"
               @click="rotateImage"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer border border-slate-200/60 dark:border-zinc-600"
               title="Girar folha 90° no sentido horário"
             >
               <span class="material-symbols-rounded text-sm">rotate_right</span>
               <span>Girar ({{ photoRotation }}°)</span>
-            </button>
-
-            <!-- Contraste Aumentado -->
-            <button
-              type="button"
-              @click="toggleHighContrast"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold transition shadow-2xs cursor-pointer"
-              :class="highContrast ? 'bg-purple-600 text-white' : 'bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-600'"
-              title="Aumentar contraste para facilitar a leitura da caligrafia"
-            >
-              <span class="material-symbols-rounded text-sm">contrast</span>
-              <span>{{ highContrast ? 'Alto Contraste' : 'Contraste Normal' }}</span>
             </button>
 
             <!-- Abrir imagem original em nova aba -->
@@ -509,41 +564,48 @@ function handleTextClick(e) {
               :href="imageUrl"
               target="_blank"
               rel="noopener noreferrer"
-              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer border border-slate-200/60 dark:border-zinc-600"
               title="Abrir imagem em tamanho original em outra aba"
             >
               <span class="material-symbols-rounded text-sm">open_in_new</span>
-              <span>Abrir Original</span>
+              <span class="hidden sm:inline">Abrir Original</span>
             </a>
           </div>
         </div>
 
         <!-- Área da Foto com a Camada SVG de Desenho Livre e Anotações -->
-        <div class="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100/50 dark:bg-black/50 flex justify-center items-center p-2 sm:p-4 min-h-[600px]">
-          <div class="relative max-w-full inline-block">
-            <img
-              :src="imageUrl"
-              alt="Folha de redação manuscrita enviada pelo aluno"
-              class="max-w-full h-auto max-h-[1400px] object-contain rounded-xl shadow-lg transition-all duration-200 select-none pointer-events-none"
-              :style="{
-                transform: `rotate(${photoRotation}deg)`,
-                filter: highContrast ? 'contrast(1.45) brightness(0.95)' : 'none'
-              }"
-            />
+        <div class="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100/70 dark:bg-black/60 flex justify-center items-center p-1 sm:p-2">
+          <div
+            class="relative w-full transition-all duration-200 flex justify-center items-center"
+            :class="photoWidthClass"
+          >
+            <div class="relative w-full rounded-xl overflow-hidden shadow-2xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700/80">
+              <img
+                :src="imageUrl"
+                alt="Folha de redação manuscrita enviada pelo aluno"
+                class="w-full h-auto block object-contain transition-all duration-200 select-none pointer-events-none"
+                :style="{
+                  transform: `rotate(${photoRotation}deg)`,
+                  filter: photoFilterStyle,
+                  imageRendering: '-webkit-optimize-contrast',
+                  minHeight: '400px'
+                }"
+              />
 
-            <!-- Camada de Anotação SVG Sobre a Imagem -->
-            <EssayAnnotationLayer
-              :annotations="annotations"
-              :active-tool="activeTool"
-              :active-color="activeColor"
-              :active-stroke-width="activeStrokeWidth"
-              :read-only="readOnly"
-              :show-annotations="showAnnotations"
-              :selected-annotation-id="selectedAnnotationId"
-              @add-annotation="emit('add-annotation', $event)"
-              @remove-annotation="emit('remove-annotation', $event)"
-              @select-annotation="emit('select-annotation', $event)"
-            />
+              <!-- Camada de Anotação SVG Sobre a Imagem -->
+              <EssayAnnotationLayer
+                :annotations="annotations"
+                :active-tool="activeTool"
+                :active-color="activeColor"
+                :active-stroke-width="activeStrokeWidth"
+                :read-only="readOnly"
+                :show-annotations="showAnnotations"
+                :selected-annotation-id="selectedAnnotationId"
+                @add-annotation="emit('add-annotation', $event)"
+                @remove-annotation="emit('remove-annotation', $event)"
+                @select-annotation="emit('select-annotation', $event)"
+              />
+            </div>
           </div>
         </div>
       </div>

@@ -467,7 +467,7 @@ function rotatePhoto() {
   img.src = photoPreview.value
 }
 
-function compressImageFile(file, maxWidth = 1400, maxHeight = 1900, quality = 0.72) {
+function compressImageFile(file, maxWidth = 2048, maxHeight = 2800, quality = 0.84) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onerror = () => reject(new Error('Falha ao ler o arquivo no dispositivo.'))
@@ -494,9 +494,9 @@ function compressImageFile(file, maxWidth = 1400, maxHeight = 1900, quality = 0.
 
         let compressedBase64 = canvas.toDataURL('image/jpeg', quality)
 
-        // Se por ventura a imagem ainda for pesada (> 900KB base64), segunda passagem
-        if (compressedBase64.length > 900_000) {
-          compressedBase64 = canvas.toDataURL('image/jpeg', 0.55)
+        // Se por ventura a imagem ainda for muito pesada (> 1.8MB base64), segunda passagem
+        if (compressedBase64.length > 1_800_000) {
+          compressedBase64 = canvas.toDataURL('image/jpeg', 0.72)
         }
 
         resolve(compressedBase64)
@@ -1666,7 +1666,12 @@ onUnmounted(() => {
                 </div>
               </div>
               <div class="relative rounded-2xl bg-slate-900/5 dark:bg-black/30 p-2 sm:p-3 text-center overflow-hidden border border-slate-200 dark:border-zinc-800">
-                <img :src="photoPreview" alt="Folha da redação" class="max-h-96 mx-auto rounded-xl object-contain shadow-xs transition-transform duration-200" />
+                <img
+                  :src="photoPreview"
+                  alt="Folha da redação"
+                  class="w-full h-auto max-h-[850px] mx-auto rounded-xl object-contain shadow-md transition-transform duration-200"
+                  style="image-rendering: -webkit-optimize-contrast;"
+                />
               </div>
             </div>
           </div>
