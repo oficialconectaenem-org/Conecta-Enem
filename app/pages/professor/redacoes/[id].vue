@@ -414,7 +414,7 @@ onBeforeUnmount(() => {
     />
 
     <!-- Corpo Principal do Estúdio -->
-    <div class="flex-1 flex overflow-hidden relative">
+    <div class="flex-1 flex overflow-hidden relative min-h-0">
       <!-- Loading State -->
       <div v-if="loading" class="flex-1 flex flex-col items-center justify-center">
         <span class="material-symbols-rounded animate-spin text-4xl text-purple-600">progress_activity</span>
@@ -424,9 +424,9 @@ onBeforeUnmount(() => {
       <!-- ABA 1: DOCUMENTO PAUTADO + COMENTÁRIOS LATERAIS -->
       <template v-else-if="activeTab === 'document'">
         <!-- Área Central de Rolagem do Papel -->
-        <div class="flex-1 overflow-auto flex justify-center bg-slate-100 dark:bg-zinc-950 p-2 sm:p-6 md:p-8 transition-colors duration-200">
+        <div class="flex-1 min-h-0 overflow-y-auto overflow-x-auto bg-slate-100 dark:bg-zinc-950 p-2 sm:p-6 md:p-8 transition-colors duration-200">
           <div
-            class="transition-transform duration-150 origin-top flex justify-center w-full"
+            class="transition-transform duration-150 origin-top flex justify-center w-full min-h-full pb-28"
             :style="{ transform: `scale(${zoom / 100})` }"
           >
             <EssayDocument

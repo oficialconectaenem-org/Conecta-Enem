@@ -475,12 +475,12 @@ function handleTextClick(e) {
 </script>
 
 <template>
-  <div class="relative w-full overflow-x-auto flex justify-start sm:justify-center py-2 sm:py-6 px-1 sm:px-4">
+  <div class="relative w-full flex justify-center py-2 sm:py-6 px-1 sm:px-4">
     <!-- Papel Pautado Oficial ENEM -->
     <div
       ref="textContainer"
-      class="relative w-full transition-all select-text overflow-hidden rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 bg-[#fcfbfa] dark:bg-[#18181b]"
-      :class="isPhotoSubmission ? 'min-w-[720px] max-w-[1100px]' : 'min-w-[700px] max-w-[850px] min-h-[960px]'"
+      class="relative w-full transition-all select-text rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 bg-[#fcfbfa] dark:bg-[#18181b]"
+      :class="isPhotoSubmission ? 'min-w-[720px] max-w-[1100px] overflow-visible' : 'min-w-[700px] max-w-[850px] min-h-[960px] overflow-hidden'"
       @mouseup="handleMouseUp"
       @click="handleTextClick"
     >
@@ -650,21 +650,20 @@ function handleTextClick(e) {
         </div>
 
         <!-- Área da Foto com a Camada SVG de Desenho Livre e Anotações -->
-        <div class="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100/70 dark:bg-black/60 flex justify-center items-center p-1 sm:p-2">
+        <div class="relative w-full rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-100/70 dark:bg-black/60 flex flex-col items-center p-1 sm:p-2">
           <div
-            class="relative w-full transition-all duration-200 flex justify-center items-center"
+            class="relative w-full transition-all duration-200 mx-auto"
             :class="photoWidthClass"
           >
-            <div class="relative w-full rounded-xl overflow-hidden shadow-2xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700/80">
+            <div class="relative w-full rounded-xl shadow-2xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700/80 overflow-hidden">
               <img
                 :src="imageUrl"
                 alt="Folha de redação manuscrita enviada pelo aluno"
-                class="w-full h-auto block object-contain transition-all duration-200 select-none pointer-events-none"
+                class="w-full h-auto block transition-all duration-200 select-none pointer-events-none"
                 :style="{
                   transform: `rotate(${photoRotation}deg)`,
                   filter: photoFilterStyle,
-                  imageRendering: '-webkit-optimize-contrast',
-                  minHeight: '400px'
+                  imageRendering: '-webkit-optimize-contrast'
                 }"
               />
 
