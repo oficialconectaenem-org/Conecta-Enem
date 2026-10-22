@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
               {{ essay.classroom.name }}
             </span>
 
-            <!-- Badges de Métricas Oficiais -->
+            <!-- Badges de Métricas Oficiais ou Badge de Foto -->
             <div v-if="essay?.content" class="hidden md:flex items-center gap-1.5 ml-1">
               <span
                 class="text-[10px] font-bold px-2 py-0.5 rounded-md border"
@@ -341,6 +341,12 @@ onBeforeUnmount(() => {
               </span>
               <span class="text-[10px] font-bold px-2 py-0.5 rounded-md border bg-slate-100 text-slate-700 border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
                 {{ essayMetrics.words }} palavras
+              </span>
+            </div>
+            <div v-else-if="essay?.submissionType === 'IMAGE' || essay?.imageUrl" class="hidden sm:flex items-center gap-1.5 ml-1">
+              <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800">
+                <span class="material-symbols-rounded text-xs">photo_camera</span>
+                <span>Foto Manuscrita</span>
               </span>
             </div>
           </div>
@@ -360,8 +366,8 @@ onBeforeUnmount(() => {
             class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
             :class="activeTab === 'document' ? 'bg-white dark:bg-zinc-700 text-purple-700 dark:text-purple-300 shadow-2xs font-black' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-100'"
           >
-            <span class="material-symbols-rounded text-sm">edit_document</span>
-            <span class="hidden sm:inline">Folha Pautada</span>
+            <span class="material-symbols-rounded text-sm">{{ essay?.submissionType === 'IMAGE' || essay?.imageUrl ? 'photo_camera' : 'edit_document' }}</span>
+            <span class="hidden sm:inline">{{ essay?.submissionType === 'IMAGE' || essay?.imageUrl ? 'Folha / Foto' : 'Folha Pautada' }}</span>
           </button>
 
           <button
@@ -425,6 +431,8 @@ onBeforeUnmount(() => {
           >
             <EssayDocument
               :content="essay?.content || ''"
+              :image-url="essay?.imageUrl"
+              :submission-type="essay?.submissionType || (essay?.imageUrl ? 'IMAGE' : 'TEXT')"
               :title="essay?.title || ''"
               :theme="essay?.theme || ''"
               :annotations="annotations"

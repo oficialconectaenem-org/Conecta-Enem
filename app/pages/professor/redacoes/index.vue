@@ -298,6 +298,15 @@ onMounted(() => {
 
               <!-- Tema -->
               <td class="py-4 px-6 max-w-xs">
+                <div class="flex items-center gap-1.5 mb-1">
+                  <span
+                    class="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+                    :class="essay.submissionType === 'IMAGE' || essay.imageUrl ? 'bg-purple-100 text-purple-700 dark:bg-purple-950/60 dark:text-purple-300' : 'bg-slate-100 text-slate-600 dark:bg-zinc-800 dark:text-zinc-400'"
+                  >
+                    <span class="material-symbols-rounded text-[13px]">{{ essay.submissionType === 'IMAGE' || essay.imageUrl ? 'photo_camera' : 'keyboard' }}</span>
+                    <span>{{ essay.submissionType === 'IMAGE' || essay.imageUrl ? 'Foto Manuscrita' : 'Digitada' }}</span>
+                  </span>
+                </div>
                 <p class="font-bold text-slate-800 line-clamp-1 text-xs dark:text-zinc-200" :title="essay.theme">
                   {{ essay.theme }}
                 </p>

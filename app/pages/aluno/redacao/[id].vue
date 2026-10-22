@@ -140,6 +140,12 @@ onMounted(() => {
                   {{ essayMetrics.words }} palavras
                 </span>
               </div>
+              <div v-else-if="essay?.submissionType === 'IMAGE' || essay?.imageUrl" class="hidden sm:flex items-center gap-1.5 ml-1">
+                <span class="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 border border-purple-200 dark:bg-purple-950/60 dark:text-purple-300 dark:border-purple-800">
+                  <span class="material-symbols-rounded text-xs">photo_camera</span>
+                  <span>Foto Manuscrita</span>
+                </span>
+              </div>
             </div>
             <p v-if="essay?.theme" class="text-[11px] text-slate-400 dark:text-zinc-500 truncate max-w-xs sm:max-w-md">
               Tema: {{ essay.theme }}
@@ -252,6 +258,8 @@ onMounted(() => {
           >
             <EssayDocument
               :content="essay?.content || ''"
+              :image-url="essay?.imageUrl"
+              :submission-type="essay?.submissionType || (essay?.imageUrl ? 'IMAGE' : 'TEXT')"
               :title="essay?.title || ''"
               :theme="essay?.theme || ''"
               :annotations="annotations"

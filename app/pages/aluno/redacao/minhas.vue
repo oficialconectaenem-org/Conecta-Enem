@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { useAuthStore } from '~/stores/auth'
 
 definePageMeta({
@@ -151,7 +151,15 @@ onMounted(() => {
           </div>
         </div>
 
-        <div class="flex justify-end pt-2">
+        <div class="flex items-center justify-between pt-2 border-t border-[var(--student-border)]">
+          <NuxtLink
+            :to="`/aluno/redacao/${selectedEssay.id}`"
+            class="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-4 py-2.5 text-xs font-black text-white hover:bg-purple-700 transition shadow-xs"
+          >
+            <span class="material-symbols-rounded text-sm">visibility</span>
+            <span>Ver Folha Completa & Correção</span>
+          </NuxtLink>
+
           <button
             type="button"
             @click="selectedEssay = null"

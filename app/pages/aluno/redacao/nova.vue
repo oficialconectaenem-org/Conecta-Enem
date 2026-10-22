@@ -31,6 +31,7 @@ const essayTitle = ref('')
 const essayText = ref('')
 const photoPreview = ref(null)
 const photoFile = ref(null)
+const isCompressingPhoto = ref(false)
 
 function selectDbTheme(theme) {
   chosenTheme.value = theme.title
@@ -440,26 +441,111 @@ async function fetchClassrooms() {
   }
 }
 
-function handlePhotoUpload(event) {
+function rotatePhoto() {
+  if (!photoPreview.value || isCompressingPhoto.value) return
+  isCompressingPhoto.value = true
+  const img = new Image()
+  img.onload = () => {
+    try {
+      const canvas = document.createElement('canvas')
+      canvas.width = img.height
+      canvas.height = img.width
+      const ctx = canvas.getContext('2d')
+      ctx.translate(canvas.width / 2, canvas.height / 2)
+      ctx.rotate((90 * Math.PI) / 180)
+      ctx.drawImage(img, -img.width / 2, -img.height / 2)
+      photoPreview.value = canvas.toDataURL('image/jpeg', 0.75)
+    } catch (e) {
+      console.warn('Falha ao girar foto:', e)
+    } finally {
+      isCompressingPhoto.value = false
+    }
+  }
+  img.onerror = () => {
+    isCompressingPhoto.value = false
+  }
+  img.src = photoPreview.value
+}
+
+function compressImageFile(file, maxWidth = 1400, maxHeight = 1900, quality = 0.72) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(new Error('Falha ao ler o arquivo no dispositivo.'))
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onerror = () => reject(new Error('Formato da imagem não suportado para processamento.'))
+      img.onload = () => {
+        let { width, height } = img
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height)
+          width = Math.round(width * ratio)
+          height = Math.round(height * ratio)
+        }
+
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext('2d')
+
+        // Fundo branco sólido para garantir contraste
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, width, height)
+        ctx.drawImage(img, 0, 0, width, height)
+
+        let compressedBase64 = canvas.toDataURL('image/jpeg', quality)
+
+        // Se por ventura a imagem ainda for pesada (> 900KB base64), segunda passagem
+        if (compressedBase64.length > 900_000) {
+          compressedBase64 = canvas.toDataURL('image/jpeg', 0.55)
+        }
+
+        resolve(compressedBase64)
+      }
+      img.src = e.target.result
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+async function handlePhotoUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
 
   if (!file.type.startsWith('image/')) {
-    errorMessage.value = 'Por favor, envie um arquivo de imagem válido (JPG, PNG).'
+    errorMessage.value = 'Por favor, envie um arquivo de imagem válido (JPG, PNG ou foto da câmera).'
     return
   }
 
+  errorMessage.value = ''
   photoFile.value = file
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    photoPreview.value = e.target.result
+  isCompressingPhoto.value = true
+
+  try {
+    const compressed = await compressImageFile(file)
+    photoPreview.value = compressed
+  } catch (err) {
+    console.warn('[Redação Foto] Falha na compressão via Canvas:', err)
+    if (file.size <= 2.5 * 1024 * 1024) {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        photoPreview.value = e.target.result
+      }
+      reader.readAsDataURL(file)
+    } else {
+      errorMessage.value = 'A foto selecionada é muito pesada (acima de 2.5MB) e não pôde ser comprimida. Por favor, tire uma nova foto com resolução padrão.'
+      photoPreview.value = null
+      photoFile.value = null
+    }
+  } finally {
+    isCompressingPhoto.value = false
+    if (event.target) event.target.value = ''
   }
-  reader.readAsDataURL(file)
 }
 
 function removePhoto() {
   photoPreview.value = null
   photoFile.value = null
+  errorMessage.value = ''
 }
 
 function selectCustomThemeFlow() {
@@ -512,17 +598,29 @@ const selectedSubmissionClassroom = ref('')
 
 function openSubmitModal() {
   errorMessage.value = ''
-  if (submissionMode.value === 'TEXT' && !essayText.value.trim()) {
-    errorMessage.value = 'Por favor, escreva sua redação antes de enviar.'
+
+  if (!chosenTheme.value || chosenTheme.value.trim().length < 3) {
+    errorMessage.value = 'Por favor, defina o tema da redação antes de enviar.'
     return
   }
+
+  if (isCompressingPhoto.value) {
+    errorMessage.value = 'A foto ainda está sendo processada. Aguarde alguns instantes.'
+    return
+  }
+
+  if (submissionMode.value === 'TEXT' && (!essayText.value || essayText.value.trim().length < 20)) {
+    errorMessage.value = 'Por favor, escreva pelo menos 20 caracteres da sua redação antes de enviar.'
+    return
+  }
+
   if (submissionMode.value === 'PHOTO' && !photoPreview.value) {
     errorMessage.value = 'Por favor, carregue a foto da redação antes de enviar.'
     return
   }
 
-  // Se tiver turmas, define a primeira como padrão
-  if (classrooms.value.length > 0) {
+  // Se tiver turmas e nenhuma estiver pré-selecionada, define a primeira como padrão
+  if (classrooms.value.length > 0 && !selectedSubmissionClassroom.value) {
     selectedSubmissionClassroom.value = classrooms.value[0].id
   }
 
@@ -531,11 +629,27 @@ function openSubmitModal() {
 
 async function confirmAndSubmit() {
   errorMessage.value = ''
+
+  if (!chosenTheme.value || chosenTheme.value.trim().length < 3) {
+    errorMessage.value = 'Por favor, defina um tema válido (mínimo 3 caracteres) antes de enviar.'
+    return
+  }
+
+  if (submissionMode.value === 'PHOTO' && !photoPreview.value) {
+    errorMessage.value = 'Por favor, selecione a foto da folha antes de enviar.'
+    return
+  }
+
+  if (submissionMode.value === 'TEXT' && (!essayText.value || essayText.value.trim().length < 20)) {
+    errorMessage.value = 'O texto da redação deve possuir pelo menos 20 caracteres.'
+    return
+  }
+
   submitting.value = true
 
   try {
     const payload = {
-      theme: chosenTheme.value,
+      theme: chosenTheme.value.trim(),
       title: essayTitle.value.trim() || null,
       classroomId: selectedSubmissionClassroom.value || null,
       submissionType: submissionMode.value === 'PHOTO' ? 'IMAGE' : 'TEXT',
@@ -556,7 +670,13 @@ async function confirmAndSubmit() {
       successSubmitted.value = true
     }
   } catch (err) {
-    errorMessage.value = err.data?.message || 'Erro ao enviar a redação.'
+    console.error('Erro ao enviar redação:', err)
+    errorMessage.value =
+      err.data?.statusMessage ||
+      err.data?.message ||
+      err.statusMessage ||
+      err.message ||
+      'Erro ao enviar a redação. Verifique sua conexão e tente novamente.'
   } finally {
     submitting.value = false
   }
@@ -656,6 +776,15 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- ALERTA DE ERRO DENTRO DO MODAL -->
+        <div v-if="errorMessage" class="rounded-2xl border border-rose-200 bg-rose-50 p-3.5 text-xs font-bold text-rose-700 flex items-start gap-2.5 animate-in fade-in">
+          <span class="material-symbols-rounded text-rose-600 text-lg shrink-0 mt-0.5">error</span>
+          <div class="space-y-0.5">
+            <span class="font-black block">Não foi possível enviar:</span>
+            <span class="font-medium text-rose-600 leading-snug">{{ errorMessage }}</span>
+          </div>
+        </div>
+
         <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
           <button
             type="button"
@@ -667,7 +796,7 @@ onUnmounted(() => {
 
           <button
             type="button"
-            :disabled="submitting"
+            :disabled="submitting || isCompressingPhoto"
             @click="confirmAndSubmit"
             class="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 px-5 py-2.5 text-xs font-black text-white hover:bg-purple-700 shadow-md shadow-purple-600/20 transition disabled:opacity-50"
           >
@@ -1173,7 +1302,7 @@ onUnmounted(() => {
               :class="editorViewMode === 'WRITE' ? 'bg-white dark:bg-zinc-900 text-purple-700 dark:text-purple-300 shadow-sm' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900'"
             >
               <span class="material-symbols-rounded text-base">edit_note</span>
-              <span>Folha de Redação ({{ linesCount }} linhas)</span>
+              <span>Folha de Redação<span class="hidden sm:inline"> ({{ linesCount }} linhas)</span></span>
             </button>
             <button
               type="button"
@@ -1318,10 +1447,10 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- VISÃO GERAL: 4 MÉTRICAS RIGOROSAS (LINHAS, PALAVRAS, PARÁGRAFOS, FRASES) -->
+          <!-- VISÃO GERAL: 4 MÉTRICAS RIGOROSAS (No mobile: apenas Palavras e Parágrafos; no Desktop: todas) -->
           <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-            <!-- Linhas ENEM -->
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+            <!-- Linhas ENEM (Oculto no Mobile por enquanto, visível apenas no Desktop) -->
+            <div class="hidden sm:block rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
               <span class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide block">Linhas ENEM</span>
               <div class="flex items-baseline gap-1 mt-1">
                 <span
@@ -1337,7 +1466,7 @@ onUnmounted(() => {
               </span>
             </div>
 
-            <!-- Palavras -->
+            <!-- Palavras (Visível no Mobile e Desktop) -->
             <div class="rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
               <span class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide block">Palavras</span>
               <div class="mt-1">
@@ -1346,7 +1475,7 @@ onUnmounted(() => {
               <span class="text-[10px] text-slate-400 font-medium block">Ideal: 250 a 350</span>
             </div>
 
-            <!-- Parágrafos -->
+            <!-- Parágrafos (Visível no Mobile e Desktop) -->
             <div class="rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
               <span class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide block">Parágrafos</span>
               <div class="mt-1">
@@ -1355,8 +1484,8 @@ onUnmounted(() => {
               <span class="text-[10px] text-slate-400 font-medium block">Padrão ENEM: 4</span>
             </div>
 
-            <!-- Frases -->
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+            <!-- Frases (Oculto no Mobile, visível no Desktop) -->
+            <div class="hidden sm:block rounded-2xl bg-white dark:bg-zinc-800/80 p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
               <span class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide block">Frases / Períodos</span>
               <div class="mt-1">
                 <span class="text-xl font-black text-slate-700 dark:text-zinc-200">{{ phraseCount }}</span>
@@ -1380,13 +1509,13 @@ onUnmounted(() => {
             </button>
           </div>
 
-          <!-- ALERTAS SOBRE AS LINHAS DO ENEM -->
-          <div v-if="linesCount > 30" class="rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900/80 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2.5">
+          <!-- ALERTAS SOBRE AS LINHAS DO ENEM (Ocultos no Mobile para não poluir a tela) -->
+          <div v-if="linesCount > 30" class="hidden sm:flex rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900/80 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300 items-center gap-2.5">
             <span class="material-symbols-rounded text-lg shrink-0">error</span>
             <span>Atenção: sua redação possui <strong>{{ linesCount }} linhas</strong>. A folha oficial do ENEM possui exatamente <strong>30 linhas</strong>! Qualquer texto escrito a partir da linha 31 será desconsiderado pela banca avaliadora.</span>
           </div>
 
-          <div v-else-if="linesCount > 0 && linesCount < 8" class="rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900/80 p-3.5 text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2.5">
+          <div v-else-if="linesCount > 0 && linesCount < 8" class="hidden sm:flex rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900/80 p-3.5 text-xs font-bold text-amber-800 dark:text-amber-300 items-center gap-2.5">
             <span class="material-symbols-rounded text-lg shrink-0">warning</span>
             <span>Critério do ENEM: Textos com menos de 8 linhas recebem <strong>NOTA ZERO</strong> por extensão insuficiente. Escreva ao menos 8 linhas.</span>
           </div>
@@ -1404,7 +1533,8 @@ onUnmounted(() => {
                   <span>Folha Oficial de Redação ENEM &bull; 30 Linhas</span>
                 </div>
 
-                <div class="flex items-center gap-2">
+                <!-- Indicadores de Linhas (Visíveis apenas em telas maiores / Desktop) -->
+                <div class="hidden sm:flex items-center gap-2">
                   <span v-if="mobileViewMode === 'A4'" class="sm:hidden text-[10px] text-slate-400 font-bold flex items-center gap-0.5">
                     <span class="material-symbols-rounded text-xs">swipe</span> Deslize lateral
                   </span>
@@ -1425,15 +1555,15 @@ onUnmounted(() => {
                 <input
                   v-model="essayTitle"
                   type="text"
-                  placeholder="Título da Redação (Opcional no ENEM)"
+                  placeholder="Título (opcional)"
                   class="w-full text-center text-sm font-bold text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none bg-transparent pb-1 focus:border-b-2 focus:border-purple-600 transition"
                 />
               </div>
 
-              <!-- CORPO DA FOLHA COM GUTTER DE NÚMEROS 1 A 30 E TEXTAREA PAUTADO -->
+              <!-- CORPO DA FOLHA COM TEXTAREA PAUTADO (No mobile: sem a coluna lateral de números para liberar espaço total da tela) -->
               <div class="flex px-2 sm:px-4 py-3 select-text relative">
-                <!-- Coluna de Números das Linhas (1 a 30) -->
-                <div class="w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex flex-col font-mono text-xs">
+                <!-- Coluna de Números das Linhas (1 a 30) - Oculta no Mobile, visível no Desktop -->
+                <div class="hidden sm:flex w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-xs">
                   <div
                     v-for="lineNum in Math.max(30, linesCount)"
                     :key="lineNum"
@@ -1454,7 +1584,7 @@ onUnmounted(() => {
                   <textarea
                     v-model="essayText"
                     rows="30"
-                    placeholder="Escreva sua redação na Linha 01... Dica: Pressione Tab ou clique em '+ Novo Parágrafo' para iniciar o recuo."
+                    placeholder="Escreva sua redação aqui... Pressione Tab ou use '+ Novo Parágrafo' para iniciar o recuo."
                     class="enem-ruled-textarea w-full text-slate-800 dark:text-zinc-100 select-text outline-none resize-none"
                     :style="{ fontSize: `${fontSize}px` }"
                     @keydown="handleTextareaKeydown"
@@ -1465,8 +1595,8 @@ onUnmounted(() => {
                 <div class="hidden sm:block w-2 shrink-0 border-l border-red-300/40 dark:border-red-900/40"></div>
               </div>
 
-              <!-- Demarcação do Limite da Linha 30 -->
-              <div class="border-t-2 border-dashed border-red-400/70 dark:border-red-600/70 mx-4 my-2 px-3 py-1.5 bg-red-50/70 dark:bg-red-950/40 text-[11px] font-bold text-red-600 dark:text-red-400 rounded-xl flex items-center justify-between">
+              <!-- Demarcação do Limite da Linha 30 (Apenas no Desktop) -->
+              <div class="hidden sm:flex border-t-2 border-dashed border-red-400/70 dark:border-red-600/70 mx-4 my-2 px-3 py-1.5 bg-red-50/70 dark:bg-red-950/40 text-[11px] font-bold text-red-600 dark:text-red-400 rounded-xl items-center justify-between">
                 <span class="flex items-center gap-1.5">
                   <span class="material-symbols-rounded text-sm">flag</span>
                   <span>Limite Oficial da Folha de Redação do ENEM (30 Linhas)</span>
@@ -1477,10 +1607,23 @@ onUnmounted(() => {
           </div>
 
           <!-- MODO FOTO -->
-          <div v-else class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-xs space-y-3 transition-colors duration-200">
+          <div v-else class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 sm:p-6 shadow-xs space-y-3 transition-colors duration-200">
+            <!-- Processando / Compactando Foto -->
             <div
-              v-if="!photoPreview"
-              class="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-10 text-center hover:border-purple-500 transition cursor-pointer"
+              v-if="isCompressingPhoto"
+              class="border-2 border-dashed border-purple-400 dark:border-purple-600 rounded-2xl p-8 sm:p-10 text-center bg-purple-50/60 dark:bg-purple-950/30 space-y-2 animate-pulse"
+            >
+              <span class="material-symbols-rounded text-4xl text-purple-600 dark:text-purple-400 animate-spin">progress_activity</span>
+              <p class="text-sm font-black text-purple-900 dark:text-purple-200">Processando e otimizando foto...</p>
+              <p class="text-xs text-purple-700/80 dark:text-purple-300/80 max-w-sm mx-auto">
+                Ajustando dimensões para garantir que a folha fique nítida para o professor e seja enviada instantaneamente sem falhas de conexão.
+              </p>
+            </div>
+
+            <!-- Botão de Upload da Folha -->
+            <div
+              v-else-if="!photoPreview"
+              class="border-2 border-dashed border-slate-300 dark:border-zinc-700 rounded-2xl p-8 sm:p-10 text-center hover:border-purple-500 transition cursor-pointer bg-slate-50/50 dark:bg-zinc-800/40"
               @click="$refs.fileInput.click()"
             >
               <input
@@ -1490,21 +1633,41 @@ onUnmounted(() => {
                 class="hidden"
                 @change="handlePhotoUpload"
               />
-              <span class="material-symbols-rounded text-5xl text-purple-600 dark:text-purple-400 mb-2">add_photo_alternate</span>
-              <p class="text-sm font-bold text-slate-800 dark:text-zinc-200">Clique para selecionar ou tirar foto da folha</p>
+              <span class="material-symbols-rounded text-5xl text-purple-600 dark:text-purple-400 mb-2 block">add_photo_alternate</span>
+              <p class="text-sm font-black text-slate-800 dark:text-zinc-200">Clique para selecionar ou tirar foto da folha</p>
+              <p class="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">A imagem será otimizada automaticamente para envio rápido e seguro</p>
             </div>
 
+            <!-- Preview da Foto e Controles de Ajuste -->
             <div v-else class="space-y-3">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
-                  <span class="material-symbols-rounded text-sm">check_circle</span>
-                  Foto carregada com sucesso
-                </span>
-                <button type="button" @click="removePhoto" class="text-xs text-red-500 font-bold hover:underline cursor-pointer">
-                  Remover foto
-                </button>
+              <div class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 dark:border-zinc-800 pb-2.5">
+                <div class="flex items-center gap-1.5 text-xs font-black text-emerald-600 dark:text-emerald-400">
+                  <span class="material-symbols-rounded text-base">check_circle</span>
+                  <span>Foto carregada e pronta para envio</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    @click="rotatePhoto"
+                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-purple-700 dark:text-purple-300 bg-purple-50 dark:bg-purple-950/60 hover:bg-purple-100 dark:hover:bg-purple-900/60 transition cursor-pointer"
+                    title="Girar foto em 90 graus no sentido horário"
+                  >
+                    <span class="material-symbols-rounded text-sm">rotate_right</span>
+                    <span>Girar 90°</span>
+                  </button>
+                  <button
+                    type="button"
+                    @click="removePhoto"
+                    class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 transition cursor-pointer"
+                  >
+                    <span class="material-symbols-rounded text-sm">delete</span>
+                    <span>Remover</span>
+                  </button>
+                </div>
               </div>
-              <img :src="photoPreview" alt="Folha da redação" class="max-h-96 mx-auto rounded-xl object-contain shadow-sm" />
+              <div class="relative rounded-2xl bg-slate-900/5 dark:bg-black/30 p-2 sm:p-3 text-center overflow-hidden border border-slate-200 dark:border-zinc-800">
+                <img :src="photoPreview" alt="Folha da redação" class="max-h-96 mx-auto rounded-xl object-contain shadow-xs transition-transform duration-200" />
+              </div>
             </div>
           </div>
 
@@ -1553,7 +1716,7 @@ onUnmounted(() => {
               <!-- BOTÃO ENVIAR AO PROFESSOR -->
               <button
                 type="button"
-                :disabled="submitting || isAnalyzingAI || (submissionMode === 'TEXT' ? !essayText.trim() : !photoPreview)"
+                :disabled="submitting || isAnalyzingAI || isCompressingPhoto || (submissionMode === 'TEXT' ? !essayText.trim() : !photoPreview)"
                 @click="openSubmitModal"
                 class="inline-flex items-center gap-1.5 rounded-2xl border-2 border-purple-600 dark:border-purple-500 bg-white dark:bg-zinc-800 px-5 py-2.5 text-xs font-black text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-zinc-700 shadow-xs transition disabled:opacity-50 active:scale-98 uppercase tracking-wide cursor-pointer"
               >

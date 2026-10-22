@@ -7,6 +7,14 @@ const props = defineProps({
     type: String,
     default: ''
   },
+  imageUrl: {
+    type: String,
+    default: null
+  },
+  submissionType: {
+    type: String,
+    default: 'TEXT'
+  },
   title: {
     type: String,
     default: ''
@@ -56,6 +64,21 @@ const textContainer = ref(null)
 const ruledContentEl = ref(null)
 const measuredVisualLines = ref(null)
 const metrics = computed(() => calculateEssayMetrics(props.content, props.title))
+
+const isPhotoSubmission = computed(() => {
+  return props.submissionType === 'IMAGE' || (Boolean(props.imageUrl) && !props.content?.trim())
+})
+
+const photoRotation = ref(0)
+const highContrast = ref(false)
+
+function rotateImage() {
+  photoRotation.value = (photoRotation.value + 90) % 360
+}
+
+function toggleHighContrast() {
+  highContrast.value = !highContrast.value
+}
 
 function measureLines() {
   if (ruledContentEl.value && props.content?.trim()) {
@@ -370,10 +393,10 @@ function handleTextClick(e) {
         </div>
       </div>
 
-      <!-- Barra de Métricas Oficiais da Redação (Linhas, Parágrafos, Palavras e Períodos) -->
-      <div class="mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2 font-sans select-none">
-        <!-- Linhas -->
-        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+      <!-- Barra de Métricas Oficiais da Redação (No mobile: apenas Palavras e Parágrafos; no Desktop: todas) -->
+      <div v-if="!isPhotoSubmission" class="mb-5 grid grid-cols-2 sm:grid-cols-4 gap-2 font-sans select-none">
+        <!-- Linhas (Oculto no mobile, visível no desktop) -->
+        <div class="hidden sm:block rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
           <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Linhas ENEM</span>
           <div class="flex items-baseline gap-1 mt-0.5">
             <span
@@ -389,18 +412,7 @@ function handleTextClick(e) {
           </span>
         </div>
 
-        <!-- Parágrafos -->
-        <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
-          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Parágrafos</span>
-          <div class="mt-0.5">
-            <span class="text-base font-black text-indigo-700 dark:text-indigo-400">{{ metrics.paragraphs }}</span>
-          </div>
-          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5" :title="metrics.paragraphStatus.badge">
-            {{ metrics.paragraphs === 4 ? '4 (Padrão ENEM)' : metrics.paragraphStatus.badge }}
-          </span>
-        </div>
-
-        <!-- Palavras -->
+        <!-- Palavras (Visível no mobile e desktop) -->
         <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
           <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Palavras</span>
           <div class="mt-0.5">
@@ -411,8 +423,19 @@ function handleTextClick(e) {
           </span>
         </div>
 
-        <!-- Frases / Períodos -->
+        <!-- Parágrafos (Visível no mobile e desktop) -->
         <div class="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
+          <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Parágrafos</span>
+          <div class="mt-0.5">
+            <span class="text-base font-black text-indigo-700 dark:text-indigo-400">{{ metrics.paragraphs }}</span>
+          </div>
+          <span class="block truncate text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-0.5" :title="metrics.paragraphStatus.badge">
+            {{ metrics.paragraphs === 4 ? '4 (Padrão ENEM)' : metrics.paragraphStatus.badge }}
+          </span>
+        </div>
+
+        <!-- Frases / Períodos (Oculto no mobile, visível no desktop) -->
+        <div class="hidden sm:block rounded-xl border border-slate-200 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/60 p-2.5 shadow-2xs">
           <span class="block text-[10px] font-black uppercase text-slate-400 dark:text-zinc-500">Períodos / Frases</span>
           <div class="mt-0.5">
             <span class="text-base font-black text-slate-700 dark:text-zinc-200">{{ metrics.sentences }}</span>
@@ -422,115 +445,205 @@ function handleTextClick(e) {
           </span>
         </div>
       </div>
+      <div v-else class="mb-4 flex items-center justify-between p-3 rounded-xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs select-none">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-rounded text-purple-700 dark:text-purple-300 text-lg">photo_camera</span>
+          <span class="font-bold text-purple-900 dark:text-purple-200">Redação Manuscrita (Folha Fotografada)</span>
+        </div>
+        <span class="text-[11px] font-semibold text-purple-700 dark:text-purple-300 hidden sm:inline">Avalie os critérios na aba lateral de 5 Competências</span>
+      </div>
 
-      <!-- Alertas de Linhas do ENEM se houver -->
-      <div v-if="effectiveLines > 30" class="mb-4 rounded-xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-2.5 text-xs font-bold text-rose-700 dark:text-rose-300 flex items-center gap-2 select-none">
-        <span class="material-symbols-rounded text-base shrink-0">error</span>
-        <span>Atenção: A redação possui <strong>{{ effectiveLines }} linhas</strong> (ultrapassa o limite oficial de 30 linhas do ENEM).</span>
-      </div>
-      <div v-else-if="effectiveLines > 0 && effectiveLines < 8" class="mb-4 rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-2 select-none">
-        <span class="material-symbols-rounded text-base shrink-0">warning</span>
-        <span>Critério ENEM: Textos com menos de 8 linhas recebem <strong>Nota Zero</strong> por extensão insuficiente.</span>
-      </div>
+      <!-- Alertas de Linhas do ENEM se houver (somente texto no desktop) -->
+      <template v-if="!isPhotoSubmission">
+        <div v-if="effectiveLines > 30" class="hidden sm:flex mb-4 rounded-xl border border-rose-300 dark:border-rose-900 bg-rose-50 dark:bg-rose-950/40 p-2.5 text-xs font-bold text-rose-700 dark:text-rose-300 items-center gap-2 select-none">
+          <span class="material-symbols-rounded text-base shrink-0">error</span>
+          <span>Atenção: A redação possui <strong>{{ effectiveLines }} linhas</strong> (ultrapassa o limite oficial de 30 linhas do ENEM).</span>
+        </div>
+        <div v-else-if="effectiveLines > 0 && effectiveLines < 8" class="hidden sm:flex mb-4 rounded-xl border border-amber-300 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-2.5 text-xs font-bold text-amber-800 dark:text-amber-300 items-center gap-2 select-none">
+          <span class="material-symbols-rounded text-base shrink-0">warning</span>
+          <span>Critério ENEM: Textos com menos de 8 linhas recebem <strong>Nota Zero</strong> por extensão insuficiente.</span>
+        </div>
+      </template>
 
       <!-- Título da Redação (se houver) -->
       <div v-if="title" class="text-center font-bold text-base mb-5 text-slate-900 dark:text-zinc-100 underline decoration-purple-300 dark:decoration-purple-600 select-text">
         {{ title }}
       </div>
 
-      <!-- Popover Flutuante de Seleção de Texto (quando activeTool === 'select') -->
-      <Transition name="popover">
-        <div
-          v-if="selectionPopover.show && !readOnly"
-          class="absolute z-40 flex items-center gap-1 bg-slate-900 dark:bg-zinc-800 text-white px-2.5 py-1.5 rounded-2xl shadow-2xl border border-slate-700 dark:border-zinc-700 -translate-x-1/2 animate-in fade-in zoom-in-95"
-          :style="{ left: `${selectionPopover.x}px`, top: `${selectionPopover.y}px` }"
-        >
-          <!-- Botão Destaque: Riscar e Escrever em Cima -->
-          <button
-            type="button"
-            title="Riscar e Escrever Correção em Cima"
-            @click="handlePopoverAction('CORRECT')"
-            class="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black transition cursor-pointer shadow-xs"
-          >
-            <span class="material-symbols-rounded text-sm">spellcheck</span>
-            <span>Corrigir / Escrever</span>
-          </button>
+      <!-- MODO 1: FOTO / FOLHA MANUSCRITA -->
+      <div v-if="isPhotoSubmission" class="space-y-4">
+        <!-- Barra de Ações Rápidas da Foto -->
+        <div class="flex flex-wrap items-center justify-between gap-2 p-2.5 rounded-2xl bg-slate-100 dark:bg-zinc-800/80 border border-slate-200 dark:border-zinc-700/60 text-xs">
+          <div class="flex items-center gap-1.5 font-bold text-slate-700 dark:text-zinc-300">
+            <span class="material-symbols-rounded text-purple-600 text-base">image</span>
+            <span>Folha Manuscrita Original</span>
+          </div>
 
-          <div class="h-4 w-px bg-slate-700 dark:bg-zinc-700 mx-0.5"></div>
+          <div class="flex items-center gap-1.5">
+            <!-- Girar 90 graus -->
+            <button
+              type="button"
+              @click="rotateImage"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer"
+              title="Girar folha 90° no sentido horário"
+            >
+              <span class="material-symbols-rounded text-sm">rotate_right</span>
+              <span>Girar ({{ photoRotation }}°)</span>
+            </button>
 
-          <button
-            type="button"
-            title="Sublinhar"
-            @click="handlePopoverAction('UNDERLINE')"
-            class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-amber-300 transition cursor-pointer"
-          >
-            <span class="material-symbols-rounded text-base">format_underlined</span>
-          </button>
-          <button
-            type="button"
-            title="Apenas Riscar / Tachar"
-            @click="handlePopoverAction('STRIKE')"
-            class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-red-400 transition cursor-pointer"
-          >
-            <span class="material-symbols-rounded text-base">strikethrough_s</span>
-          </button>
-          <button
-            type="button"
-            title="Destacar com Marca-texto"
-            @click="handlePopoverAction('HIGHLIGHT')"
-            class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-yellow-300 transition cursor-pointer"
-          >
-            <span class="material-symbols-rounded text-base">ink_highlighter</span>
-          </button>
-          <button
-            type="button"
-            title="Adicionar Comentário Marginal"
-            @click="handlePopoverAction('COMMENT')"
-            class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-purple-300 transition cursor-pointer"
-          >
-            <span class="material-symbols-rounded text-base">add_comment</span>
-          </button>
-        </div>
-      </Transition>
+            <!-- Contraste Aumentado -->
+            <button
+              type="button"
+              @click="toggleHighContrast"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-bold transition shadow-2xs cursor-pointer"
+              :class="highContrast ? 'bg-purple-600 text-white' : 'bg-white dark:bg-zinc-700 text-slate-700 dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-600'"
+              title="Aumentar contraste para facilitar a leitura da caligrafia"
+            >
+              <span class="material-symbols-rounded text-sm">contrast</span>
+              <span>{{ highContrast ? 'Alto Contraste' : 'Contraste Normal' }}</span>
+            </button>
 
-      <!-- Linhas Numeradas e Folha Pautada Oficial ENEM -->
-      <div class="relative flex text-sm sm:text-base tracking-normal select-text">
-        <!-- Coluna de Números das Linhas (1 a 30+) perfeitamente alinhadas com as pautas -->
-        <div class="w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex flex-col font-mono text-xs">
-          <div
-            v-for="lineNum in Math.max(30, effectiveLines)"
-            :key="lineNum"
-            class="h-[36px] flex items-center justify-end font-bold transition-colors select-none"
-            :class="{
-              'text-purple-600 dark:text-purple-400 font-black bg-purple-100/60 dark:bg-purple-950/40 rounded-l': lineNum <= effectiveLines && lineNum <= 30,
-              'text-slate-300 dark:text-zinc-700 font-normal': lineNum > effectiveLines && lineNum <= 30,
-              'text-rose-600 dark:text-rose-400 font-black bg-rose-100/70 dark:bg-rose-950/40 rounded-l': lineNum > 30
-            }"
-            :title="lineNum <= 30 ? `Linha ${lineNum} do ENEM` : `Linha ${lineNum} (Excede o limite do ENEM)`"
-          >
-            {{ lineNum.toString().padStart(2, '0') }}
+            <!-- Abrir imagem original em nova aba -->
+            <a
+              v-if="imageUrl"
+              :href="imageUrl"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-white dark:bg-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-600 text-slate-700 dark:text-zinc-200 font-bold transition shadow-2xs cursor-pointer"
+              title="Abrir imagem em tamanho original em outra aba"
+            >
+              <span class="material-symbols-rounded text-sm">open_in_new</span>
+              <span>Abrir Original</span>
+            </a>
           </div>
         </div>
 
-        <!-- Área de Texto com Pautas Azuis Contínuas (cada linha que dobra cai exatamente na linha pautada de baixo) -->
-        <div class="relative flex-1 min-h-[1080px]">
-          <!-- Camada SVG de Desenho Livre & Marcações Visuais -->
-          <EssayAnnotationLayer
-            :annotations="annotations"
-            :active-tool="activeTool"
-            :active-color="activeColor"
-            :active-stroke-width="activeStrokeWidth"
-            :read-only="readOnly"
-            :show-annotations="showAnnotations"
-            :selected-annotation-id="selectedAnnotationId"
-            @add-annotation="emit('add-annotation', $event)"
-            @remove-annotation="emit('remove-annotation', $event)"
-            @select-annotation="emit('select-annotation', $event)"
-          />
+        <!-- Área da Foto com a Camada SVG de Desenho Livre e Anotações -->
+        <div class="relative w-full rounded-2xl overflow-hidden border border-slate-200 dark:border-zinc-800 bg-slate-100/50 dark:bg-black/50 flex justify-center items-center p-2 sm:p-4 min-h-[600px]">
+          <div class="relative max-w-full inline-block">
+            <img
+              :src="imageUrl"
+              alt="Folha de redação manuscrita enviada pelo aluno"
+              class="max-w-full h-auto max-h-[1400px] object-contain rounded-xl shadow-lg transition-all duration-200 select-none pointer-events-none"
+              :style="{
+                transform: `rotate(${photoRotation}deg)`,
+                filter: highContrast ? 'contrast(1.45) brightness(0.95)' : 'none'
+              }"
+            />
 
-          <!-- Texto do Aluno assentado na malha pautada -->
-          <div class="ruled-paper-text w-full min-h-[1080px] font-sans text-slate-800 dark:text-zinc-100 select-text outline-none">
-            <div ref="ruledContentEl" class="whitespace-pre-wrap select-text" v-html="renderFullContentHtml()"></div>
+            <!-- Camada de Anotação SVG Sobre a Imagem -->
+            <EssayAnnotationLayer
+              :annotations="annotations"
+              :active-tool="activeTool"
+              :active-color="activeColor"
+              :active-stroke-width="activeStrokeWidth"
+              :read-only="readOnly"
+              :show-annotations="showAnnotations"
+              :selected-annotation-id="selectedAnnotationId"
+              @add-annotation="emit('add-annotation', $event)"
+              @remove-annotation="emit('remove-annotation', $event)"
+              @select-annotation="emit('select-annotation', $event)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- MODO 2: TEXTO DIGITADO (FOLHA PAUTADA OFICIAL ENEM) -->
+      <div v-else>
+        <!-- Popover Flutuante de Seleção de Texto (quando activeTool === 'select') -->
+        <Transition name="popover">
+          <div
+            v-if="selectionPopover.show && !readOnly"
+            class="absolute z-40 flex items-center gap-1 bg-slate-900 dark:bg-zinc-800 text-white px-2.5 py-1.5 rounded-2xl shadow-2xl border border-slate-700 dark:border-zinc-700 -translate-x-1/2 animate-in fade-in zoom-in-95"
+            :style="{ left: `${selectionPopover.x}px`, top: `${selectionPopover.y}px` }"
+          >
+            <!-- Botão Destaque: Riscar e Escrever em Cima -->
+            <button
+              type="button"
+              title="Riscar e Escrever Correção em Cima"
+              @click="handlePopoverAction('CORRECT')"
+              class="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black transition cursor-pointer shadow-xs"
+            >
+              <span class="material-symbols-rounded text-sm">spellcheck</span>
+              <span>Corrigir / Escrever</span>
+            </button>
+
+            <div class="h-4 w-px bg-slate-700 dark:bg-zinc-700 mx-0.5"></div>
+
+            <button
+              type="button"
+              title="Sublinhar"
+              @click="handlePopoverAction('UNDERLINE')"
+              class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-amber-300 transition cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-base">format_underlined</span>
+            </button>
+            <button
+              type="button"
+              title="Apenas Riscar / Tachar"
+              @click="handlePopoverAction('STRIKE')"
+              class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-red-400 transition cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-base">strikethrough_s</span>
+            </button>
+            <button
+              type="button"
+              title="Destacar com Marca-texto"
+              @click="handlePopoverAction('HIGHLIGHT')"
+              class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-yellow-300 transition cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-base">ink_highlighter</span>
+            </button>
+            <button
+              type="button"
+              title="Adicionar Comentário Marginal"
+              @click="handlePopoverAction('COMMENT')"
+              class="flex h-7 w-7 items-center justify-center rounded-xl hover:bg-slate-800 dark:hover:bg-zinc-700 text-purple-300 transition cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-base">add_comment</span>
+            </button>
+          </div>
+        </Transition>
+
+        <!-- Linhas Numeradas e Folha Pautada Oficial ENEM -->
+        <div class="relative flex text-sm sm:text-base tracking-normal select-text">
+          <!-- Coluna de Números das Linhas (1 a 30+) perfeitamente alinhadas com as pautas -->
+          <div class="hidden sm:flex w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-xs">
+            <div
+              v-for="lineNum in Math.max(30, effectiveLines)"
+              :key="lineNum"
+              class="h-[36px] flex items-center justify-end font-bold transition-colors select-none"
+              :class="{
+                'text-purple-600 dark:text-purple-400 font-black bg-purple-100/60 dark:bg-purple-950/40 rounded-l': lineNum <= effectiveLines && lineNum <= 30,
+                'text-slate-300 dark:text-zinc-700 font-normal': lineNum > effectiveLines && lineNum <= 30,
+                'text-rose-600 dark:text-rose-400 font-black bg-rose-100/70 dark:bg-rose-950/40 rounded-l': lineNum > 30
+              }"
+              :title="lineNum <= 30 ? `Linha ${lineNum} do ENEM` : `Linha ${lineNum} (Excede o limite do ENEM)`"
+            >
+              {{ lineNum.toString().padStart(2, '0') }}
+            </div>
+          </div>
+
+          <!-- Área de Texto com Pautas Azuis Contínuas (cada linha que dobra cai exatamente na linha pautada de baixo) -->
+          <div class="relative flex-1 min-h-[1080px]">
+            <!-- Camada SVG de Desenho Livre & Marcações Visuais -->
+            <EssayAnnotationLayer
+              :annotations="annotations"
+              :active-tool="activeTool"
+              :active-color="activeColor"
+              :active-stroke-width="activeStrokeWidth"
+              :read-only="readOnly"
+              :show-annotations="showAnnotations"
+              :selected-annotation-id="selectedAnnotationId"
+              @add-annotation="emit('add-annotation', $event)"
+              @remove-annotation="emit('remove-annotation', $event)"
+              @select-annotation="emit('select-annotation', $event)"
+            />
+
+            <!-- Texto do Aluno assentado na malha pautada -->
+            <div class="ruled-paper-text w-full min-h-[1080px] font-sans text-slate-800 dark:text-zinc-100 select-text outline-none">
+              <div ref="ruledContentEl" class="whitespace-pre-wrap select-text" v-html="renderFullContentHtml()"></div>
+            </div>
           </div>
         </div>
       </div>

@@ -149,8 +149,17 @@ function handleSave() {
                 <h5 v-if="essay?.title" class="text-center font-bold text-slate-800 mb-4 text-sm underline decoration-purple-300 dark:text-zinc-100">
                   {{ essay.title }}
                 </h5>
-                <div class="prose prose-sm max-w-none text-slate-800 font-sans leading-relaxed whitespace-pre-wrap select-text text-sm dark:text-zinc-200 text-justify" style="text-align: justify; text-justify: inter-word;">
-                  {{ essay?.content }}
+                <div v-if="essay?.imageUrl" class="space-y-2">
+                  <div class="rounded-xl border border-purple-200 bg-purple-50 p-2 text-center text-xs font-bold text-purple-700 dark:bg-purple-950/40 dark:border-purple-800 dark:text-purple-300 flex items-center justify-center gap-1.5">
+                    <span class="material-symbols-rounded text-sm">photo_camera</span>
+                    <span>Folha Manuscrita Enviada pelo Aluno</span>
+                  </div>
+                  <div class="bg-black/5 dark:bg-black/30 rounded-xl p-2 text-center">
+                    <img :src="essay.imageUrl" alt="Folha de redação manuscrita" class="max-h-[600px] w-auto mx-auto object-contain rounded-lg shadow-sm" />
+                  </div>
+                </div>
+                <div v-else class="prose prose-sm max-w-none text-slate-800 font-sans leading-relaxed whitespace-pre-wrap select-text text-sm dark:text-zinc-200 text-justify" style="text-align: justify; text-justify: inter-word;">
+                  {{ essay?.content || 'Nenhum texto digitado.' }}
                 </div>
               </div>
             </div>
