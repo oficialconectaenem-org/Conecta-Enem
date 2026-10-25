@@ -48,7 +48,8 @@ async function runEnemImport() {
     }, 2500)
   } catch (err) {
     console.error('Erro na importação:', err)
-    importErrorMessage.value = err?.data?.statusMessage || err?.message || 'Erro ao importar prova do ENEM.'
+    const detailed = err?.data?.message || err?.data?.statusMessage || err?.message
+    importErrorMessage.value = detailed === 'Server Error' ? 'Erro de comunicação ou banco de dados no servidor. Verifique os logs e a conexão.' : (detailed || 'Erro ao importar prova do ENEM.')
   } finally {
     importingEnem.value = false
   }

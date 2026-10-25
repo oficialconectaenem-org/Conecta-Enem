@@ -112,7 +112,8 @@ function calculateDifficulty(q) {
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
-  const body = await readBody(event)
+  try {
+    const body = await readBody(event)
   const year = Number(body?.year) || 2023
 
   if (year < 2009 || year > 2030) {
@@ -160,109 +161,100 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // 3. Processar e salvar no banco de dados
-  let importedCount = 0
-  let updatedCount = 0
-  const validLetters = ['A', 'B', 'C', 'D', 'E']
-
-  for (const q of allQuestions) {
-    const correctLetter = q.correctAlternative?.trim()?.toUpperCase()
-    if (!correctLetter || !validLetters.includes(correctLetter)) continue
-
-    const detectedSlug = identifySubject(q)
-    const subjectId = subjectCache.get(detectedSlug) || subjectCache.get('portugues')
-    const difficulty = calculateDifficulty(q)
-    const title = q.title || `Questão ${q.index} - ENEM ${year}`
-
-    let statementParts = []
-    if (q.context && q.context.trim()) statementParts.push(q.context.trim())
-    if (q.alternativesIntroduction && q.alternativesIntroduction.trim()) statementParts.push(q.alternativesIntroduction.trim())
-    const statement = statementParts.join('\n\n') || `Questão do ENEM ${year}`
-
-    const primaryImage = Array.isArray(q.files) && q.files.length > 0 ? q.files[0] : null
-    const allImagesJson = Array.isArray(q.files) && q.files.length > 0 ? JSON.stringify(q.files) : null
-
-    const existing = await prisma.question.findFirst({
-      where: { year, title },
-      include: { options: true }
+    // 3. Processar em lotes paralelos rápidos (evita timeout de 10s no Vercel/servidor)
+    const existingQuestions = await prisma.question.findMany({
+      where: { year },
+      select: { id: true, title: true }
     })
+    const existingMap = new Map(existingQuestions.map(q => [q.title, q.id]))
 
-    if (existing) {
-      await prisma.question.update({
-        where: { id: existing.id },
-        data: {
-          statement,
-          correctAnswer: correctLetter,
-          imageUrl: primaryImage,
-          images: allImagesJson,
-          subjectId,
-          difficulty,
-          active: true
-        }
-      })
+    let importedCount = 0
+    let updatedCount = 0
+    const validLetters = ['A', 'B', 'C', 'D', 'E']
 
-      if (Array.isArray(q.alternatives) && q.alternatives.length > 0) {
-        for (const alt of q.alternatives) {
-          const letter = alt.letter?.trim()?.toUpperCase()
-          if (!validLetters.includes(letter)) continue
+    const CHUNK_SIZE = 15
+    for (let i = 0; i < allQuestions.length; i += CHUNK_SIZE) {
+      const chunk = allQuestions.slice(i, i + CHUNK_SIZE)
 
-          const existingOpt = existing.options.find(o => o.letter === letter)
-          if (existingOpt) {
-            await prisma.questionOption.update({
-              where: { id: existingOpt.id },
-              data: { text: alt.text || '', imageUrl: alt.file || null }
-            })
-          } else {
-            await prisma.questionOption.create({
-              data: {
-                questionId: existing.id,
-                letter,
-                text: alt.text || '',
-                imageUrl: alt.file || null
+      await Promise.all(chunk.map(async (q) => {
+        const correctLetter = q.correctAlternative?.trim()?.toUpperCase()
+        if (!correctLetter || !validLetters.includes(correctLetter)) return
+
+        const detectedSlug = identifySubject(q)
+        const subjectId = subjectCache.get(detectedSlug) || subjectCache.get('portugues')
+        const difficulty = calculateDifficulty(q)
+        const title = q.title || `Questão ${q.index} - ENEM ${year}`
+
+        let statementParts = []
+        if (q.context && q.context.trim()) statementParts.push(q.context.trim())
+        if (q.alternativesIntroduction && q.alternativesIntroduction.trim()) statementParts.push(q.alternativesIntroduction.trim())
+        const statement = statementParts.join('\n\n') || `Questão do ENEM ${year}`
+
+        const primaryImage = Array.isArray(q.files) && q.files.length > 0 ? q.files[0] : null
+        const allImagesJson = Array.isArray(q.files) && q.files.length > 0 ? JSON.stringify(q.files) : null
+
+        const existingId = existingMap.get(title)
+
+        const alternativesData = (Array.isArray(q.alternatives) ? q.alternatives : [])
+          .filter(alt => validLetters.includes(alt.letter?.trim()?.toUpperCase()))
+          .map(alt => ({
+            letter: alt.letter.trim().toUpperCase(),
+            text: alt.text || '',
+            imageUrl: alt.file || null
+          }))
+
+        const hasEnoughOptions = alternativesData.length >= 5
+        const emptyCount = alternativesData.filter(o => !o.text && !o.imageUrl).length
+        const isActive = hasEnoughOptions && emptyCount <= 1
+
+        if (existingId) {
+          await prisma.question.update({
+            where: { id: existingId },
+            data: {
+              statement,
+              correctAnswer: correctLetter,
+              imageUrl: primaryImage,
+              images: allImagesJson,
+              subjectId,
+              difficulty,
+              active: isActive
+            }
+          })
+          updatedCount++
+        } else {
+          await prisma.question.create({
+            data: {
+              subjectId,
+              title,
+              statement,
+              difficulty,
+              year,
+              correctAnswer: correctLetter,
+              imageUrl: primaryImage,
+              images: allImagesJson,
+              active: isActive,
+              options: {
+                create: alternativesData
               }
-            })
-          }
+            }
+          })
+          importedCount++
         }
-      }
-      updatedCount++
-    } else {
-      const alternativesData = (Array.isArray(q.alternatives) ? q.alternatives : [])
-        .filter(alt => validLetters.includes(alt.letter?.trim()?.toUpperCase()))
-        .map(alt => ({
-          letter: alt.letter.trim().toUpperCase(),
-          text: alt.text || '',
-          imageUrl: alt.file || null
-        }))
-
-      const hasEnoughOptions = alternativesData.length >= 5
-      const emptyCount = alternativesData.filter(o => !o.text && !o.imageUrl).length
-      const isActive = hasEnoughOptions && emptyCount <= 1
-
-      await prisma.question.create({
-        data: {
-          subjectId,
-          title,
-          statement,
-          difficulty,
-          year,
-          correctAnswer: correctLetter,
-          imageUrl: primaryImage,
-          images: allImagesJson,
-          active: isActive,
-          options: {
-            create: alternativesData
-          }
-        }
-      })
-      importedCount++
+      }))
     }
-  }
 
-  return {
-    success: true,
-    year,
-    totalDownloaded: allQuestions.length,
-    imported: importedCount,
-    updated: updatedCount
+    return {
+      success: true,
+      year,
+      totalDownloaded: allQuestions.length,
+      imported: importedCount,
+      updated: updatedCount
+    }
+  } catch (err) {
+    console.error('❌ Erro na importação do ENEM:', err)
+    throw createError({
+      statusCode: err.statusCode || 500,
+      statusMessage: err.statusMessage || err.message || 'Erro ao processar importação do ENEM.'
+    })
   }
 })
