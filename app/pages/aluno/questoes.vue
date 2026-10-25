@@ -250,6 +250,32 @@ function nextQuestion() {
   }
 }
 
+function formatStatement(stmt) {
+  if (!stmt) return ''
+  let html = stmt
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // Converte imagens inline do Markdown: ![alt](url) ou ![](url) em tags <img> reais
+  html = html.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (match, alt, url) => {
+    return `<img src="${url}" alt="${alt || 'Figura da questão'}" class="inline-block max-h-60 max-w-full my-2.5 rounded-xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1.5 shadow-2xs object-contain" />`
+  })
+
+  // Transforma **TEXTO I**, **TEXTO 1**, Texto 1 ou TEXTO I em badges de destaque
+  html = html.replace(/(?:^|\n+)(?:\*{0,2}(TEXTO\s+[IVXLCDM\d]+[^\*\n]*)\*{0,2})/gi, (match, p1) => {
+    return `<div class="mt-3 mb-1.5"><span class="inline-flex items-center gap-1.5 rounded-lg bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 px-2.5 py-1 text-xs font-black uppercase tracking-wider shadow-2xs">${p1.trim()}</span></div>`
+  })
+
+  // Transforma **bold**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+
+  // Transforma _itálico_
+  html = html.replace(/_([^_]+)_/g, '<span class="italic text-xs opacity-75 block mt-1">$1</span>')
+
+  return html
+}
+
 function prevQuestion() {
   if (currentIndex.value > 0) {
     currentIndex.value--
@@ -562,9 +588,10 @@ onMounted(() => {
         </h2>
 
         <!-- ENUNCIADO -->
-        <div class="mt-4 text-sm leading-7 sm:text-base text-[var(--student-text)] whitespace-pre-line">
-          {{ currentQuestion.statement }}
-        </div>
+        <div
+          class="mt-4 text-sm leading-7 sm:text-base text-[var(--student-text)] whitespace-pre-line"
+          v-html="formatStatement(currentQuestion.statement)"
+        ></div>
 
         <!-- IMAGENS DA QUESTÃO -->
         <div
@@ -873,9 +900,10 @@ onMounted(() => {
           </div>
         </div>
 
-        <p class="mt-4 text-sm sm:text-base leading-relaxed text-[var(--student-text)] whitespace-pre-line">
-          {{ q.statement }}
-        </p>
+        <div
+          class="mt-4 text-sm sm:text-base leading-relaxed text-[var(--student-text)] whitespace-pre-line"
+          v-html="formatStatement(q.statement)"
+        ></div>
 
         <div v-if="getQuestionImages(q).length > 0" class="mt-4">
           <div class="flex flex-wrap gap-3">

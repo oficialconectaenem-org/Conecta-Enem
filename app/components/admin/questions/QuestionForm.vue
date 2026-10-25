@@ -53,6 +53,96 @@ const imageInputMode = ref('file') // 'file' ou 'url'
 const fileInputRef = ref(null)
 const previewingIndex = ref(0)
 
+// Modo de Texto / Enunciado (Texto 1, Texto 2, Texto 3...)
+const statementMode = ref('single') // 'single' (enunciado padrão) ou 'multiple' (Texto 1, 2, 3...)
+const numberingStyle = ref('roman') // 'roman' (Texto I, II...) ou 'numeric' (Texto 1, 2...)
+const supportTexts = ref([
+  { id: 1, title: 'Texto I', content: '', source: '' }
+])
+const questionPrompt = ref('') // Comando / Pergunta final da questão
+
+function getNextTextTitle(idx) {
+  if (numberingStyle.value === 'roman') {
+    return `Texto ${toRoman(idx + 1)}`
+  }
+  return `Texto ${idx + 1}`
+}
+
+function switchStatementMode(mode) {
+  if (mode === statementMode.value) return
+  if (mode === 'multiple') {
+    if (form.statement && (!supportTexts.value[0]?.content && !questionPrompt.value)) {
+      questionPrompt.value = form.statement
+    }
+    statementMode.value = 'multiple'
+  } else {
+    const compiled = buildCompiledStatement()
+    if (compiled) {
+      form.statement = compiled
+    }
+    statementMode.value = 'single'
+  }
+}
+
+function updateNumberingStyle(style) {
+  numberingStyle.value = style
+  supportTexts.value.forEach((txt, idx) => {
+    const currentTitle = txt.title?.trim()
+    const isStandard = !currentTitle || /^Texto\s+([IVXLCDM\d]+)$/i.test(currentTitle)
+    if (isStandard) {
+      txt.title = getNextTextTitle(idx)
+    }
+  })
+}
+
+function addSupportText() {
+  const nextIdx = supportTexts.value.length
+  supportTexts.value.push({
+    id: Date.now() + Math.random(),
+    title: getNextTextTitle(nextIdx),
+    content: '',
+    source: ''
+  })
+}
+
+function removeSupportText(index) {
+  if (supportTexts.value.length === 1) {
+    supportTexts.value[0].content = ''
+    supportTexts.value[0].source = ''
+    return
+  }
+  supportTexts.value.splice(index, 1)
+  supportTexts.value.forEach((txt, idx) => {
+    const currentTitle = txt.title?.trim()
+    if (/^Texto\s+([IVXLCDM\d]+)$/i.test(currentTitle)) {
+      txt.title = getNextTextTitle(idx)
+    }
+  })
+}
+
+function buildCompiledStatement() {
+  if (statementMode.value === 'single') {
+    return form.statement?.trim() || ''
+  }
+
+  const parts = []
+  supportTexts.value.forEach((txt, idx) => {
+    if (!txt.content?.trim()) return
+    const title = txt.title?.trim() || getNextTextTitle(idx)
+    let block = `**${title.toUpperCase()}**\n\n${txt.content.trim()}`
+    if (txt.source?.trim()) {
+      block += `\n\n_${txt.source.trim()}_`
+    }
+    parts.push(block)
+  })
+
+  if (questionPrompt.value?.trim()) {
+    parts.push(questionPrompt.value.trim())
+  }
+
+  return parts.join('\n\n')
+}
+
 function toRoman(num) {
   const romanMap = [
     { value: 10, symbol: 'X' },
@@ -224,6 +314,50 @@ function prepareEdit() {
   form.title = props.question.title || ''
   form.statement = props.question.statement || ''
   form.explanation = props.question.explanation || ''
+
+  // Detecta se a questão já possui múltiplos textos (ex: **TEXTO I** ou TEXTO 1)
+  if (props.question.statement) {
+    const rawStmt = props.question.statement
+    const regex = /(?:^|\n+)(?:\*{0,2}(?:TEXTO|Texto)\s+([IVXLCDM\d]+)[^\n]*\*{0,2})/gi
+    const matches = [...rawStmt.matchAll(regex)]
+
+    if (matches.length >= 1) {
+      statementMode.value = 'multiple'
+      const parsedTexts = []
+
+      for (let i = 0; i < matches.length; i++) {
+        const match = matches[i]
+        const startIndex = match.index
+        const titleText = match[0].replace(/\*/g, '').replace(/[\r\n]/g, '').trim()
+        const nextMatch = matches[i + 1]
+        const nextStart = nextMatch ? nextMatch.index : rawStmt.length
+
+        const fullBlock = rawStmt.substring(startIndex + match[0].length, nextStart).trim()
+
+        let content = fullBlock
+        let source = ''
+        const sourceMatch = fullBlock.match(/\n+_(.*?)_$/s)
+        if (sourceMatch) {
+          source = sourceMatch[1]
+          content = fullBlock.substring(0, sourceMatch.index).trim()
+        }
+
+        parsedTexts.push({
+          id: i + 1,
+          title: titleText,
+          content: content,
+          source: source
+        })
+      }
+
+      supportTexts.value = parsedTexts
+      questionPrompt.value = ''
+    } else {
+      statementMode.value = 'single'
+    }
+  } else {
+    statementMode.value = 'single'
+  }
   form.year = props.question.year || null
   form.difficulty = props.question.difficulty || 'MEDIUM'
   form.correctAnswer = props.question.correctAnswer || 'A'
@@ -301,9 +435,18 @@ async function submit() {
     return
   }
 
-  if (!form.statement || !form.statement.trim()) {
-    errorMessage.value = 'O enunciado da questão é obrigatório.'
-    return
+  if (statementMode.value === 'multiple') {
+    const compiled = buildCompiledStatement()
+    if (!compiled) {
+      errorMessage.value = 'Preencha o conteúdo dos textos de apoio ou o comando da questão.'
+      return
+    }
+    form.statement = compiled
+  } else {
+    if (!form.statement || !form.statement.trim()) {
+      errorMessage.value = 'O enunciado da questão é obrigatório.'
+      return
+    }
   }
 
   // Ensure at least 2 options are filled with either text or an image
@@ -489,18 +632,169 @@ onMounted(() => {
       />
     </div>
 
-    <!-- ENUNCIADO -->
-    <div>
-      <label class="form-label required">
-        Enunciado da Questão
-      </label>
-      <textarea
-        v-model="form.statement"
-        rows="7"
-        class="form-input resize-y"
-        placeholder="Digite ou cole aqui o texto completo do enunciado da questão..."
-        required
-      ></textarea>
+    <!-- ENUNCIADO E TEXTOS DE APOIO -->
+    <div class="space-y-4 rounded-2xl border border-zinc-200 bg-zinc-50/70 p-5">
+      <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-b border-zinc-200/80 pb-4">
+        <div>
+          <label class="form-label mb-0 text-base font-bold text-zinc-900 required">
+            Enunciado e Textos de Apoio
+          </label>
+          <p class="text-xs text-zinc-500">
+            Escolha se a questão possui texto único ou múltiplos textos de apoio (Texto 1, Texto 2, Texto 3...).
+          </p>
+        </div>
+
+        <!-- SELETOR DE MODO DO ENUNCIADO -->
+        <div class="flex items-center gap-1.5 rounded-xl bg-white p-1 border border-zinc-200 shadow-2xs">
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+            :class="statementMode === 'single'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'"
+            @click="switchStatementMode('single')"
+          >
+            <span class="material-symbols-rounded text-sm">article</span>
+            Texto Único (Padrão)
+          </button>
+
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+            :class="statementMode === 'multiple'
+              ? 'bg-purple-600 text-white shadow-xs'
+              : 'text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'"
+            @click="switchStatementMode('multiple')"
+          >
+            <span class="material-symbols-rounded text-sm">library_books</span>
+            Textos de Apoio (Texto 1, 2, 3...)
+          </button>
+        </div>
+      </div>
+
+      <!-- MODO 1: TEXTO ÚNICO (PADRÃO / CASO NÃO TENHA MÚLTIPLOS) -->
+      <div v-if="statementMode === 'single'" class="space-y-2">
+        <textarea
+          v-model="form.statement"
+          rows="7"
+          class="form-input resize-y"
+          placeholder="Digite ou cole aqui o texto completo do enunciado da questão..."
+        ></textarea>
+        <p class="text-xs text-zinc-500">
+          💡 Caso a questão tenha dois ou mais textos motivadores, clique em <strong>"Textos de Apoio (Texto 1, 2, 3...)"</strong> acima para organizá-los separadamente.
+        </p>
+      </div>
+
+      <!-- MODO 2: MÚLTIPLOS TEXTOS (TEXTO 1, 2, 3...) -->
+      <div v-else class="space-y-4">
+        <!-- BARRA DE CONFIGURAÇÃO DE TEXTOS -->
+        <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl bg-white p-3 border border-zinc-200">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-semibold text-zinc-600">Estilo da numeração:</span>
+            <div class="inline-flex rounded-lg border border-zinc-200 p-0.5">
+              <button
+                type="button"
+                class="rounded-md px-2.5 py-1 text-xs font-bold transition cursor-pointer"
+                :class="numberingStyle === 'roman' ? 'bg-purple-100 text-purple-700' : 'text-zinc-600 hover:text-zinc-900'"
+                @click="updateNumberingStyle('roman')"
+              >
+                Romano (I, II, III)
+              </button>
+              <button
+                type="button"
+                class="rounded-md px-2.5 py-1 text-xs font-bold transition cursor-pointer"
+                :class="numberingStyle === 'numeric' ? 'bg-purple-100 text-purple-700' : 'text-zinc-600 hover:text-zinc-900'"
+                @click="updateNumberingStyle('numeric')"
+              >
+                Numérico (1, 2, 3)
+              </button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            class="flex items-center gap-1.5 rounded-xl bg-purple-50 border border-purple-200 px-3 py-1.5 text-xs font-bold text-purple-700 transition hover:bg-purple-100 cursor-pointer"
+            @click="addSupportText"
+          >
+            <span class="material-symbols-rounded text-sm">add</span>
+            Adicionar {{ numberingStyle === 'roman' ? `Texto ${toRoman(supportTexts.length + 1)}` : `Texto ${supportTexts.length + 1}` }}
+          </button>
+        </div>
+
+        <!-- LISTA DE CARDS DE TEXTOS DE APOIO -->
+        <div class="space-y-3">
+          <div
+            v-for="(item, idx) in supportTexts"
+            :key="item.id"
+            class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-2xs space-y-3 transition"
+          >
+            <div class="flex items-center justify-between gap-2 border-b border-zinc-100 pb-2.5">
+              <div class="flex items-center gap-2">
+                <span class="inline-flex items-center gap-1 rounded-lg bg-purple-100 px-2.5 py-1 text-xs font-black text-purple-700">
+                  <span class="material-symbols-rounded text-xs">notes</span>
+                  {{ item.title || getNextTextTitle(idx) }}
+                </span>
+                <input
+                  v-model="item.title"
+                  type="text"
+                  class="h-7 rounded-lg border border-zinc-200 px-2 text-xs font-medium text-zinc-700 focus:border-purple-500 outline-none"
+                  placeholder="Nome do texto (ex: Texto I, Poema, Notícia)"
+                />
+              </div>
+
+              <button
+                type="button"
+                class="inline-flex items-center gap-1 rounded-lg p-1.5 text-xs font-medium text-red-600 hover:bg-red-50 transition cursor-pointer"
+                title="Remover este texto"
+                @click="removeSupportText(idx)"
+              >
+                <span class="material-symbols-rounded text-base">delete</span>
+                <span class="hidden sm:inline">Remover</span>
+              </button>
+            </div>
+
+            <!-- CONTEÚDO DO TEXTO -->
+            <div>
+              <textarea
+                v-model="item.content"
+                rows="4"
+                class="form-input text-xs sm:text-sm resize-y"
+                :placeholder="`Digite ou cole aqui o conteúdo do ${item.title || getNextTextTitle(idx)}...`"
+              ></textarea>
+            </div>
+
+            <!-- FONTE / REFERÊNCIA -->
+            <div>
+              <div class="flex items-center gap-1.5">
+                <span class="material-symbols-rounded text-sm text-zinc-400">menu_book</span>
+                <input
+                  v-model="item.source"
+                  type="text"
+                  class="form-input text-xs"
+                  placeholder="Fonte / Referência bibliográfica (opcional - ex: SILVA, M. In: Obra..., 2022)"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- COMANDO / PERGUNTA DA QUESTÃO -->
+        <div class="rounded-2xl border border-purple-200 bg-purple-50/40 p-4 space-y-2">
+          <label class="form-label mb-0 text-sm font-bold text-zinc-900 flex items-center gap-1.5">
+            <span class="material-symbols-rounded text-base text-purple-600">help</span>
+            Comando / Pergunta da Questão
+          </label>
+          <p class="text-xs text-zinc-500">
+            A pergunta ou comando que finaliza a questão após os textos (ex: "Considerando os textos I e II, infere-se que...").
+          </p>
+          <textarea
+            v-model="questionPrompt"
+            rows="3"
+            class="form-input text-xs sm:text-sm resize-y bg-white"
+            placeholder="Digite aqui o comando final da questão..."
+          ></textarea>
+        </div>
+      </div>
     </div>
 
     <!-- IMAGENS DA QUESTÃO (FOTO OU LINK) -->

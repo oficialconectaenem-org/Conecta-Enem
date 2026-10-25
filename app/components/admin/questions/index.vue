@@ -23,6 +23,37 @@ const viewingQuestion = ref(null)
 const deletingQuestionId = ref(null)
 const showDeleteModal = ref(false)
 
+// Estado da Importação Nativa do ENEM
+const showImportModal = ref(false)
+const selectedImportYear = ref(2023)
+const importingEnem = ref(false)
+const importSuccessMessage = ref('')
+const importErrorMessage = ref('')
+
+async function runEnemImport() {
+  importingEnem.value = true
+  importSuccessMessage.value = ''
+  importErrorMessage.value = ''
+
+  try {
+    const res = await $fetch('/api/admin/questions/import-enem', {
+      method: 'POST',
+      body: { year: Number(selectedImportYear.value) }
+    })
+    importSuccessMessage.value = `ENEM ${res.year} importado com sucesso! (${res.imported} novas adicionadas, ${res.updated} atualizadas).`
+    await Promise.all([getQuestions(), loadSubjects()])
+    setTimeout(() => {
+      showImportModal.value = false
+      importSuccessMessage.value = ''
+    }, 2500)
+  } catch (err) {
+    console.error('Erro na importação:', err)
+    importErrorMessage.value = err?.data?.statusMessage || err?.message || 'Erro ao importar prova do ENEM.'
+  } finally {
+    importingEnem.value = false
+  }
+}
+
 const hasFilters = computed(() => {
   return Boolean(
     filters.search ||
@@ -148,6 +179,32 @@ function handleDeleted(id) {
   getQuestions()
 }
 
+function formatStatement(stmt) {
+  if (!stmt) return ''
+  let html = stmt
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+
+  // Converte imagens inline do Markdown: ![alt](url) ou ![](url) em tags <img> reais
+  html = html.replace(/!\[(.*?)\]\((https?:\/\/[^\s\)]+)\)/gi, (match, alt, url) => {
+    return `<img src="${url}" alt="${alt || 'Figura da questão'}" class="inline-block max-h-56 max-w-full my-2 rounded-xl border border-zinc-200 bg-white p-1 shadow-2xs object-contain" />`
+  })
+
+  // Transforma **TEXTO I**, **TEXTO 1**, **Texto 1** em badges de destaque
+  html = html.replace(/(?:^|\n+)(?:\*{0,2}(TEXTO\s+[IVXLCDM\d]+[^\*\n]*)\*{0,2})/gi, (match, p1) => {
+    return `<div class="mt-3 mb-1.5"><span class="inline-flex items-center gap-1.5 rounded-lg bg-purple-100 text-purple-700 px-2.5 py-1 text-xs font-black uppercase tracking-wider shadow-2xs">${p1.trim()}</span></div>`
+  })
+
+  // Transforma **bold**
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold">$1</strong>')
+
+  // Transforma _itálico_
+  html = html.replace(/_([^_]+)_/g, '<span class="italic text-xs opacity-75 block mt-1">$1</span>')
+
+  return html
+}
+
 onMounted(() => {
   getQuestions()
   loadSubjects()
@@ -170,13 +227,24 @@ onMounted(() => {
         </p>
       </div>
 
-      <NuxtLink
-        to="/admin/questoes/nova"
-        class="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-purple-600/20 transition hover:bg-purple-700"
-      >
-        <span class="material-symbols-rounded text-lg">add</span>
-        <span>Nova questão</span>
-      </NuxtLink>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3.5 text-sm font-bold text-purple-700 transition hover:bg-purple-100 cursor-pointer shadow-xs active:scale-98"
+          @click="showImportModal = true"
+        >
+          <span class="material-symbols-rounded text-lg">cloud_download</span>
+          <span>Importar do ENEM</span>
+        </button>
+
+        <NuxtLink
+          to="/admin/questoes/nova"
+          class="inline-flex items-center justify-center gap-2 rounded-2xl bg-purple-600 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-purple-600/20 transition hover:bg-purple-700 active:scale-98"
+        >
+          <span class="material-symbols-rounded text-lg">add</span>
+          <span>Nova questão</span>
+        </NuxtLink>
+      </div>
     </div>
 
     <!-- METRICS CARDS -->
@@ -332,9 +400,10 @@ onMounted(() => {
             </h3>
 
             <!-- ENUNCIADO -->
-            <div class="mt-4 rounded-2xl bg-zinc-50/80 p-5 text-sm leading-relaxed text-zinc-800 whitespace-pre-line border border-zinc-100">
-              {{ viewingQuestion.statement }}
-            </div>
+            <div
+              class="mt-4 rounded-2xl bg-zinc-50/80 p-5 text-sm leading-relaxed text-zinc-800 whitespace-pre-line border border-zinc-100"
+              v-html="formatStatement(viewingQuestion.statement)"
+            ></div>
 
             <!-- IMAGENS DA QUESTÃO -->
             <div
@@ -483,5 +552,125 @@ onMounted(() => {
       @deleted="handleDeleted"
       @close="showDeleteModal = false; deletingQuestionId = null"
     />
+
+    <!-- MODAL DE IMPORTAÇÃO NATIVA DO ENEM -->
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition duration-200 ease-out"
+        enter-from-class="opacity-0"
+        enter-to-class="opacity-100"
+        leave-active-class="transition duration-150 ease-in"
+        leave-from-class="opacity-100"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="showImportModal"
+          class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
+          @click.self="!importingEnem && (showImportModal = false)"
+        >
+          <div class="w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl space-y-6 sm:p-8">
+            <div class="flex items-center justify-between border-b border-zinc-100 pb-4">
+              <div class="flex items-center gap-3">
+                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+                  <span class="material-symbols-rounded text-2xl">cloud_download</span>
+                </div>
+                <div>
+                  <h3 class="text-xl font-black text-zinc-900">
+                    Importar Prova do ENEM
+                  </h3>
+                  <p class="text-xs text-zinc-500">
+                    Integração oficial direta para o seu banco de dados
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                :disabled="importingEnem"
+                class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
+                @click="showImportModal = false"
+              >
+                <span class="material-symbols-rounded text-xl">close</span>
+              </button>
+            </div>
+
+            <!-- MENSAGENS DE SUCESSO OU ERRO -->
+            <div
+              v-if="importSuccessMessage"
+              class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800"
+            >
+              <span class="material-symbols-rounded text-lg shrink-0">check_circle</span>
+              <span>{{ importSuccessMessage }}</span>
+            </div>
+
+            <div
+              v-if="importErrorMessage"
+              class="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700"
+            >
+              <span class="material-symbols-rounded text-lg shrink-0">error</span>
+              <span>{{ importErrorMessage }}</span>
+            </div>
+
+            <!-- SELEÇÃO DE ANO -->
+            <div class="space-y-3">
+              <label class="text-xs font-bold uppercase tracking-wider text-zinc-600">
+                Selecione o Ano da Prova
+              </label>
+              <select
+                v-model="selectedImportYear"
+                :disabled="importingEnem"
+                class="h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm font-bold text-zinc-800 outline-none transition focus:border-purple-600 focus:bg-white"
+              >
+                <option :value="2023">ENEM 2023 (181 questões oficiais)</option>
+                <option :value="2022">ENEM 2022 (183 questões oficiais)</option>
+                <option :value="2021">ENEM 2021 (180 questões oficiais)</option>
+                <option :value="2020">ENEM 2020 (180 questões oficiais)</option>
+                <option :value="2019">ENEM 2019 (180 questões oficiais)</option>
+                <option :value="2018">ENEM 2018 (180 questões oficiais)</option>
+                <option :value="2017">ENEM 2017 (180 questões oficiais)</option>
+                <option :value="2016">ENEM 2016 (180 questões oficiais)</option>
+                <option :value="2015">ENEM 2015 (180 questões oficiais)</option>
+              </select>
+            </div>
+
+            <!-- DESTAQUES DA INTEGRAÇÃO NATIVA -->
+            <div class="space-y-2 rounded-2xl bg-purple-50/60 p-4 border border-purple-100 text-xs text-zinc-600">
+              <div class="flex items-center gap-2 font-bold text-purple-900">
+                <span class="material-symbols-rounded text-base text-purple-600">verified</span>
+                <span>Processamento Inteligente Incluso:</span>
+              </div>
+              <ul class="space-y-1.5 pl-6 list-disc text-zinc-600">
+                <li>Separação automática em matérias individuais (*Física, Química, Biologia, História, etc.*).</li>
+                <li>Cálculo de dificuldade proporcional (*Fácil, Média, Difícil*).</li>
+                <li>Importação de textos de apoio (Texto 1, 2, 3...) e gabaritos oficiais.</li>
+              </ul>
+            </div>
+
+            <!-- AÇÕES DO MODAL -->
+            <div class="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+              <button
+                type="button"
+                :disabled="importingEnem"
+                class="rounded-xl border border-zinc-200 px-5 py-2.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50 cursor-pointer"
+                @click="showImportModal = false"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                :disabled="importingEnem"
+                class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-6 py-2.5 text-xs font-bold text-white transition hover:bg-purple-700 disabled:opacity-60 cursor-pointer shadow-md shadow-purple-600/20 active:scale-98"
+                @click="runEnemImport"
+              >
+                <span v-if="importingEnem" class="material-symbols-rounded animate-spin text-base">progress_activity</span>
+                <span v-else class="material-symbols-rounded text-base">download</span>
+                <span>{{ importingEnem ? 'Importando prova...' : `Importar ENEM ${selectedImportYear}` }}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>

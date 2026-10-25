@@ -9,6 +9,7 @@
     "preview": "nuxt preview",
     "postinstall": "prisma generate && nuxt prepare",
     "seed:admin": "jiti prisma/seed-admin.js",
+    "seed:enem": "node prisma/seed-enem.js",
     "cap:sync": "npx cap sync android",
     "cap:open": "npx cap open android"
   },
