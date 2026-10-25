@@ -1,6 +1,7 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import prisma from '#server/utils/prisma'
 import { requireAdmin } from '#server/utils/require-admin.js'
+import { ensureQuestionsSchema } from '#server/utils/ensure-schema'
 
 // Mapeamento de matérias escolares específicas
 const DETAILED_SUBJECTS = {
@@ -113,8 +114,9 @@ export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
   try {
+    await ensureQuestionsSchema()
     const body = await readBody(event)
-  const year = Number(body?.year) || 2023
+    const year = Number(body?.year) || 2023
 
   if (year < 2009 || year > 2030) {
     throw createError({

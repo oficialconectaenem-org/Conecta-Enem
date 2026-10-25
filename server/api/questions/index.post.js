@@ -1,7 +1,9 @@
 import { defineEventHandler, readBody, createError } from "h3"
 import prisma from "#server/utils/prisma"
+import { ensureQuestionsSchema } from "#server/utils/ensure-schema"
 
 export default defineEventHandler(async (event) => {
+  await ensureQuestionsSchema()
   const body = await readBody(event)
 
   if (!body.statement || !body.statement.trim()) {
