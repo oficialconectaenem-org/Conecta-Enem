@@ -92,7 +92,7 @@ async function handleInstall() {
         </button>
 
         <!-- ALTERNAR TEMA -->
-        <ThemeToggle />
+        <CommonThemeToggle />
 
         <NuxtLink
           to="/login"
@@ -110,7 +110,7 @@ async function handleInstall() {
       </div>
 
       <div class="flex items-center gap-2 lg:hidden">
-        <ThemeToggle size="sm" />
+        <CommonThemeToggle size="sm" />
 
         <button
           type="button"

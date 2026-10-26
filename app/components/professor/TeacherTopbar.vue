@@ -51,7 +51,7 @@ const initials = computed(() => {
 
     <div class="flex items-center gap-3">
       <!-- ALTERNAR TEMA -->
-      <ThemeToggle />
+      <CommonThemeToggle />
 
       <div class="flex items-center gap-2.5">
         <div class="w-9 h-9 flex items-center justify-center rounded-xl bg-purple-100 dark:bg-purple-950/80 text-purple-700 dark:text-purple-300 font-black text-xs border border-purple-200/60 dark:border-purple-800/40">

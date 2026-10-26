@@ -71,7 +71,7 @@ const initials = computed(() => {
       class="flex items-center gap-3 sm:gap-4"
     >
       <!-- ALTERNAR TEMA -->
-      <ThemeToggle />
+      <CommonThemeToggle />
 
       <div
         class="hidden text-right sm:block"
