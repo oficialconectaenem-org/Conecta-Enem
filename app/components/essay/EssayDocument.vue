@@ -656,30 +656,37 @@ function handleTextClick(e) {
             :class="photoWidthClass"
           >
             <div class="relative w-full rounded-xl shadow-2xl bg-white dark:bg-zinc-900 border border-slate-300 dark:border-zinc-700/80 overflow-hidden">
-              <img
-                :src="imageUrl"
-                alt="Folha de redação manuscrita enviada pelo aluno"
-                class="w-full h-auto block transition-all duration-200 select-none pointer-events-none"
+              <div
+                class="relative w-full transition-transform duration-200 origin-center"
                 :style="{
-                  transform: `rotate(${photoRotation}deg)`,
-                  filter: photoFilterStyle,
-                  imageRendering: '-webkit-optimize-contrast'
+                  transform: photoRotation ? `rotate(${photoRotation}deg)` : undefined
                 }"
-              />
+              >
+                <img
+                  :src="imageUrl"
+                  alt="Folha de redação manuscrita enviada pelo aluno"
+                  class="w-full h-auto block select-none pointer-events-none"
+                  :style="{
+                    filter: photoFilterStyle,
+                    imageRendering: '-webkit-optimize-contrast'
+                  }"
+                />
 
-              <!-- Camada de Anotação SVG Sobre a Imagem -->
-              <EssayAnnotationLayer
-                :annotations="annotations"
-                :active-tool="activeTool"
-                :active-color="activeColor"
-                :active-stroke-width="activeStrokeWidth"
-                :read-only="readOnly"
-                :show-annotations="showAnnotations"
-                :selected-annotation-id="selectedAnnotationId"
-                @add-annotation="emit('add-annotation', $event)"
-                @remove-annotation="emit('remove-annotation', $event)"
-                @select-annotation="emit('select-annotation', $event)"
-              />
+                <!-- Camada de Anotação SVG Sobre a Imagem -->
+                <EssayAnnotationLayer
+                  :annotations="annotations"
+                  :active-tool="activeTool"
+                  :active-color="activeColor"
+                  :active-stroke-width="activeStrokeWidth"
+                  :read-only="readOnly"
+                  :show-annotations="showAnnotations"
+                  :selected-annotation-id="selectedAnnotationId"
+                  @add-annotation="emit('add-annotation', $event)"
+                  @remove-annotation="emit('remove-annotation', $event)"
+                  @select-annotation="emit('select-annotation', $event)"
+                  @open-comment-modal="emit('open-comment-modal', $event)"
+                />
+              </div>
             </div>
           </div>
         </div>

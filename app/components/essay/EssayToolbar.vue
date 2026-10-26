@@ -54,27 +54,28 @@ const emit = defineEmits([
 
 const tools = [
   { id: 'select', label: 'Cursor Normal / Seleção', icon: 'near_me' },
-  { id: 'correct', label: '✍️ Riscar & Escrever em Cima (Recomendado)', icon: 'spellcheck', badge: 'PRO' },
+  { id: 'correct', label: '✍️ Riscar & Escrever em Cima', icon: 'spellcheck', badge: 'PRO' },
+  { id: 'text', label: '📝 Escrever Texto na Folha', icon: 'edit_note' },
   { id: 'pen', label: 'Caneta Livre', icon: 'edit' },
   { id: 'highlighter', label: 'Marca-texto', icon: 'ink_highlighter' },
+  { id: 'strike', label: 'Riscar / Tachar', icon: 'strikethrough_s' },
   { id: 'underline', label: 'Sublinhar', icon: 'format_underlined' },
-  { id: 'strike', label: 'Riscar / Tachar Simples', icon: 'strikethrough_s' },
   { id: 'comment', label: 'Comentário Marginal', icon: 'add_comment' },
   { id: 'eraser', label: 'Borracha', icon: 'ink_eraser' }
 ]
 
 const colors = [
-  { hex: '#dc2626', name: 'Vermelho Correção', bgClass: 'bg-red-600' },
+  { hex: '#dc2626', name: 'Vermelho Erro / Correção', bgClass: 'bg-red-600' },
   { hex: '#f59e0b', name: 'Amarelo Atenção', bgClass: 'bg-amber-500' },
+  { hex: '#16a34a', name: 'Verde Elogio / Acerto', bgClass: 'bg-emerald-600' },
   { hex: '#2563eb', name: 'Azul Destaque', bgClass: 'bg-blue-600' },
-  { hex: '#16a34a', name: 'Verde Positivo', bgClass: 'bg-emerald-600' },
   { hex: '#7c3aed', name: 'Roxo Estrutural', bgClass: 'bg-purple-600' }
 ]
 
 const strokeWidths = [
   { size: 2, label: 'Fina' },
-  { size: 3, label: 'Média' },
-  { size: 5, label: 'Grossa' }
+  { size: 3.5, label: 'Média' },
+  { size: 6, label: 'Grossa' }
 ]
 </script>
 
@@ -103,6 +104,7 @@ const strokeWidths = [
         >
           <span class="material-symbols-rounded text-[18px] sm:text-[20px]">{{ tool.icon }}</span>
           <span v-if="tool.id === 'correct'" class="text-[11px] font-black hidden xl:inline">Riscar & Escrever</span>
+          <span v-else-if="tool.id === 'text'" class="text-[11px] font-bold hidden 2xl:inline">Texto</span>
           <span v-if="tool.badge && activeTool !== tool.id" class="text-[9px] font-black bg-purple-600 text-white px-1 rounded-full hidden sm:inline">{{ tool.badge }}</span>
         </button>
       </div>
@@ -128,8 +130,8 @@ const strokeWidths = [
         </button>
       </div>
 
-      <!-- Espessura do Traço (para Caneta/Marca-texto) -->
-      <div v-if="activeTool === 'pen' || activeTool === 'highlighter' || activeTool === 'circle' || activeTool === 'arrow'" class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl border border-slate-200 dark:border-zinc-700/60">
+      <!-- Espessura do Traço (para Caneta/Marca-texto/Risco/Sublinhar) -->
+      <div v-if="['pen', 'highlighter', 'strike', 'underline', 'correct', 'circle', 'arrow'].includes(activeTool)" class="hidden md:flex items-center gap-1 bg-slate-100 dark:bg-zinc-800/80 p-1 rounded-2xl border border-slate-200 dark:border-zinc-700/60">
         <button
           v-for="sw in strokeWidths"
           :key="sw.size"

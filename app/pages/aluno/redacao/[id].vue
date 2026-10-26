@@ -167,8 +167,8 @@ onMounted(() => {
               class="flex items-center gap-1 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-xl text-xs font-bold transition cursor-pointer"
               :class="activeView === 'document' ? 'bg-white dark:bg-zinc-700 text-purple-700 dark:text-purple-300 shadow-2xs font-black' : 'text-slate-600 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-zinc-200'"
             >
-              <span class="material-symbols-rounded text-sm">edit_document</span>
-              <span class="hidden sm:inline">Folha Pautada</span>
+              <span class="material-symbols-rounded text-sm">{{ essay?.submissionType === 'IMAGE' || essay?.imageUrl ? 'photo_camera' : 'edit_document' }}</span>
+              <span class="hidden sm:inline">{{ essay?.submissionType === 'IMAGE' || essay?.imageUrl ? 'Folha / Foto' : 'Folha Pautada' }}</span>
             </button>
 
             <!-- Aba Direta de Correções & Comentários (Visível no Mobile e Desktop) -->
