@@ -3,6 +3,8 @@
  * Garante sincronização reativa, persistência em localStorage e compatibilidade SSR.
  */
 
+let isInitialized = false
+
 export function useTheme() {
   const theme = useState('theme_preference', () => 'system')
   const isDark = useState('theme_is_dark', () => false)
@@ -46,8 +48,10 @@ export function useTheme() {
     setTheme(next)
   }
 
-  // Inicialização e listeners no cliente
-  onMounted(() => {
+  function initTheme() {
+    if (import.meta.server || isInitialized) return
+    isInitialized = true
+
     const saved = localStorage.getItem('conecta_theme') || 'system'
     theme.value = saved
     updateDom(resolveDark(saved))
@@ -65,12 +69,24 @@ export function useTheme() {
     } else {
       mediaQuery.addListener(handleSystemChange)
     }
-  })
+  }
+
+  // Executa na montagem do componente se ainda não inicializado
+  if (import.meta.client && !isInitialized) {
+    if (getCurrentInstance()) {
+      onMounted(() => {
+        initTheme()
+      })
+    } else {
+      initTheme()
+    }
+  }
 
   return {
     theme,
     isDark,
     setTheme,
-    toggleTheme
+    toggleTheme,
+    initTheme
   }
 }

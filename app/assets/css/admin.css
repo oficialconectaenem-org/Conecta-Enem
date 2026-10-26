@@ -103,3 +103,61 @@ html.dark,
   -webkit-font-smoothing: antialiased;
   font-feature-settings: 'liga';
 }
+
+/* =========================================================
+   PROTEÇÃO DE TEMA ESCURO PARA CARDS, TABELAS E INPUTS DO ADMIN
+   ========================================================= */
+.dark .admin-shell .bg-white {
+  background-color: var(--admin-card) !important;
+}
+
+.dark .admin-shell .bg-zinc-50,
+.dark .admin-shell .bg-slate-50 {
+  background-color: var(--admin-surface-subtle) !important;
+}
+
+.dark .admin-shell .border-zinc-100,
+.dark .admin-shell .border-zinc-200,
+.dark .admin-shell .border-zinc-300,
+.dark .admin-shell .border-slate-200 {
+  border-color: var(--admin-border) !important;
+}
+
+.dark .admin-shell .divide-zinc-100 > :not([hidden]) ~ :not([hidden]),
+.dark .admin-shell .divide-zinc-200 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--admin-border) !important;
+}
+
+.dark .admin-shell .text-zinc-900,
+.dark .admin-shell .text-zinc-800,
+.dark .admin-shell .text-slate-900,
+.dark .admin-shell .text-slate-800 {
+  color: var(--admin-text) !important;
+}
+
+.dark .admin-shell .text-zinc-700,
+.dark .admin-shell .text-zinc-600,
+.dark .admin-shell .text-slate-700,
+.dark .admin-shell .text-slate-600 {
+  color: var(--admin-text-secondary) !important;
+}
+
+.dark .admin-shell .text-zinc-500,
+.dark .admin-shell .text-zinc-400,
+.dark .admin-shell .text-slate-500,
+.dark .admin-shell .text-slate-400 {
+  color: var(--admin-text-muted) !important;
+}
+
+.dark .admin-shell input:not([type="checkbox"]):not([type="radio"]):not([type="submit"]):not([type="button"]),
+.dark .admin-shell textarea,
+.dark .admin-shell select {
+  background-color: var(--admin-input) !important;
+  border-color: var(--admin-border) !important;
+  color: var(--admin-text) !important;
+}
+
+.dark .admin-shell input::placeholder,
+.dark .admin-shell textarea::placeholder {
+  color: var(--admin-text-muted) !important;
+}

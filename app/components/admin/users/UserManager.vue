@@ -349,16 +349,16 @@ onMounted(() => {
     <!-- MODAL DE CONFIRMAÇÃO DE EXCLUSÃO -->
     <div
       v-if="showDeleteModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4"
     >
-      <div class="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl border border-zinc-100 space-y-4 animate-scaleUp">
+      <div class="w-full max-w-md rounded-2xl bg-white dark:bg-zinc-900 p-6 shadow-xl border border-zinc-100 dark:border-zinc-800 space-y-4 animate-scaleUp">
         <div class="flex items-center gap-3">
-          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100 text-red-600">
+          <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950/60 text-red-600 dark:text-red-400">
             <span class="material-symbols-rounded text-2xl">warning</span>
           </div>
           <div>
-            <h3 class="text-base font-bold text-zinc-900">Excluir Usuário</h3>
-            <p class="text-xs text-zinc-500">Esta ação não pode ser desfeita.</p>
+            <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">Excluir Usuário</h3>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">Esta ação não pode ser desfeita.</p>
           </div>
         </div>
 

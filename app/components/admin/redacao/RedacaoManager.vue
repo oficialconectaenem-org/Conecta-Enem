@@ -499,13 +499,13 @@ async function handleDelete(type, id) {
         <!-- Fundo de sobreposição suave claro/transparente -->
         <div class="absolute inset-0 bg-slate-900/40 backdrop-blur-xs" @click="closeModal"></div>
 
-        <div class="relative z-10 w-full max-w-xl rounded-3xl bg-white p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-zinc-200 text-zinc-900">
-          <div class="flex items-center justify-between border-b border-zinc-100 pb-3">
-            <h3 class="text-lg font-black text-zinc-900">
+        <div class="relative z-10 w-full max-w-xl rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100">
+          <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-3">
+            <h3 class="text-lg font-black text-zinc-900 dark:text-zinc-100">
               {{ isEditing ? 'Editar' : 'Cadastrar' }}
               {{ modalType === 'topic' ? 'Tema de Redação' : modalType === 'argument' ? 'Argumento' : 'Repertório Sociocultural' }}
             </h3>
-            <button @click="closeModal" class="h-8 w-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-zinc-100 text-lg cursor-pointer">
+            <button @click="closeModal" class="h-8 w-8 rounded-full flex items-center justify-center text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-lg cursor-pointer">
               &times;
             </button>
           </div>
@@ -514,13 +514,13 @@ async function handleDelete(type, id) {
             <!-- CAMPOS DO TEMA -->
             <template v-if="modalType === 'topic'">
               <div>
-                <label class="block font-bold text-zinc-800 mb-1">Título do Tema *</label>
+                <label class="block font-bold text-zinc-800 dark:text-zinc-200 mb-1">Título do Tema *</label>
                 <input
                   v-model="formTopic.title"
                   type="text"
                   required
                   placeholder="Ex: Desafios para a valorização de povos tradicionais no Brasil"
-                  class="w-full rounded-xl border border-zinc-300 bg-white px-3.5 py-2.5 text-sm font-medium text-zinc-900 placeholder:text-zinc-400 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 outline-none"
+                  class="w-full rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800/90 px-3.5 py-2.5 text-sm font-medium text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 outline-none"
                 />
               </div>
 
