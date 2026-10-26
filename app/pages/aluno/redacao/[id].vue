@@ -196,6 +196,7 @@ onMounted(() => {
             </button>
           </div>
 
+          <CommonThemeToggle />
         </div>
       </div>
 

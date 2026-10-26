@@ -8,6 +8,8 @@
 
   --admin-bg: #f6f4fb;
   --admin-surface: #ffffff;
+  --admin-card: #ffffff;
+  --admin-input: #ffffff;
   --admin-surface-subtle: #f0edf6;
   --admin-sidebar: #fcfbff;
   --admin-header: rgba(252, 251, 255, 0.96);
@@ -22,6 +24,34 @@
   --admin-shadow-hover: 0 12px 28px rgba(76, 29, 149, 0.12);
 
   color-scheme: light;
+}
+
+:root.dark,
+html.dark,
+[data-theme="dark"] {
+  --admin-primary: #8b5cf6;
+  --admin-primary-hover: #7c3aed;
+  --admin-primary-soft: rgba(124, 58, 237, 0.18);
+  --admin-primary-text: #a78bfa;
+
+  --admin-bg: #09080e;
+  --admin-surface: #14111d;
+  --admin-card: #14111d;
+  --admin-input: #1c182a;
+  --admin-surface-subtle: #1c182a;
+  --admin-sidebar: #100d1c;
+  --admin-header: rgba(16, 13, 28, 0.96);
+
+  --admin-text: #f6f4fa;
+  --admin-text-secondary: #a49db7;
+  --admin-text-muted: #79728d;
+
+  --admin-border: #28223c;
+  --admin-border-subtle: #1f1a30;
+  --admin-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  --admin-shadow-hover: 0 12px 28px rgba(124, 58, 237, 0.2);
+
+  color-scheme: dark;
 }
 
 .admin-shell {

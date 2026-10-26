@@ -19,7 +19,7 @@ function closeMobileSidebar() {
 </script>
 
 <template>
-  <div class="teacher-shell min-h-screen bg-slate-50 text-slate-900">
+  <div class="teacher-shell min-h-screen bg-slate-50 dark:bg-[#09080e] text-slate-900 dark:text-zinc-100 transition-colors duration-200">
     <TeacherSidebar
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileSidebarOpen"

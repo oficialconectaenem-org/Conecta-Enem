@@ -6,6 +6,11 @@
 html {
   scroll-behavior: smooth;
   background: var(--color-background);
+  transition: background-color 200ms ease, color 200ms ease;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 :root {

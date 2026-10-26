@@ -250,21 +250,21 @@ onMounted(() => {
 
     <!-- METRICS CARDS -->
     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <div class="rounded-2xl border border-zinc-200 bg-white p-4">
-        <p class="text-xs font-semibold text-zinc-500">Total de questões</p>
-        <p class="mt-1 text-2xl font-black text-zinc-900">{{ totalCount }}</p>
+      <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 transition-colors">
+        <p class="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Total de questões</p>
+        <p class="mt-1 text-2xl font-black text-zinc-900 dark:text-zinc-100">{{ totalCount }}</p>
       </div>
-      <div class="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4">
-        <p class="text-xs font-semibold text-emerald-700">Fáceis</p>
-        <p class="mt-1 text-2xl font-black text-emerald-800">{{ easyCount }}</p>
+      <div class="rounded-2xl border border-emerald-100 dark:border-emerald-950/60 bg-emerald-50/50 dark:bg-emerald-950/20 p-4 transition-colors">
+        <p class="text-xs font-semibold text-emerald-700 dark:text-emerald-400">Fáceis</p>
+        <p class="mt-1 text-2xl font-black text-emerald-800 dark:text-emerald-300">{{ easyCount }}</p>
       </div>
-      <div class="rounded-2xl border border-amber-100 bg-amber-50/50 p-4">
-        <p class="text-xs font-semibold text-amber-700">Médias</p>
-        <p class="mt-1 text-2xl font-black text-amber-800">{{ mediumCount }}</p>
+      <div class="rounded-2xl border border-amber-100 dark:border-amber-950/60 bg-amber-50/50 dark:bg-amber-950/20 p-4 transition-colors">
+        <p class="text-xs font-semibold text-amber-700 dark:text-amber-400">Médias</p>
+        <p class="mt-1 text-2xl font-black text-amber-800 dark:text-amber-300">{{ mediumCount }}</p>
       </div>
-      <div class="rounded-2xl border border-red-100 bg-red-50/50 p-4">
-        <p class="text-xs font-semibold text-red-700">Difíceis</p>
-        <p class="mt-1 text-2xl font-black text-red-800">{{ hardCount }}</p>
+      <div class="rounded-2xl border border-red-100 dark:border-red-950/60 bg-red-50/50 dark:bg-red-950/20 p-4 transition-colors">
+        <p class="text-xs font-semibold text-red-700 dark:text-red-400">Difíceis</p>
+        <p class="mt-1 text-2xl font-black text-red-800 dark:text-red-300">{{ hardCount }}</p>
       </div>
     </div>
 
@@ -355,28 +355,28 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs overflow-y-auto"
           @click.self="closeView"
         >
-          <div class="my-8 w-full max-w-3xl rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl sm:p-8 max-h-[90vh] overflow-y-auto">
+          <div class="my-8 w-full max-w-3xl rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl sm:p-8 max-h-[90vh] overflow-y-auto">
             <!-- MODAL HEADER -->
-            <div class="flex items-start justify-between gap-4 border-b border-zinc-100 pb-4">
+            <div class="flex items-start justify-between gap-4 border-b border-zinc-100 dark:border-zinc-800 pb-4">
               <div class="flex flex-wrap items-center gap-2">
-                <span class="rounded-lg bg-purple-100 px-3 py-1 text-xs font-bold text-purple-700">
+                <span class="rounded-lg bg-purple-100 dark:bg-purple-950/70 px-3 py-1 text-xs font-bold text-purple-700 dark:text-purple-300">
                   {{ viewingQuestion.subject?.name || viewingQuestion.subjectName || "Sem matéria" }}
                 </span>
                 <span
                   class="rounded-lg px-3 py-1 text-xs font-bold"
                   :class="
                     viewingQuestion.difficulty === 'EASY'
-                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800/50'
                       : viewingQuestion.difficulty === 'HARD'
-                        ? 'bg-red-50 text-red-700 border border-red-200'
-                        : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        ? 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-400 border border-red-200 dark:border-red-800/50'
+                        : 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800/50'
                   "
                 >
                   {{ viewingQuestion.difficulty === 'EASY' ? 'Fácil' : (viewingQuestion.difficulty === 'HARD' ? 'Difícil' : 'Média') }}
                 </span>
                 <span
                   v-if="viewingQuestion.year"
-                  class="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs font-semibold text-zinc-600"
+                  class="rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/60 px-3 py-1 text-xs font-semibold text-zinc-600 dark:text-zinc-300"
                 >
                   ENEM {{ viewingQuestion.year }}
                 </span>
@@ -385,7 +385,7 @@ onMounted(() => {
               <button
                 type="button"
                 aria-label="Fechar"
-                class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700"
+                class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200"
                 @click="closeView"
               >
                 <span class="material-symbols-rounded text-xl">close</span>
@@ -395,14 +395,14 @@ onMounted(() => {
             <!-- TÍTULO -->
             <h3
               v-if="viewingQuestion.title"
-              class="mt-4 text-lg font-bold text-zinc-900"
+              class="mt-4 text-lg font-bold text-zinc-900 dark:text-zinc-100"
             >
               {{ viewingQuestion.title }}
             </h3>
 
             <!-- ENUNCIADO -->
             <div
-              class="mt-4 rounded-2xl bg-zinc-50/80 p-5 text-sm leading-relaxed text-zinc-800 whitespace-pre-line border border-zinc-100"
+              class="mt-4 rounded-2xl bg-zinc-50/80 dark:bg-zinc-800/60 p-5 text-sm leading-relaxed text-zinc-800 dark:text-zinc-200 whitespace-pre-line border border-zinc-100 dark:border-zinc-800"
               v-html="formatStatement(viewingQuestion.statement)"
             ></div>
 
@@ -412,8 +412,8 @@ onMounted(() => {
               class="mt-4 space-y-3"
             >
               <!-- IMAGEM EM DESTAQUE COM TÍTULO -->
-              <div class="rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 text-center space-y-2">
-                <div class="inline-flex items-center gap-2 rounded-lg bg-purple-100 px-3 py-1 text-xs font-black uppercase tracking-wider text-purple-800">
+              <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-800/40 p-4 text-center space-y-2">
+                <div class="inline-flex items-center gap-2 rounded-lg bg-purple-100 dark:bg-purple-950/70 px-3 py-1 text-xs font-black uppercase tracking-wider text-purple-800 dark:text-purple-300">
                   <span class="material-symbols-rounded text-sm">image</span>
                   <span>{{ (getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.title }}</span>
                 </div>
@@ -421,7 +421,7 @@ onMounted(() => {
                   <img
                     :src="(getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.url"
                     :alt="(getQuestionImages(viewingQuestion)[activeViewingImageIndex] || getQuestionImages(viewingQuestion)[0])?.title"
-                    class="max-h-80 mx-auto rounded-xl object-contain shadow-xs"
+                    class="max-h-80 mx-auto rounded-xl object-contain shadow-xs bg-white p-1 rounded-xl"
                   />
                 </div>
               </div>
@@ -435,18 +435,18 @@ onMounted(() => {
                   v-for="(img, idx) in getQuestionImages(viewingQuestion)"
                   :key="idx"
                   type="button"
-                  class="relative flex flex-col items-center shrink-0 overflow-hidden rounded-xl border-2 transition p-1 bg-white"
+                  class="relative flex flex-col items-center shrink-0 overflow-hidden rounded-xl border-2 transition p-1 bg-white dark:bg-zinc-800"
                   :class="activeViewingImageIndex === idx
                     ? 'border-purple-600 ring-2 ring-purple-600/20'
-                    : 'border-zinc-200 opacity-70 hover:opacity-100'"
+                    : 'border-zinc-200 dark:border-zinc-700 opacity-70 hover:opacity-100'"
                   @click="activeViewingImageIndex = idx"
                 >
                   <img
                     :src="img.url"
                     :alt="img.title"
-                    class="h-12 w-16 object-contain bg-zinc-100 rounded-lg p-0.5"
+                    class="h-12 w-16 object-contain bg-zinc-100 dark:bg-zinc-700 rounded-lg p-0.5"
                   />
-                  <span class="mt-1 text-[10px] font-bold text-zinc-700 truncate max-w-[70px]">
+                  <span class="mt-1 text-[10px] font-bold text-zinc-700 dark:text-zinc-300 truncate max-w-[70px]">
                     {{ img.title || (idx + 1) }}
                   </span>
                 </button>
@@ -455,7 +455,7 @@ onMounted(() => {
 
             <!-- ALTERNATIVAS -->
             <div class="mt-6 space-y-3">
-              <h4 class="text-xs font-black uppercase tracking-wider text-zinc-500">
+              <h4 class="text-xs font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                 Alternativas
               </h4>
 
@@ -465,8 +465,8 @@ onMounted(() => {
                 class="flex items-start gap-3 rounded-2xl border p-4 transition"
                 :class="
                   viewingQuestion.correctAnswer === option.letter
-                    ? 'border-emerald-500 bg-emerald-50/60 ring-2 ring-emerald-500/20'
-                    : 'border-zinc-200 bg-white'
+                    ? 'border-emerald-500 bg-emerald-50/60 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
+                    : 'border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800/40'
                 "
               >
                 <span
@@ -474,13 +474,13 @@ onMounted(() => {
                   :class="
                     viewingQuestion.correctAnswer === option.letter
                       ? 'bg-emerald-600 text-white'
-                      : 'border border-zinc-300 bg-zinc-100 text-zinc-700'
+                      : 'border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200'
                   "
                 >
                   {{ option.letter }}
                 </span>
 
-                <div class="flex-1 text-sm text-zinc-800 leading-relaxed pt-1 space-y-2">
+                <div class="flex-1 text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed pt-1 space-y-2">
                   <div v-if="option.text || option.content">
                     {{ option.text || option.content }}
                   </div>
@@ -488,7 +488,7 @@ onMounted(() => {
                     <img
                       :src="option.imageUrl"
                       alt="Imagem da alternativa"
-                      class="max-h-48 rounded-xl border border-zinc-200 bg-zinc-50 p-1 object-contain"
+                      class="max-h-48 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 p-1 object-contain"
                     />
                   </div>
                   <div v-if="!option.text && !option.content && !option.imageUrl" class="text-zinc-400 italic">
@@ -498,7 +498,7 @@ onMounted(() => {
 
                 <span
                   v-if="viewingQuestion.correctAnswer === option.letter"
-                  class="flex items-center gap-1 text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg"
+                  class="flex items-center gap-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/70 px-2.5 py-1 rounded-lg"
                 >
                   <span class="material-symbols-rounded text-sm">check</span>
                   Gabarito
@@ -509,22 +509,22 @@ onMounted(() => {
             <!-- RESOLUÇÃO COMENTADA -->
             <div
               v-if="viewingQuestion.explanation"
-              class="mt-6 rounded-2xl border border-purple-100 bg-purple-50/50 p-5"
+              class="mt-6 rounded-2xl border border-purple-100 dark:border-purple-900/50 bg-purple-50/50 dark:bg-purple-950/30 p-5"
             >
-              <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-purple-800">
+              <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-purple-800 dark:text-purple-300">
                 <span class="material-symbols-rounded text-base">lightbulb</span>
                 <span>Resolução comentada</span>
               </div>
-              <p class="mt-2 text-sm leading-relaxed text-purple-950 whitespace-pre-line">
+              <p class="mt-2 text-sm leading-relaxed text-purple-950 dark:text-purple-200 whitespace-pre-line">
                 {{ viewingQuestion.explanation }}
               </p>
             </div>
 
             <!-- MODAL ACTIONS -->
-            <div class="mt-8 flex justify-end gap-3 border-t border-zinc-100 pt-4">
+            <div class="mt-8 flex justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
               <button
                 type="button"
-                class="rounded-xl border border-zinc-200 px-5 py-2.5 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50"
+                class="rounded-xl border border-zinc-200 dark:border-zinc-800 px-5 py-2.5 text-sm font-semibold text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800 cursor-pointer"
                 @click="closeView"
               >
                 Fechar
@@ -532,7 +532,7 @@ onMounted(() => {
 
               <button
                 type="button"
-                class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-purple-700"
+                class="inline-flex items-center gap-2 rounded-xl bg-purple-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-purple-700 cursor-pointer"
                 @click="handleEdit(viewingQuestion)"
               >
                 <span class="material-symbols-rounded text-sm">edit</span>
@@ -569,17 +569,17 @@ onMounted(() => {
           class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs"
           @click.self="!importingEnem && (showImportModal = false)"
         >
-          <div class="w-full max-w-lg rounded-3xl border border-zinc-200 bg-white p-6 shadow-2xl space-y-6 sm:p-8">
-            <div class="flex items-center justify-between border-b border-zinc-100 pb-4">
+          <div class="w-full max-w-lg rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-2xl space-y-6 sm:p-8">
+            <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
               <div class="flex items-center gap-3">
-                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-100 text-purple-700">
+                <div class="flex h-11 w-11 items-center justify-center rounded-2xl bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300">
                   <span class="material-symbols-rounded text-2xl">cloud_download</span>
                 </div>
                 <div>
-                  <h3 class="text-xl font-black text-zinc-900">
+                  <h3 class="text-xl font-black text-zinc-900 dark:text-zinc-100">
                     Importar Prova do ENEM
                   </h3>
-                  <p class="text-xs text-zinc-500">
+                  <p class="text-xs text-zinc-500 dark:text-zinc-400">
                     Integração oficial direta para o seu banco de dados
                   </p>
                 </div>
@@ -588,7 +588,7 @@ onMounted(() => {
               <button
                 type="button"
                 :disabled="importingEnem"
-                class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-700 disabled:opacity-50"
+                class="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 disabled:opacity-50"
                 @click="showImportModal = false"
               >
                 <span class="material-symbols-rounded text-xl">close</span>
@@ -598,7 +598,7 @@ onMounted(() => {
             <!-- MENSAGENS DE SUCESSO OU ERRO -->
             <div
               v-if="importSuccessMessage"
-              class="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-xs font-bold text-emerald-800"
+              class="flex items-center gap-3 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 bg-emerald-50 dark:bg-emerald-950/40 p-4 text-xs font-bold text-emerald-800 dark:text-emerald-300"
             >
               <span class="material-symbols-rounded text-lg shrink-0">check_circle</span>
               <span>{{ importSuccessMessage }}</span>
@@ -606,7 +606,7 @@ onMounted(() => {
 
             <div
               v-if="importErrorMessage"
-              class="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-xs font-bold text-red-700"
+              class="flex items-center gap-3 rounded-2xl border border-red-200 dark:border-red-800/60 bg-red-50 dark:bg-red-950/40 p-4 text-xs font-bold text-red-700 dark:text-red-300"
             >
               <span class="material-symbols-rounded text-lg shrink-0">error</span>
               <span>{{ importErrorMessage }}</span>
@@ -614,13 +614,13 @@ onMounted(() => {
 
             <!-- SELEÇÃO DE ANO -->
             <div class="space-y-3">
-              <label class="text-xs font-bold uppercase tracking-wider text-zinc-600">
+              <label class="text-xs font-bold uppercase tracking-wider text-zinc-600 dark:text-zinc-400">
                 Selecione o Ano da Prova
               </label>
               <select
                 v-model="selectedImportYear"
                 :disabled="importingEnem"
-                class="h-12 w-full rounded-2xl border border-zinc-200 bg-zinc-50 px-4 text-sm font-bold text-zinc-800 outline-none transition focus:border-purple-600 focus:bg-white"
+                class="h-12 w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800 px-4 text-sm font-bold text-zinc-800 dark:text-zinc-100 outline-none transition focus:border-purple-600 focus:bg-white dark:focus:bg-zinc-800"
               >
                 <option :value="2023">ENEM 2023 (181 questões oficiais)</option>
                 <option :value="2022">ENEM 2022 (183 questões oficiais)</option>
@@ -635,12 +635,12 @@ onMounted(() => {
             </div>
 
             <!-- DESTAQUES DA INTEGRAÇÃO NATIVA -->
-            <div class="space-y-2 rounded-2xl bg-purple-50/60 p-4 border border-purple-100 text-xs text-zinc-600">
-              <div class="flex items-center gap-2 font-bold text-purple-900">
-                <span class="material-symbols-rounded text-base text-purple-600">verified</span>
+            <div class="space-y-2 rounded-2xl bg-purple-50/60 dark:bg-purple-950/30 p-4 border border-purple-100 dark:border-purple-900/40 text-xs text-zinc-600 dark:text-zinc-300">
+              <div class="flex items-center gap-2 font-bold text-purple-900 dark:text-purple-300">
+                <span class="material-symbols-rounded text-base text-purple-600 dark:text-purple-400">verified</span>
                 <span>Processamento Inteligente Incluso:</span>
               </div>
-              <ul class="space-y-1.5 pl-6 list-disc text-zinc-600">
+              <ul class="space-y-1.5 pl-6 list-disc text-zinc-600 dark:text-zinc-300">
                 <li>Separação automática em matérias individuais (*Física, Química, Biologia, História, etc.*).</li>
                 <li>Cálculo de dificuldade proporcional (*Fácil, Média, Difícil*).</li>
                 <li>Importação de textos de apoio (Texto 1, 2, 3...) e gabaritos oficiais.</li>
@@ -648,11 +648,11 @@ onMounted(() => {
             </div>
 
             <!-- AÇÕES DO MODAL -->
-            <div class="flex items-center justify-end gap-3 border-t border-zinc-100 pt-4">
+            <div class="flex items-center justify-end gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-4">
               <button
                 type="button"
                 :disabled="importingEnem"
-                class="rounded-xl border border-zinc-200 px-5 py-2.5 text-xs font-bold text-zinc-700 transition hover:bg-zinc-50 disabled:opacity-50 cursor-pointer"
+                class="rounded-xl border border-zinc-200 dark:border-zinc-800 px-5 py-2.5 text-xs font-bold text-zinc-700 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50 cursor-pointer"
                 @click="showImportModal = false"
               >
                 Cancelar

@@ -58,6 +58,41 @@
     color 180ms ease;
 }
 
+.dark .student-shell,
+[data-theme="dark"] .student-shell {
+  --student-bg: #09080e;
+  --student-surface: #14111d;
+  --student-surface-secondary: #1c182a;
+  --student-card: var(--student-surface);
+
+  --student-sidebar: rgba(18, 14, 27, 0.96);
+  --student-header: rgba(18, 14, 27, 0.94);
+
+  --student-text: #f5f3fa;
+  --student-text-secondary: #a39cb5;
+  --student-text-muted: #79738c;
+
+  --student-border: #272138;
+  --student-border-strong: #3b3254;
+
+  --student-primary: #8b5cf6;
+  --student-primary-hover: #7c3aed;
+  --student-primary-solid: #7c3aed;
+  --student-primary-text: #a78bfa;
+  --student-primary-soft: rgba(124, 58, 237, 0.18);
+  --student-primary-soft-hover: rgba(124, 58, 237, 0.28);
+  --student-on-primary: #ffffff;
+
+  --student-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.3),
+    0 12px 34px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+.dark .student-shell__ambient::before { background: #3b1d75; opacity: 0.15; }
+.dark .student-shell__ambient::after { background: #261152; opacity: 0.15; }
+
 
 .student-shell__ambient {
   position: fixed;

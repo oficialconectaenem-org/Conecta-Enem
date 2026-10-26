@@ -70,6 +70,9 @@ const initials = computed(() => {
     <div
       class="flex items-center gap-3 sm:gap-4"
     >
+      <!-- ALTERNAR TEMA -->
+      <ThemeToggle />
+
       <div
         class="hidden text-right sm:block"
       >

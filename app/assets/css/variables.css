@@ -15,3 +15,23 @@
 
   --color-border: #e5e0ee;
 }
+
+:root.dark,
+html.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --color-primary: #8b5cf6;
+  --color-primary-dark: #7c3aed;
+  --color-primary-light: #a78bfa;
+
+  --color-white: #ffffff;
+
+  --color-background: #0d0b14;
+  --color-background-soft: #161224;
+  --color-surface-raised: #1c182c;
+
+  --color-text: #f4f2f9;
+  --color-text-soft: #a8a2b8;
+
+  --color-border: #2c253f;
+}

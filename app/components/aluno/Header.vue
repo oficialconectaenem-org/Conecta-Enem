@@ -73,6 +73,8 @@ onMounted(() => {
 
     <!-- ACTIONS (DIREITA) -->
     <div class="ml-auto flex items-center gap-2 sm:gap-3">
+      <!-- ALTERNAR TEMA (CLARO/ESCURO) -->
+      <ThemeToggle />
 
       <!-- AVATAR DO USUÁRIO -->
       <NuxtLink

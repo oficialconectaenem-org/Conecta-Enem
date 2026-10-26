@@ -91,6 +91,9 @@ async function handleInstall() {
           <span>Baixar App</span>
         </button>
 
+        <!-- ALTERNAR TEMA -->
+        <ThemeToggle />
+
         <NuxtLink
           to="/login"
           class="rounded-xl px-4 py-2.5 text-sm font-semibold text-[var(--color-primary-dark)] transition hover:bg-purple-50 dark:text-purple-300 dark:hover:bg-purple-950/40"
@@ -107,6 +110,8 @@ async function handleInstall() {
       </div>
 
       <div class="flex items-center gap-2 lg:hidden">
+        <ThemeToggle size="sm" />
+
         <button
           type="button"
           class="rounded-lg p-2 text-xl text-zinc-700 dark:text-zinc-200"
