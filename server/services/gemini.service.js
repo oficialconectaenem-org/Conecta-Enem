@@ -381,7 +381,16 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
     }
   }
 
-  throw new Error(`Não foi possível corrigir a redação no momento: ${lastError?.message || 'Erro desconhecido na API do Gemini.'}`)
+  let userFriendlyMessage = lastError?.message || 'Erro desconhecido na API do Gemini.'
+  if (userFriendlyMessage.includes('service account is deleted or disabled') || userFriendlyMessage.includes('service account bound to the API key')) {
+    userFriendlyMessage = 'A chave do Google Gemini (GEMINI_API_KEY) está vinculada a um projeto ou conta de serviço desativada no Google Cloud. Por favor, gere uma nova chave em https://aistudio.google.com/app/apikey (em um novo projeto) e atualize o arquivo .env do servidor.'
+  } else if (userFriendlyMessage.includes('API key not valid') || userFriendlyMessage.includes('API_KEY_INVALID')) {
+    userFriendlyMessage = 'A chave de API do Gemini (GEMINI_API_KEY) configurada no servidor é inválida. Atualize-a no arquivo .env.'
+  } else if (userFriendlyMessage.includes('RESOURCE_EXHAUSTED') || userFriendlyMessage.includes('Quota exceeded')) {
+    userFriendlyMessage = 'O limite gratuito de requisições da Inteligência Artificial foi atingido temporariamente. Aguarde um minuto e tente novamente.'
+  }
+
+  throw new Error(`Não foi possível corrigir a redação no momento: ${userFriendlyMessage}`)
 }
 
 /**

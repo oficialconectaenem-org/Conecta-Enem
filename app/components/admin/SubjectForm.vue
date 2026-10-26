@@ -64,7 +64,7 @@ function handleSubmit() {
     <div class="space-y-2">
       <label
         for="subject-name"
-        class="text-sm font-bold text-zinc-700"
+        class="text-sm font-bold text-zinc-700 dark:text-zinc-200"
       >
         Nome da matéria
       </label>
@@ -76,14 +76,14 @@ function handleSubmit() {
         required
         maxlength="100"
         placeholder="Ex.: Matemática"
-        class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100"
+        class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30"
       >
     </div>
 
     <div class="space-y-2">
       <label
         for="subject-description"
-        class="text-sm font-bold text-zinc-700"
+        class="text-sm font-bold text-zinc-700 dark:text-zinc-200"
       >
         Descrição
       </label>
@@ -94,7 +94,7 @@ function handleSubmit() {
         rows="4"
         maxlength="500"
         placeholder="Breve descrição da matéria..."
-        class="w-full resize-none rounded-xl border border-zinc-200 bg-white px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100"
+        class="w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30"
       />
     </div>
 
@@ -104,7 +104,7 @@ function handleSubmit() {
       <div class="space-y-2">
         <label
           for="subject-order"
-          class="text-sm font-bold text-zinc-700"
+          class="text-sm font-bold text-zinc-700 dark:text-zinc-200"
         >
           Ordem
         </label>
@@ -114,19 +114,19 @@ function handleSubmit() {
           v-model.number="form.order"
           type="number"
           min="0"
-          class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100"
+          class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 px-4 py-3 outline-none transition focus:border-[var(--color-primary)] focus:ring-4 focus:ring-purple-100 dark:focus:ring-purple-900/30"
         >
       </div>
 
       <div class="space-y-2">
         <p
-          class="text-sm font-bold text-zinc-700"
+          class="text-sm font-bold text-zinc-700 dark:text-zinc-200"
         >
           Status
         </p>
 
         <label
-          class="flex min-h-[50px] cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 px-4"
+          class="flex min-h-[50px] cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4"
         >
           <input
             v-model="form.active"
@@ -135,7 +135,7 @@ function handleSubmit() {
           >
 
           <span
-            class="text-sm font-semibold text-zinc-700"
+            class="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
           >
             Matéria ativa
           </span>
@@ -144,11 +144,11 @@ function handleSubmit() {
     </div>
 
     <div
-      class="flex flex-col-reverse gap-3 border-t border-zinc-100 pt-6 sm:flex-row sm:justify-end"
+      class="flex flex-col-reverse gap-3 border-t border-zinc-100 dark:border-zinc-800 pt-6 sm:flex-row sm:justify-end"
     >
       <NuxtLink
         to="/admin/materias"
-        class="rounded-xl border border-zinc-200 px-5 py-3 text-center text-sm font-bold text-zinc-600 transition hover:bg-zinc-50"
+        class="rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-3 text-center text-sm font-bold text-zinc-600 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800"
       >
         Cancelar
       </NuxtLink>

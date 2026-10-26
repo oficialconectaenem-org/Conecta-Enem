@@ -137,7 +137,7 @@ async function handleSubmit() {
         autocomplete="email"
         required
         placeholder="seuemail@exemplo.com"
-        class="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-white dark:placeholder:text-zinc-500"
+        class="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 dark:border-zinc-700 dark:bg-zinc-900/90 dark:focus:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500"
       >
     </div>
 
@@ -169,7 +169,7 @@ async function handleSubmit() {
           autocomplete="current-password"
           required
           placeholder="Digite sua senha"
-          class="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 pr-20 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 dark:border-zinc-700 dark:bg-zinc-900/90 dark:text-white dark:placeholder:text-zinc-500"
+          class="w-full rounded-xl border border-slate-200 bg-slate-50/70 px-4 py-3 pr-20 text-slate-900 outline-none transition placeholder:text-slate-400 focus:bg-white focus:border-purple-500 focus:ring-4 focus:ring-purple-500/20 dark:border-zinc-700 dark:bg-zinc-900/90 dark:focus:bg-zinc-900 dark:text-white dark:placeholder:text-zinc-500"
         >
 
         <button

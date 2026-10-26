@@ -160,4 +160,25 @@ html.dark,
 .dark .admin-shell input::placeholder,
 .dark .admin-shell textarea::placeholder {
   color: var(--admin-text-muted) !important;
-}
+}
+
+.dark .admin-shell input:focus,
+.dark .admin-shell textarea:focus,
+.dark .admin-shell select:focus {
+  background-color: var(--admin-input) !important;
+  border-color: var(--admin-primary) !important;
+  color: var(--admin-text) !important;
+}
+
+.dark .admin-shell tr:hover,
+.dark .admin-shell tr[class*="hover:bg-"]:hover,
+.dark .admin-shell tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.dark .admin-shell label,
+.dark .admin-shell .font-bold.text-zinc-700,
+.dark .admin-shell .font-bold.text-slate-700 {
+  color: var(--admin-text) !important;
+}
+

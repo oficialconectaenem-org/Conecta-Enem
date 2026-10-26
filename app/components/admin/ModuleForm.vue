@@ -81,14 +81,14 @@ function handleSubmit() {
     @submit.prevent="handleSubmit"
   >
     <div
-      class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
+      class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm"
     >
       <div class="space-y-5">
         <!-- Matéria -->
         <div>
           <label
             for="subjectId"
-            class="mb-2 block text-sm font-bold text-zinc-700"
+            class="mb-2 block text-sm font-bold text-zinc-700 dark:text-zinc-200"
           >
             Matéria
           </label>
@@ -97,7 +97,7 @@ function handleSubmit() {
             id="subjectId"
             v-model="form.subjectId"
             required
-            class="w-full rounded-xl border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100"
+            class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30"
           >
             <option value="">
               Selecione uma matéria
@@ -114,7 +114,7 @@ function handleSubmit() {
 
           <p
             v-if="subjects.length === 0"
-            class="mt-2 text-xs font-medium text-amber-600"
+            class="mt-2 text-xs font-medium text-amber-600 dark:text-amber-400"
           >
             Nenhuma matéria cadastrada.
             Cadastre uma matéria antes de criar módulos.
@@ -125,7 +125,7 @@ function handleSubmit() {
         <div>
           <label
             for="name"
-            class="mb-2 block text-sm font-bold text-zinc-700"
+            class="mb-2 block text-sm font-bold text-zinc-700 dark:text-zinc-200"
           >
             Nome do módulo
           </label>
@@ -137,7 +137,7 @@ function handleSubmit() {
             maxlength="120"
             required
             placeholder="Ex.: Álgebra"
-            class="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100"
+            class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none transition placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30"
           >
         </div>
 
@@ -145,7 +145,7 @@ function handleSubmit() {
         <div>
           <label
             for="description"
-            class="mb-2 block text-sm font-bold text-zinc-700"
+            class="mb-2 block text-sm font-bold text-zinc-700 dark:text-zinc-200"
           >
             Descrição
           </label>
@@ -156,7 +156,7 @@ function handleSubmit() {
             rows="4"
             maxlength="500"
             placeholder="Descreva brevemente o conteúdo deste módulo."
-            class="w-full resize-none rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900 outline-none transition placeholder:text-zinc-400 focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100"
+            class="w-full resize-none rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none transition placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30"
           />
         </div>
 
@@ -167,7 +167,7 @@ function handleSubmit() {
           <div>
             <label
               for="order"
-              class="mb-2 block text-sm font-bold text-zinc-700"
+              class="mb-2 block text-sm font-bold text-zinc-700 dark:text-zinc-200"
             >
               Ordem
             </label>
@@ -178,20 +178,20 @@ function handleSubmit() {
               type="number"
               min="0"
               required
-              class="w-full rounded-xl border border-zinc-200 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100"
+              class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-3 text-sm text-zinc-900 dark:text-zinc-100 outline-none transition focus:border-[#7C3AED] focus:ring-2 focus:ring-purple-100 dark:focus:ring-purple-900/30"
             >
           </div>
 
           <!-- Status -->
           <div>
             <p
-              class="mb-2 block text-sm font-bold text-zinc-700"
+              class="mb-2 block text-sm font-bold text-zinc-700 dark:text-zinc-200"
             >
               Status
             </p>
 
             <label
-              class="flex min-h-[46px] cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 px-4"
+              class="flex min-h-[46px] cursor-pointer items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4"
             >
               <input
                 v-model="form.active"
@@ -200,7 +200,7 @@ function handleSubmit() {
               >
 
               <span
-                class="text-sm font-semibold text-zinc-700"
+                class="text-sm font-semibold text-zinc-700 dark:text-zinc-300"
               >
                 Módulo ativo
               </span>
@@ -215,7 +215,7 @@ function handleSubmit() {
     >
       <NuxtLink
         to="/admin/modulos"
-        class="inline-flex items-center justify-center rounded-xl border border-zinc-200 px-5 py-3 text-sm font-bold text-zinc-600 transition hover:bg-zinc-50"
+        class="inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-zinc-700 px-5 py-3 text-sm font-bold text-zinc-600 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800"
       >
         Cancelar
       </NuxtLink>

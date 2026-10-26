@@ -201,37 +201,37 @@ onMounted(() => {
     <!-- BARRA DE BUSCA -->
     <div class="flex items-center justify-between gap-4">
       <div class="relative w-full max-w-md">
-        <span class="material-symbols-rounded absolute left-3.5 top-2.5 text-zinc-400 text-lg">search</span>
+        <span class="material-symbols-rounded absolute left-3.5 top-2.5 text-zinc-400 dark:text-zinc-500 text-lg">search</span>
         <input
           v-model="searchUser"
           type="text"
           placeholder="Buscar por nome ou e-mail..."
-          class="w-full rounded-xl border border-zinc-200 bg-white py-2 pl-10 pr-4 text-xs text-zinc-800 outline-none focus:border-purple-600 transition"
+          class="w-full rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-2 pl-10 pr-4 text-xs text-zinc-800 dark:text-zinc-100 outline-none focus:border-purple-600 dark:placeholder:text-zinc-500 transition"
         />
       </div>
-      <div class="text-xs text-zinc-500 font-medium">
-        Mostrando <b class="text-zinc-800">{{ filteredUsers.length }}</b> usuário(s)
+      <div class="text-xs text-zinc-500 dark:text-zinc-400 font-medium">
+        Mostrando <b class="text-zinc-800 dark:text-zinc-200">{{ filteredUsers.length }}</b> usuário(s)
       </div>
     </div>
 
     <!-- ESTADO CARREGANDO -->
     <div v-if="loading" class="py-16 text-center">
       <span class="material-symbols-rounded animate-spin text-3xl text-purple-600">progress_activity</span>
-      <p class="mt-2 text-xs font-bold text-zinc-500">Carregando usuários...</p>
+      <p class="mt-2 text-xs font-bold text-zinc-500 dark:text-zinc-400">Carregando usuários...</p>
     </div>
 
     <!-- ESTADO VAZIO -->
-    <div v-else-if="filteredUsers.length === 0" class="rounded-2xl border border-zinc-200 bg-white p-12 text-center space-y-2">
-      <span class="material-symbols-rounded text-4xl text-zinc-400">person_off</span>
-      <h3 class="text-sm font-bold text-zinc-800">Nenhum usuário encontrado</h3>
-      <p class="text-xs text-zinc-500">Nenhum registro corresponde aos filtros selecionados.</p>
+    <div v-else-if="filteredUsers.length === 0" class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-12 text-center space-y-2">
+      <span class="material-symbols-rounded text-4xl text-zinc-400 dark:text-zinc-500">person_off</span>
+      <h3 class="text-sm font-bold text-zinc-800 dark:text-zinc-100">Nenhum usuário encontrado</h3>
+      <p class="text-xs text-zinc-500 dark:text-zinc-400">Nenhum registro corresponde aos filtros selecionados.</p>
     </div>
 
     <!-- TABELA DE USUÁRIOS -->
-    <div v-else class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-xs">
+    <div v-else class="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs">
       <div class="overflow-x-auto">
-        <table class="min-w-full divide-y divide-zinc-200 text-left text-xs">
-          <thead class="bg-zinc-50 font-bold uppercase tracking-wider text-zinc-500">
+        <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800 text-left text-xs">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/80 font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
             <tr>
               <th class="px-5 py-3.5">Usuário</th>
               <th class="px-5 py-3.5">Tipo</th>
@@ -242,20 +242,20 @@ onMounted(() => {
               <th class="px-5 py-3.5 text-right">Ações</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-zinc-100">
-            <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-zinc-50/80 transition">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <tr v-for="u in filteredUsers" :key="u.id" class="hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 transition">
               <!-- DADOS BÁSICOS -->
               <td class="px-5 py-4">
                 <div class="flex items-center gap-3">
                   <div
                     class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black uppercase"
-                    :class="u.role === 'TEACHER' ? 'bg-indigo-100 text-indigo-700' : 'bg-emerald-100 text-emerald-700'"
+                    :class="u.role === 'TEACHER' ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-700 dark:text-indigo-300' : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300'"
                   >
                     {{ u.name ? u.name.charAt(0) : 'U' }}
                   </div>
                   <div>
-                    <div class="font-bold text-zinc-900">{{ u.name }}</div>
-                    <div class="text-[11px] text-zinc-400">{{ u.email }}</div>
+                    <div class="font-bold text-zinc-900 dark:text-zinc-100">{{ u.name }}</div>
+                    <div class="text-[11px] text-zinc-400 dark:text-zinc-500">{{ u.email }}</div>
                   </div>
                 </div>
               </td>
@@ -264,7 +264,7 @@ onMounted(() => {
               <td class="px-5 py-4">
                 <span
                   class="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-bold"
-                  :class="u.role === 'TEACHER' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+                  :class="u.role === 'TEACHER' ? 'bg-indigo-50 dark:bg-indigo-950/60 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800/60' : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60'"
                 >
                   <span class="material-symbols-rounded text-xs">
                     {{ u.role === 'TEACHER' ? 'cast_for_education' : 'school' }}
@@ -281,12 +281,12 @@ onMounted(() => {
                     <span
                       v-for="c in u.classrooms"
                       :key="c.id"
-                      class="rounded-md bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-700"
+                      class="rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[10px] font-semibold text-zinc-700 dark:text-zinc-300 border border-zinc-200/60 dark:border-zinc-700/60"
                     >
-                      {{ c.name }} <span class="text-zinc-400">({{ c.teacherName }})</span>
+                      {{ c.name }} <span class="text-zinc-400 dark:text-zinc-500">({{ c.teacherName }})</span>
                     </span>
                   </div>
-                  <span v-else class="text-zinc-400 italic">Sem turma vinculada</span>
+                  <span v-else class="text-zinc-400 dark:text-zinc-500 italic">Sem turma vinculada</span>
                 </div>
 
                 <!-- PROFESSOR -->
@@ -295,12 +295,12 @@ onMounted(() => {
                     <span
                       v-for="c in u.classrooms"
                       :key="c.id"
-                      class="rounded-md bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-800"
+                      class="rounded-md bg-indigo-50 dark:bg-indigo-950/60 px-2 py-0.5 text-[10px] font-semibold text-indigo-800 dark:text-indigo-300 border border-indigo-200/60 dark:border-indigo-800/60"
                     >
                       {{ c.name }} ({{ c.studentsCount }} alunos)
                     </span>
                   </div>
-                  <span v-else class="text-zinc-400 italic">Nenhuma turma criada</span>
+                  <span v-else class="text-zinc-400 dark:text-zinc-500 italic">Nenhuma turma criada</span>
                 </div>
               </td>
 

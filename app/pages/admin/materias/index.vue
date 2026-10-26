@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { useSubjects } from '~/composables/useSubjects'
 
 definePageMeta({
@@ -168,63 +168,63 @@ onMounted(() => {
 
     <div
       v-else
-      class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm"
+      class="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm"
     >
       <div class="overflow-x-auto">
 
         <table
-          class="min-w-full divide-y divide-zinc-200"
+          class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-800"
         >
-          <thead class="bg-zinc-50">
+          <thead class="bg-zinc-50 dark:bg-zinc-800/80">
             <tr>
               <th
-                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400"
+                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400 dark:text-zinc-500"
               >
                 Ordem
               </th>
 
               <th
-                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400"
+                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400 dark:text-zinc-500"
               >
                 Matéria
               </th>
 
               <th
-                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400"
+                class="px-5 py-3 text-left text-xs font-black uppercase text-zinc-400 dark:text-zinc-500"
               >
                 Status
               </th>
 
               <th
-                class="px-5 py-3 text-right text-xs font-black uppercase text-zinc-400"
+                class="px-5 py-3 text-right text-xs font-black uppercase text-zinc-400 dark:text-zinc-500"
               >
                 Ações
               </th>
             </tr>
           </thead>
 
-          <tbody class="divide-y divide-zinc-100">
+          <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
 
             <tr
               v-for="subject in subjects"
               :key="subject.id"
-              class="hover:bg-zinc-50"
+              class="hover:bg-zinc-50 dark:hover:bg-zinc-800/60 transition"
             >
               <td
-                class="px-5 py-4 text-sm font-semibold text-zinc-500"
+                class="px-5 py-4 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
               >
                 {{ subject.order }}
               </td>
 
               <td class="px-5 py-4">
                 <p
-                  class="font-bold text-zinc-900"
+                  class="font-bold text-zinc-900 dark:text-zinc-100"
                 >
                   {{ subject.name }}
                 </p>
 
                 <p
-                  class="mt-1 text-sm text-zinc-400"
+                  class="mt-1 text-sm text-zinc-400 dark:text-zinc-500"
                 >
                   {{
                     subject.description ||
@@ -238,8 +238,8 @@ onMounted(() => {
                   class="rounded-full px-3 py-1 text-xs font-bold"
                   :class="
                     subject.active
-                      ? 'bg-green-50 text-green-700'
-                      : 'bg-zinc-100 text-zinc-500'
+                      ? 'bg-green-50 text-green-700 dark:bg-emerald-950/60 dark:text-emerald-300'
+                      : 'bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-400'
                   "
                 >
                   {{
@@ -267,7 +267,7 @@ onMounted(() => {
                     :disabled="
                       updatingId === subject.id
                     "
-                    class="rounded-lg border border-zinc-200 px-3 py-2 text-xs font-bold text-zinc-600 transition hover:bg-zinc-50 disabled:opacity-50"
+                    class="rounded-lg border border-zinc-200 dark:border-zinc-700 px-3 py-2 text-xs font-bold text-zinc-600 dark:text-zinc-300 transition hover:bg-zinc-50 dark:hover:bg-zinc-800 disabled:opacity-50"
                     @click="
                       toggleSubject(subject)
                     "

@@ -1246,7 +1246,7 @@ onMounted(() => {
   margin-bottom: 6px;
   font-size: 13px;
   font-weight: 700;
-  color: #27272a;
+  color: var(--admin-text, #27272a);
 }
 
 .form-label.required::after {
@@ -1258,16 +1258,31 @@ onMounted(() => {
   width: 100%;
   padding: 12px 16px;
   border-radius: 14px;
-  background: #ffffff;
-  border: 1px solid #e4e4e7;
-  color: #18181b;
+  background: var(--admin-input, #ffffff);
+  border: 1px solid var(--admin-border, #e4e4e7);
+  color: var(--admin-text, #18181b);
   font-size: 14px;
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 }
 
 .form-input:focus {
   border-color: #9333ea;
   box-shadow: 0 0 0 3px rgba(147, 51, 234, 0.12);
+}
+
+:global(.dark) .form-label {
+  color: #f4f4f5 !important;
+}
+
+:global(.dark) .form-input {
+  background: #14111d !important;
+  border-color: #28223c !important;
+  color: #f6f4fa !important;
+}
+
+:global(.dark) .form-input:focus {
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.25) !important;
 }
 </style>
