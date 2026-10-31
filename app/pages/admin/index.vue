@@ -41,6 +41,10 @@ const components = {
 
   redacao: defineAsyncComponent(() =>
     import('~/components/admin/redacao/RedacaoManager.vue')
+  ),
+
+  'api-keys': defineAsyncComponent(() =>
+    import('~/components/admin/apikeys/ApiKeyManager.vue')
   )
 }
 

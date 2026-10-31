@@ -48,6 +48,12 @@ const navigation = [
     icon: 'manage_accounts',
     to: '/admin/usuarios',
     section: 'users'
+  },
+  {
+    label: 'Chaves de API',
+    icon: 'key',
+    to: '/admin/chaves-api',
+    section: 'api-keys'
   }
 ]
 

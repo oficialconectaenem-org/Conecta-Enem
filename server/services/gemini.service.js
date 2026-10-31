@@ -1,3 +1,4 @@
+import { getActiveGeminiKeys, recordKeyUsage } from '#server/services/api-key.service'
 /**
  * Serviço de Integração com a API Google Gemini para Correção de Redações do ENEM
  */
@@ -280,9 +281,16 @@ export function getZeroScoreCorrection(wordCount, reason = 'Texto insuficiente (
  * @returns {Promise<Object>} Resultado estruturado da correção
  */
 export async function correctEssayWithGemini({ theme, text, title, apiKey }) {
-  const resolvedKey = apiKey || process.env.GEMINI_API_KEY
-  if (!resolvedKey) {
-    throw new Error('Chave da API do Gemini (GEMINI_API_KEY) não configurada no servidor.')
+  // 1. Obtém as chaves disponíveis (com suporte a múltiplas chaves do banco de dados e fallback .env)
+  let candidateKeys = []
+  if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 0) {
+    candidateKeys = [{ id: 'custom-key', name: 'Chave informada diretamente', key: apiKey.trim(), fromDb: false }]
+  } else {
+    candidateKeys = await getActiveGeminiKeys()
+  }
+
+  if (!candidateKeys || candidateKeys.length === 0) {
+    throw new Error('Nenhuma chave da API do Gemini ativa foi configurada. Cadastre ao menos uma chave no Painel Admin ou defina GEMINI_API_KEY no arquivo .env.')
   }
 
   // 2. Proteção contra textos curtos: Regra estrita do ENEM (menos de 70 palavras recebe nota zero imediata)
@@ -302,82 +310,96 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
 
   let lastError = null
 
-  // Tenta os modelos em ordem de preferência
-  for (const model of GEMINI_MODELS) {
-    let timeoutId = null
-    try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolvedKey}`
+  // Itera pelas chaves candidatas (rotação e tolerância a falhas / cota)
+  for (const keyObj of candidateKeys) {
+    const resolvedKey = keyObj.key
+    let keySucceeded = false
 
-      const payload = {
-        systemInstruction: {
-          parts: [{ text: SYSTEM_PROMPT }]
-        },
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: userContent }]
-          }
-        ],
-        generationConfig: {
-          responseMimeType: 'application/json',
-          responseSchema: GEMINI_RESPONSE_SCHEMA,
-          temperature: 0.2
-        }
-      }
-
-      // 5. AbortController / Timeout para evitar conexões presas indefinidamente
-      const controller = new AbortController()
-      timeoutId = setTimeout(() => {
-        controller.abort()
-      }, GEMINI_TIMEOUT_MS)
-
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-      timeoutId = null
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        const errorMsg = errorData.error?.message || `Erro HTTP ${response.status}`
-        console.warn(`[Gemini Service] Falha com modelo ${model}: ${errorMsg}`)
-        lastError = new Error(errorMsg)
-        continue
-      }
-
-      const data = await response.json()
-      const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-      if (!rawText) {
-        throw new Error('Resposta vazia da API de Inteligência Artificial.')
-      }
-
-      // Sanitiza JSON caso venha com markdown fences
-      const cleanedJson = rawText.trim().replace(/^```json/i, '').replace(/^```/i, '').replace(/```$/i, '').trim()
-      let parsed
+    // Tenta os modelos em ordem de preferência
+    for (const model of GEMINI_MODELS) {
+      let timeoutId = null
       try {
-        parsed = JSON.parse(cleanedJson)
-      } catch (parseErr) {
-        throw new Error(`Falha ao decodificar JSON retornado pelo Gemini: ${parseErr.message}`)
-      }
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolvedKey}`
 
-      // 4 & 6. Validação estrita do schema e normalização/sincronização de notas
-      return validateAndNormalizeCorrectionResponse(parsed)
-    } catch (err) {
-      if (timeoutId) {
+        const payload = {
+          systemInstruction: {
+            parts: [{ text: SYSTEM_PROMPT }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: userContent }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: GEMINI_RESPONSE_SCHEMA,
+            temperature: 0.2
+          }
+        }
+
+        // 5. AbortController / Timeout para evitar conexões presas indefinidamente
+        const controller = new AbortController()
+        timeoutId = setTimeout(() => {
+          controller.abort()
+        }, GEMINI_TIMEOUT_MS)
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        })
+
         clearTimeout(timeoutId)
-      }
-      const isTimeout = err.name === 'AbortError' || err.message?.includes('aborted')
-      const message = isTimeout
-        ? `Tempo limite de ${GEMINI_TIMEOUT_MS / 1000}s esgotado ao aguardar o modelo ${model}.`
-        : err.message
+        timeoutId = null
 
-      console.warn(`[Gemini Service] Exceção com modelo ${model}:`, message)
-      lastError = new Error(message)
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}))
+          const errorMsg = errorData.error?.message || `Erro HTTP ${response.status}`
+          console.warn(`[Gemini Service] Chave "${keyObj.name}" com modelo ${model}: ${errorMsg}`)
+          lastError = new Error(errorMsg)
+          continue
+        }
+
+        const data = await response.json()
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+        if (!rawText) {
+          throw new Error('Resposta vazia da API de Inteligência Artificial.')
+        }
+
+        // Sanitiza JSON caso venha com markdown fences
+        const cleanedJson = rawText.trim().replace(/^\`\`\`json/i, '').replace(/^\`\`\`/i, '').replace(/\`\`\`$/i, '').trim()
+        let parsed
+        try {
+          parsed = JSON.parse(cleanedJson)
+        } catch (parseErr) {
+          throw new Error(`Falha ao decodificar JSON retornado pelo Gemini: ${parseErr.message}`)
+        }
+
+        // 4 & 6. Validação estrita do schema e normalização/sincronização de notas
+        const result = validateAndNormalizeCorrectionResponse(parsed)
+        keySucceeded = true
+        await recordKeyUsage(keyObj.id, { success: true })
+        return result
+      } catch (err) {
+        if (timeoutId) {
+          clearTimeout(timeoutId)
+        }
+        const isTimeout = err.name === 'AbortError' || err.message?.includes('aborted')
+        const message = isTimeout
+          ? `Tempo limite de ${GEMINI_TIMEOUT_MS / 1000}s esgotado ao aguardar o modelo ${model}.`
+          : err.message
+
+        console.warn(`[Gemini Service] Chave "${keyObj.name}" com modelo ${model}:`, message)
+        lastError = new Error(message)
+      }
+    }
+
+    if (!keySucceeded) {
+      await recordKeyUsage(keyObj.id, { success: false, error: lastError?.message })
+      console.warn(`[Gemini Service] Chave "${keyObj.name}" falhou para todos os modelos. Tentando próxima chave configurada...`)
     }
   }
 
