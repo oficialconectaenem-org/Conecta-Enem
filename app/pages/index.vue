@@ -65,7 +65,7 @@ onMounted(async () => {
     <p class="text-sm font-medium text-purple-200/80">Entrando no Conecta Enem...</p>
   </div>
 
-  <div v-else>
+  <div v-else class="min-h-screen bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 transition-colors duration-200">
     <LandingHeader />
     <LandingHero />
     <LandingFeatures />

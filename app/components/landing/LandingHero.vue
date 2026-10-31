@@ -13,15 +13,18 @@ async function handleInstallHero() {
 </script>
 
 <template>
-  <section class="landing-hero relative isolate overflow-hidden">
+  <section class="landing-hero relative isolate overflow-hidden dark:bg-zinc-950 transition-colors duration-200">
     <div class="landing-orb landing-orb--one" />
     <div class="landing-orb landing-orb--two" />
-    <div class="landing-grid absolute inset-0 -z-10 opacity-40" />
+    <div class="landing-grid absolute inset-0 -z-10 opacity-40 dark:opacity-20" />
 
     <div class="mx-auto grid min-h-[720px] max-w-7xl items-center gap-12 px-5 pb-16 pt-14 sm:pt-20 lg:grid-cols-[1.1fr_.9fr] lg:px-8 lg:pb-24">
       <div class="max-w-2xl">
         <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-purple-200/80 bg-white/80 px-4 py-2 text-xs sm:text-sm font-bold text-purple-700 shadow-xs backdrop-blur-md dark:border-purple-500/30 dark:bg-zinc-900/80 dark:text-purple-300">
-          <span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-ping" />
+          <span class="relative flex h-2 w-2">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
           Plataforma 100% Gratuita & Aberta para o ENEM
         </div>
 
