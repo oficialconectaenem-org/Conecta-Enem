@@ -78,9 +78,27 @@ export async function ensureApiKeysTable() {
       ) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
     `)
 
-    // Garante colunas adicionais se a tabela já existia antes
-    await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN IF NOT EXISTS \`model\` VARCHAR(191) NULL;`).catch(() => null)
-    await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN IF NOT EXISTS \`base_url\` VARCHAR(191) NULL;`).catch(() => null)
+    // Inspeciona colunas existentes (compatível universalmente com MySQL 5.7+, MySQL 8 e MariaDB)
+    try {
+      const existingCols = await prisma.$queryRawUnsafe(`SHOW COLUMNS FROM \`api_keys\``)
+      const colNames = Array.isArray(existingCols)
+        ? existingCols.map(c => (c.Field || c.field || c.COLUMN_NAME || '').toLowerCase())
+        : []
+
+      if (!colNames.includes('model')) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`model\` VARCHAR(191) NULL;`).catch(() => null)
+      }
+      if (!colNames.includes('base_url')) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`base_url\` VARCHAR(191) NULL;`).catch(() => null)
+      }
+      if (!colNames.includes('provider')) {
+        await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`provider\` VARCHAR(191) NOT NULL DEFAULT 'GEMINI';`).catch(() => null)
+      }
+    } catch {
+      // Fallback com ALTER direto caso SHOW COLUMNS falhe
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`model\` VARCHAR(191) NULL;`).catch(() => null)
+      await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`base_url\` VARCHAR(191) NULL;`).catch(() => null)
+    }
 
     tableInitialized = true
   } catch (err) {
@@ -350,7 +368,9 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
     const rawError = errData.error?.message || errData.message || `Erro HTTP ${response.status}`
 
     let userMessage = rawError
-    if (rawError.includes('API key not valid') || rawError.includes('Incorrect API key') || rawError.includes('invalid_api_key')) {
+    if (rawError.includes('service account is deleted or disabled') || rawError.includes('service account bound to the API key') || rawError.includes('SERVICE_DISABLED') || rawError.includes('PERMISSION_DENIED')) {
+      userMessage = `A chave do Google Gemini está vinculada a um projeto ou conta desativada no Google Cloud. Crie um novo projeto no Google AI Studio (https://aistudio.google.com/app/apikey) e cadastre uma nova chave.`
+    } else if (rawError.includes('API key not valid') || rawError.includes('Incorrect API key') || rawError.includes('invalid_api_key')) {
       userMessage = `A chave de API para ${cfg.name} é inválida. Verifique os caracteres ou gere uma nova.`
     } else if (rawError.includes('insufficient_quota') || rawError.includes('RESOURCE_EXHAUSTED') || rawError.includes('Quota exceeded') || response.status === 429) {
       userMessage = `A chave é autêntica, porém o limite de cota / créditos em ${cfg.name} foi atingido (Rate Limit / Quota).`
