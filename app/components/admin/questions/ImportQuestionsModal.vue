@@ -112,6 +112,41 @@ function loadExample() {
   }
 }
 
+const placeholderText = computed(() => {
+  if (inputFormat.value === 'TXT') {
+    return `Cole aqui suas questões em formato TXT:
+
+[QUESTAO]
+ANO: 2024
+MATERIA: Matematica
+DIFICULDADE: MEDIA
+ENUNCIADO: Enunciado da questao...
+A) Alternativa A
+B) Alternativa B
+C) Alternativa C
+D) Alternativa D
+E) Alternativa E
+GABARITO: B
+EXPLICACAO: Resolucao da questao...
+---`
+  }
+
+  return `Cole aqui um array JSON de questões:
+
+[
+  {
+    "statement": "Enunciado da questao...",
+    "year": 2024,
+    "difficulty": "MEDIUM",
+    "correctAnswer": "B",
+    "options": [
+      { "letter": "A", "text": "Opção 1" },
+      { "letter": "B", "text": "Opção 2" }
+    ]
+  }
+]`
+})
+
 function handleFileUpload(event) {
   const file = event.target.files?.[0]
   if (!file) return
@@ -588,9 +623,7 @@ async function handleSaveAll() {
                 v-model="rawInput"
                 rows="18"
                 class="w-full p-4 rounded-2xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-950 font-mono text-xs leading-relaxed text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-purple-500 resize-y"
-                :placeholder="inputFormat === 'TXT'
-                  ? 'Cole aqui suas questões em formato TXT:\n\n[QUESTAO]\nANO: 2024\nMATERIA: Matematica\nDIFICULDADE: MEDIA\nENUNCIADO: Enunciado da questao...\nA) Alternativa A\nB) Alternativa B\nC) Alternativa C\nD) Alternativa D\nE) Alternativa E\nGABARITO: B\nEXPLICACAO: Resolucao da questao...\n---'
-                  : 'Cole aqui um array JSON de questões:\n\n[\n  {\n    \"statement\": \"Enunciado da questao...\",\n    \"year\": 2024,\n    \"difficulty\": \"MEDIUM\",\n    \"correctAnswer\": \"B\",\n    \"options\": [\n      { \"letter\": \"A\", \"text\": \"Opção 1\" },\n      { \"letter\": \"B\", \"text\": \"Opção 2\" }\n    ]\n  }\n]'"
+                :placeholder="placeholderText"
               ></textarea>
 
               <button
