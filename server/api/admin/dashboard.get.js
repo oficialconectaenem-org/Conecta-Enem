@@ -1,4 +1,4 @@
-import { defineEventHandler } from 'h3'
+import { defineEventHandler, getQuery } from 'h3'
 import { requireAdmin } from '#server/utils/require-admin'
 import prisma from '#server/utils/prisma'
 
@@ -27,6 +27,8 @@ export default defineEventHandler(async (event) => {
       gradedEssays,
       pendingEssays,
       correctingEssays,
+      aiGradedEssays,
+      teacherEssays,
       essayScoreAvg,
       band0_400,
       band400_600,
@@ -60,6 +62,9 @@ export default defineEventHandler(async (event) => {
       prisma.essay.count({ where: { status: 'GRADED' } }).catch(() => 0),
       prisma.essay.count({ where: { status: 'PENDING' } }).catch(() => 0),
       prisma.essay.count({ where: { status: 'CORRECTING' } }).catch(() => 0),
+      // Redações corrigidas por IA vs Turmas de Professores
+      prisma.essay.count({ where: { classroomId: null, status: 'GRADED' } }).catch(() => 0),
+      prisma.essay.count({ where: { classroomId: { not: null } } }).catch(() => 0),
       // Média de pontuação em correções
       prisma.essayCorrection.aggregate({
         _avg: { totalScore: true }
@@ -95,46 +100,60 @@ export default defineEventHandler(async (event) => {
       ? Math.round(essayScoreAvg._avg.totalScore)
       : 0
 
-    // Linha do tempo dos últimos 7 dias para o gráfico de atividade diária
-    const now = new Date()
-    const sevenDaysAgo = new Date(now)
-    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6)
-    sevenDaysAgo.setHours(0, 0, 0, 0)
+    // Período dinâmico do gráfico (2 dias, 7 dias, 15 dias, 30 dias)
+    const query = getQuery(event)
+    const validDays = [2, 7, 15, 30]
+    const parsedDays = parseInt(query?.days, 10)
+    const days = validDays.includes(parsedDays) ? parsedDays : 7
 
-    // Busca registros recentes para agrupar por dia
+    const now = new Date()
+    const startDate = new Date(now)
+    startDate.setDate(startDate.getDate() - (days - 1))
+    startDate.setHours(0, 0, 0, 0)
+
+    // Busca registros recentes para agrupar por dia (incluindo distinção de redações IA)
     const [recentUsers, recentAnswers, recentSubmissions] = await Promise.all([
       prisma.user.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
+        where: { createdAt: { gte: startDate } },
         select: { createdAt: true }
       }).catch(() => []),
       prisma.questionAnswer.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
+        where: { createdAt: { gte: startDate } },
         select: { createdAt: true }
       }).catch(() => []),
       prisma.essay.findMany({
-        where: { createdAt: { gte: sevenDaysAgo } },
-        select: { createdAt: true }
+        where: { createdAt: { gte: startDate } },
+        select: { createdAt: true, classroomId: true, status: true }
       }).catch(() => [])
     ])
 
     const activityTimeline = []
-    for (let i = 6; i >= 0; i--) {
+    for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(d.getDate() - i)
       const dateStr = d.toISOString().slice(0, 10)
-      const dayLabel = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
+
+      // Se for 2 ou 7 dias: exibe dia da semana curto (ex: 'qui., 29')
+      // Se for 15 ou 30 dias: exibe 'dia/mês' (ex: '29/10') para legibilidade
+      const dayLabel = days <= 7
+        ? d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' })
+        : d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 
       const usersCount = recentUsers.filter(u => u.createdAt.toISOString().slice(0, 10) === dateStr).length
       const answersCount = recentAnswers.filter(a => a.createdAt.toISOString().slice(0, 10) === dateStr).length
-      const essaysCount = recentSubmissions.filter(e => e.createdAt.toISOString().slice(0, 10) === dateStr).length
+      const dailyEssays = recentSubmissions.filter(e => e.createdAt.toISOString().slice(0, 10) === dateStr)
+      const aiEssaysCount = dailyEssays.filter(e => e.classroomId === null && e.status === 'GRADED').length
+      const teacherEssaysCount = dailyEssays.filter(e => e.classroomId !== null || e.status !== 'GRADED').length
 
       activityTimeline.push({
         date: dateStr,
         label: dayLabel,
         users: usersCount,
         questions: answersCount,
-        essays: essaysCount,
-        total: usersCount + answersCount + essaysCount
+        essays: dailyEssays.length,
+        aiEssays: aiEssaysCount,
+        teacherEssays: teacherEssaysCount,
+        total: usersCount + answersCount + dailyEssays.length
       })
     }
 
@@ -177,6 +196,8 @@ export default defineEventHandler(async (event) => {
         graded: gradedEssays,
         pending: pendingEssays,
         correcting: correctingEssays,
+        aiGraded: aiGradedEssays,
+        teacherGraded: teacherEssays,
         averageScore,
         bands: {
           band0_400,
@@ -193,7 +214,8 @@ export default defineEventHandler(async (event) => {
         totalModules,
         totalLessons
       },
-      activityTimeline
+      activityTimeline,
+      periodDays: days
     }
   } catch (err) {
     console.error('[Dashboard API] Erro ao carregar métricas:', err)

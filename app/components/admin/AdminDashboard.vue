@@ -56,15 +56,80 @@ const platformUsage = ref({
 })
 
 const activityTimeline = ref([])
-const activeTimelineMetric = ref('total') // 'total', 'questions', 'essays', 'users'
+const activeTimelineMetric = ref('total') // 'total', 'questions', 'aiEssays', 'essays', 'users'
 
-// Tooltip para o gráfico de linha de atividade
+// Filtro de período dinâmico do gráfico
+const selectedPeriod = ref(7)
+const periodOptions = [
+  { label: '2 Dias', value: 2 },
+  { label: '7 Dias', value: 7 },
+  { label: '15 Dias', value: 15 },
+  { label: '1 Mês', value: 30 }
+]
+
+const periodLabel = computed(() => {
+  if (selectedPeriod.value === 2) return 'Últimas 48 horas'
+  if (selectedPeriod.value === 7) return 'Últimos 7 dias'
+  if (selectedPeriod.value === 15) return 'Últimos 15 dias'
+  if (selectedPeriod.value === 30) return 'Último mês'
+  return `Últimos ${selectedPeriod.value} dias`
+})
+
+async function changePeriod(days) {
+  if (selectedPeriod.value === days) return
+  selectedPeriod.value = days
+  hoveredPoint.value = null
+  await fetchDashboardStats()
+}
+
+// Tooltip e controle estável de hover no gráfico (sem jitter / tremedeira)
 const hoveredPoint = ref(null)
+
+const metricConfig = computed(() => {
+  switch (activeTimelineMetric.value) {
+    case 'questions':
+      return {
+        unit: 'questões resolvidas',
+        color: '#3b82f6',
+        badge: 'Questões'
+      }
+    case 'aiEssays':
+      return {
+        unit: 'redações corrigidas por IA',
+        color: '#d946ef',
+        badge: 'Redações IA'
+      }
+    case 'essays':
+      return {
+        unit: 'redações no total',
+        color: '#a855f7',
+        badge: 'Todas Redações'
+      }
+    case 'users':
+      return {
+        unit: 'novos alunos cadastrados',
+        color: '#10b981',
+        badge: 'Novos Alunos'
+      }
+    default:
+      return {
+        unit: 'interações gerais',
+        color: '#8b5cf6',
+        badge: 'Geral'
+      }
+  }
+})
+
+function shouldShowLabel(idx, totalCount) {
+  if (totalCount <= 8) return true
+  if (totalCount <= 16) return idx % 2 === 0 || idx === totalCount - 1
+  return idx % 4 === 0 || idx === totalCount - 1
+}
 
 async function fetchDashboardStats() {
   loading.value = true
   try {
-    const res = await $fetch('/api/admin/dashboard', { credentials: 'include' })
+    const res = await $fetch(`/api/admin/dashboard?days=${selectedPeriod.value}`, { credentials: 'include' })
     if (res) {
       if (res.stats) stats.value = res.stats
       if (res.userStats) userStats.value = res.userStats
@@ -172,22 +237,28 @@ const timelinePoints = computed(() => {
 
   const metric = activeTimelineMetric.value
   const values = list.map(item => Number(item[metric]) || 0)
-  const maxVal = Math.max(...values, 5) // Mínimo de 5 para escala confortável
+  const maxVal = Math.max(...values, 4)
 
   const chartW = svgWidth - padding.left - padding.right
   const chartH = svgHeight - padding.top - padding.bottom
-  const stepX = chartW / Math.max(1, list.length - 1)
+  const count = list.length
+  const stepX = count > 1 ? chartW / (count - 1) : 0
 
   return list.map((item, idx) => {
     const val = Number(item[metric]) || 0
-    const x = padding.left + idx * stepX
+    const x = count === 1 ? padding.left + chartW / 2 : padding.left + idx * stepX
     const y = padding.top + chartH - (val / maxVal) * chartH
+    const hitW = count === 1 ? chartW : stepX
+    const hitX = count === 1 ? padding.left : x - hitW / 2
+
     return {
       x,
       y,
       val,
       label: item.label,
       date: item.date,
+      hitX,
+      hitWidth: hitW,
       item
     }
   })
@@ -317,6 +388,7 @@ onMounted(() => {
           </span>
           <span class="text-[11px] text-zinc-400 block font-medium">
             Nota média: <strong class="text-fuchsia-600 dark:text-fuchsia-400">{{ essayStats.averageScore }} pts</strong>
+            <span v-if="essayStats.aiGraded" class="text-fuchsia-600 dark:text-fuchsia-400 font-bold ml-1.5">• {{ essayStats.aiGraded }} por IA</span>
           </span>
         </div>
         <div class="flex h-12 w-12 items-center justify-center rounded-xl bg-fuchsia-100 dark:bg-fuchsia-950/60 text-fuchsia-700 dark:text-fuchsia-300 group-hover:scale-110 transition-transform">
@@ -327,82 +399,110 @@ onMounted(() => {
 
     <!-- SEÇÃO 1: GRÁFICOS DE ATIVIDADE & COMUNIDADE (PROFESSORES & ALUNOS) -->
     <div class="grid gap-6 lg:grid-cols-3">
-      <!-- GRÁFICO 1: TENDÊNCIA DE ATIVIDADE DIÁRIA (ÁREA/LINHA SVG) -->
+      <!-- GRÁFICO 1: TENDÊNCIA DE ATIVIDADE DIÁRIA (ÁREA/LINHA SVG ESTÁVEL) -->
       <div class="lg:col-span-2 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4 shadow-2xs">
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 border-b border-zinc-100 dark:border-zinc-800 pb-4">
           <div class="space-y-0.5">
             <div class="flex items-center gap-2">
               <span class="material-symbols-rounded text-purple-600 dark:text-purple-400 text-xl">trending_up</span>
               <h2 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
-                Atividade & Uso Recente (Últimos 7 dias)
+                Atividade & Uso Recente ({{ periodLabel }})
               </h2>
             </div>
             <p class="text-[11px] text-zinc-400">
-              Evolução diária de interações de alunos e professores na plataforma
+              Evolução diária de alunos, professores, questões e correções de IA
             </p>
           </div>
 
-          <!-- SELETOR DE MÉTRICA DO GRÁFICO -->
-          <div class="flex items-center gap-1 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-[11px] font-bold">
-            <button
-              type="button"
-              @click="activeTimelineMetric = 'total'"
-              class="px-2.5 py-1 rounded-lg transition cursor-pointer"
-              :class="activeTimelineMetric === 'total' ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            >
-              Geral
-            </button>
-            <button
-              type="button"
-              @click="activeTimelineMetric = 'questions'"
-              class="px-2.5 py-1 rounded-lg transition cursor-pointer"
-              :class="activeTimelineMetric === 'questions' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            >
-              Questões
-            </button>
-            <button
-              type="button"
-              @click="activeTimelineMetric = 'essays'"
-              class="px-2.5 py-1 rounded-lg transition cursor-pointer"
-              :class="activeTimelineMetric === 'essays' ? 'bg-white dark:bg-zinc-900 text-fuchsia-600 dark:text-fuchsia-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            >
-              Redações
-            </button>
-            <button
-              type="button"
-              @click="activeTimelineMetric = 'users'"
-              class="px-2.5 py-1 rounded-lg transition cursor-pointer"
-              :class="activeTimelineMetric === 'users' ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
-            >
-              Novos Alunos
-            </button>
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- FILTRO DE PERÍODO (2 DIAS, 7 DIAS, 15 DIAS, 1 MÊS) -->
+            <div class="flex items-center gap-0.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-[11px] font-bold">
+              <button
+                v-for="p in periodOptions"
+                :key="p.value"
+                type="button"
+                @click="changePeriod(p.value)"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer"
+                :class="selectedPeriod === p.value ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+                :title="`Filtrar pelos últimos ${p.value} dias`"
+              >
+                {{ p.label }}
+              </button>
+            </div>
+
+            <!-- SELETOR DE MÉTRICA DO GRÁFICO -->
+            <div class="flex items-center gap-0.5 p-1 rounded-xl bg-zinc-100 dark:bg-zinc-800/80 text-[11px] font-bold overflow-x-auto scrollbar-none">
+              <button
+                type="button"
+                @click="activeTimelineMetric = 'total'"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
+                :class="activeTimelineMetric === 'total' ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+              >
+                Geral
+              </button>
+              <button
+                type="button"
+                @click="activeTimelineMetric = 'questions'"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
+                :class="activeTimelineMetric === 'questions' ? 'bg-white dark:bg-zinc-900 text-blue-600 dark:text-blue-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+              >
+                Questões
+              </button>
+              <button
+                type="button"
+                @click="activeTimelineMetric = 'aiEssays'"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap flex items-center gap-1"
+                :class="activeTimelineMetric === 'aiEssays' ? 'bg-white dark:bg-zinc-900 text-fuchsia-600 dark:text-fuchsia-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+              >
+                <span class="material-symbols-rounded text-xs">neurology</span>
+                <span>Redações IA</span>
+              </button>
+              <button
+                type="button"
+                @click="activeTimelineMetric = 'essays'"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
+                :class="activeTimelineMetric === 'essays' ? 'bg-white dark:bg-zinc-900 text-purple-600 dark:text-purple-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+              >
+                Todas Redações
+              </button>
+              <button
+                type="button"
+                @click="activeTimelineMetric = 'users'"
+                class="px-2.5 py-1 rounded-lg transition cursor-pointer whitespace-nowrap"
+                :class="activeTimelineMetric === 'users' ? 'bg-white dark:bg-zinc-900 text-emerald-600 dark:text-emerald-400 shadow-2xs' : 'text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-200'"
+              >
+                Novos Alunos
+              </button>
+            </div>
           </div>
         </div>
 
-        <!-- VISUALIZADOR SVG DO GRÁFICO DE LINHA / ÁREA -->
+        <!-- VISUALIZADOR SVG DO GRÁFICO (FLUIDO, SEM JITTER / TREMEDEIRA) -->
         <div class="relative w-full h-[220px]">
           <svg
             :viewBox="`0 0 ${svgWidth} ${svgHeight}`"
             class="w-full h-full overflow-visible"
             preserveAspectRatio="none"
+            @mouseleave="hoveredPoint = null"
           >
             <defs>
-              <linearGradient id="areaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.35" />
-                <stop offset="100%" stop-color="#8b5cf6" stop-opacity="0.0" />
+              <linearGradient id="activeAreaGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" :stop-color="metricConfig.color" stop-opacity="0.32" />
+                <stop offset="100%" :stop-color="metricConfig.color" stop-opacity="0.0" />
               </linearGradient>
             </defs>
 
-            <!-- Linhas de grade sutis -->
-            <line :x1="padding.left" :y1="padding.top" :x2="svgWidth - padding.right" :y2="padding.top" stroke="#71717a" stroke-opacity="0.15" stroke-dasharray="3 3" />
-            <line :x1="padding.left" :y1="(svgHeight - padding.bottom + padding.top) / 2" :x2="svgWidth - padding.right" :y2="(svgHeight - padding.bottom + padding.top) / 2" stroke="#71717a" stroke-opacity="0.15" stroke-dasharray="3 3" />
+            <!-- Linhas de grade horizontais -->
+            <line :x1="padding.left" :y1="padding.top" :x2="svgWidth - padding.right" :y2="padding.top" stroke="#71717a" stroke-opacity="0.12" stroke-dasharray="3 3" />
+            <line :x1="padding.left" :y1="(svgHeight - padding.bottom + padding.top) / 2" :x2="svgWidth - padding.right" :y2="(svgHeight - padding.bottom + padding.top) / 2" stroke="#71717a" stroke-opacity="0.12" stroke-dasharray="3 3" />
             <line :x1="padding.left" :y1="svgHeight - padding.bottom" :x2="svgWidth - padding.right" :y2="svgHeight - padding.bottom" stroke="#71717a" stroke-opacity="0.25" />
 
-            <!-- Área sombreada -->
+            <!-- Área sombreada suave -->
             <path
               v-if="svgAreaPath"
               :d="svgAreaPath"
-              fill="url(#areaGradient)"
+              fill="url(#activeAreaGradient)"
+              pointer-events="none"
             />
 
             <!-- Linha da curva -->
@@ -410,50 +510,90 @@ onMounted(() => {
               v-if="svgPath"
               :d="svgPath"
               fill="none"
-              stroke="#8b5cf6"
+              :stroke="metricConfig.color"
               stroke-width="3"
               stroke-linecap="round"
               stroke-linejoin="round"
+              pointer-events="none"
             />
 
-            <!-- Pontos e Labels dos dias -->
-            <g v-for="(p, i) in timelinePoints" :key="i">
-              <!-- Círculo do ponto -->
+            <!-- Guia vertical no ponto com hover (estável) -->
+            <line
+              v-if="hoveredPoint !== null && timelinePoints[hoveredPoint]"
+              :x1="timelinePoints[hoveredPoint].x"
+              :y1="padding.top"
+              :x2="timelinePoints[hoveredPoint].x"
+              :y2="svgHeight - padding.bottom"
+              :stroke="metricConfig.color"
+              stroke-width="1.5"
+              stroke-dasharray="3 3"
+              stroke-opacity="0.5"
+              pointer-events="none"
+            />
+
+            <!-- Pontos e Labels dos dias (com pointer-events none para evitar jitter) -->
+            <g v-for="(p, i) in timelinePoints" :key="'point-' + i" pointer-events="none">
+              <!-- Halo suave em hover -->
+              <circle
+                v-if="hoveredPoint === i"
+                :cx="p.x"
+                :cy="p.y"
+                :r="selectedPeriod > 15 ? 10 : 13"
+                :fill="metricConfig.color"
+                fill-opacity="0.22"
+              />
+
+              <!-- Ponto central da curva -->
               <circle
                 :cx="p.x"
                 :cy="p.y"
-                r="5"
-                class="cursor-pointer transition-transform duration-150 hover:scale-150"
-                :fill="hoveredPoint === i ? '#7c3aed' : '#ffffff'"
-                stroke="#8b5cf6"
-                stroke-width="2.5"
-                @mouseenter="hoveredPoint = i"
-                @mouseleave="hoveredPoint = null"
+                :r="hoveredPoint === i ? 6.5 : (selectedPeriod > 15 ? 3 : 4.5)"
+                :fill="hoveredPoint === i ? metricConfig.color : '#ffffff'"
+                :stroke="metricConfig.color"
+                :stroke-width="hoveredPoint === i ? 3 : 2"
               />
 
               <!-- Label do eixo X -->
               <text
+                v-if="shouldShowLabel(i, timelinePoints.length)"
                 :x="p.x"
                 :y="svgHeight - 10"
                 text-anchor="middle"
-                class="text-[10px] fill-zinc-400 font-medium"
+                class="text-[10px] fill-zinc-400 font-medium select-none"
               >
                 {{ p.label }}
               </text>
             </g>
+
+            <!-- FAIXAS VERTICAIS INVISÍVEIS PARA CAPTURAR HOVER DE FORMA TOTALMENTE ESTÁVEL E FLUIDA -->
+            <rect
+              v-for="(p, i) in timelinePoints"
+              :key="'hit-' + i"
+              :x="Math.max(0, p.hitX)"
+              y="0"
+              :width="Math.max(12, p.hitWidth)"
+              :height="svgHeight"
+              fill="transparent"
+              class="cursor-pointer"
+              @mouseenter="hoveredPoint = i"
+            />
           </svg>
 
-          <!-- TOOLTIP FLUTUANTE EM HOVER -->
+          <!-- TOOLTIP FLUTUANTE EM HOVER (POSICIONAMENTO SEGURO CONTRA BORDAS) -->
           <div
             v-if="hoveredPoint !== null && timelinePoints[hoveredPoint]"
-            class="absolute pointer-events-none -top-2 rounded-xl bg-zinc-900 text-white px-3 py-1.5 text-xs font-bold shadow-xl border border-zinc-700 z-20 -translate-x-1/2 -translate-y-full transition-all"
-            :style="{ left: `${(timelinePoints[hoveredPoint].x / svgWidth) * 100}%` }"
+            class="absolute pointer-events-none -top-2 rounded-xl bg-zinc-900 text-white px-3.5 py-2 text-xs font-bold shadow-xl border border-zinc-700 z-20 -translate-x-1/2 -translate-y-full"
+            :style="{ left: `${Math.max(12, Math.min(88, (timelinePoints[hoveredPoint].x / svgWidth) * 100))}%` }"
           >
-            <div class="text-[10px] text-zinc-400">{{ timelinePoints[hoveredPoint].label }}</div>
-            <div class="text-sm font-black text-purple-300">
+            <div class="text-[10px] text-zinc-400 flex items-center gap-1.5">
+              <span>{{ timelinePoints[hoveredPoint].label }}</span>
+              <span>•</span>
+              <span>{{ timelinePoints[hoveredPoint].date }}</span>
+            </div>
+            <div class="text-sm font-black mt-0.5" :style="{ color: metricConfig.color }">
               {{ timelinePoints[hoveredPoint].val }}
               <span class="text-[10px] font-normal text-zinc-300">
-                {{ activeTimelineMetric === 'questions' ? 'questões' : activeTimelineMetric === 'essays' ? 'redações' : activeTimelineMetric === 'users' ? 'alunos' : 'interações' }}
+                {{ metricConfig.unit }}
               </span>
             </div>
           </div>
