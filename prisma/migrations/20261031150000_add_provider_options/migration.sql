@@ -1,3 +1,4 @@
 -- AlterTable
 ALTER TABLE `api_keys` ADD COLUMN IF NOT EXISTS `model` VARCHAR(191) NULL,
     ADD COLUMN IF NOT EXISTS `base_url` VARCHAR(191) NULL;
+

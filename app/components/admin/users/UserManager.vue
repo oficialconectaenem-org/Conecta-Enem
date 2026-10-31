@@ -329,16 +329,26 @@ onMounted(() => {
                 {{ formatDate(u.createdAt) }}
               </td>
 
-              <!-- AÇÕES (DELETAR) -->
+              <!-- AÇÕES (VER DETALHES & DELETAR) -->
               <td class="px-5 py-4 text-right">
-                <button
-                  type="button"
-                  @click="promptDelete(u)"
-                  class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 transition cursor-pointer"
-                  title="Excluir usuário"
-                >
-                  <span class="material-symbols-rounded text-lg">delete</span>
-                </button>
+                <div class="flex items-center justify-end gap-1.5">
+                  <NuxtLink
+                    :to="`/admin/usuarios/${u.id}`"
+                    class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-400 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-purple-950/40 dark:hover:text-purple-300 transition cursor-pointer"
+                    title="Ver atividades, redações e acertos do usuário"
+                  >
+                    <span class="material-symbols-rounded text-lg">visibility</span>
+                  </NuxtLink>
+
+                  <button
+                    type="button"
+                    @click="promptDelete(u)"
+                    class="inline-flex items-center justify-center h-8 w-8 rounded-lg text-zinc-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition cursor-pointer"
+                    title="Excluir usuário"
+                  >
+                    <span class="material-symbols-rounded text-lg">delete</span>
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
