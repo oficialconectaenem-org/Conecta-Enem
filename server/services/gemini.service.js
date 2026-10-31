@@ -563,8 +563,8 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
   }
 
   let userFriendlyMessage = lastError?.message || 'Erro na comunicação com os servidores de IA.'
-  if (userFriendlyMessage.includes('service account is deleted or disabled')) {
-    userFriendlyMessage = 'A chave do Google Gemini está vinculada a uma conta desativada no Google Cloud. Cadastre uma nova chave em https://aistudio.google.com/app/apikey no Painel Admin.'
+  if (userFriendlyMessage.includes('service account is deleted or disabled') || userFriendlyMessage.includes('service account bound to the API key') || userFriendlyMessage.includes('SERVICE_DISABLED') || userFriendlyMessage.includes('PERMISSION_DENIED')) {
+    userFriendlyMessage = 'A chave do Google Gemini atual (configurada no .env) está vinculada a um projeto ou conta de serviço desativada no Google Cloud. Para resolver isso imediatamente, cadastre uma nova chave de API no Painel Admin (/admin/chaves-api) ou atualize a GEMINI_API_KEY no arquivo .env.'
   } else if (userFriendlyMessage.includes('API key not valid') || userFriendlyMessage.includes('invalid_api_key')) {
     userFriendlyMessage = 'A chave de API de IA configurada é inválida ou expirou. Atualize-a no Painel do Administrador.'
   } else if (userFriendlyMessage.includes('RESOURCE_EXHAUSTED') || userFriendlyMessage.includes('Quota exceeded') || userFriendlyMessage.includes('insufficient_quota')) {
