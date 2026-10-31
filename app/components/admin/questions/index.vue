@@ -4,6 +4,7 @@ import QuestionFilters from './QuestionFilters.vue'
 import QuestionCard from './QuestionCard.vue'
 import QuestionEmptyState from './QuestionEmptyState.vue'
 import DeleteQuestion from './DeleteQuestion.vue'
+import ImportQuestionsModal from './ImportQuestionsModal.vue'
 
 const { questions, loading, error, getQuestions } = useQuestions()
 
@@ -22,6 +23,9 @@ const filters = reactive({
 const viewingQuestion = ref(null)
 const deletingQuestionId = ref(null)
 const showDeleteModal = ref(false)
+
+// Estado da Importação em TXT ou JSON
+const showTxtJsonModal = ref(false)
 
 // Estado da Importação Nativa do ENEM
 const showImportModal = ref(false)
@@ -228,7 +232,15 @@ onMounted(() => {
         </p>
       </div>
 
-      <div class="flex items-center gap-3">
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          type="button"
+          class="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 dark:border-purple-800 bg-purple-50 dark:bg-purple-950/60 px-5 py-3.5 text-sm font-bold text-purple-700 dark:text-purple-300 transition hover:bg-purple-100 dark:hover:bg-purple-900/60 cursor-pointer shadow-xs active:scale-98"
+          @click="showTxtJsonModal = true"
+        >
+          <span class="material-symbols-rounded text-lg">post_add</span>
+          <span>Adicionar em JSON ou TXT</span>
+        </button>
         <button
           type="button"
           class="inline-flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50 px-5 py-3.5 text-sm font-bold text-purple-700 transition hover:bg-purple-100 cursor-pointer shadow-xs active:scale-98"
@@ -544,6 +556,7 @@ onMounted(() => {
       </Transition>
     </Teleport>
 
+
     <!-- MODAL DE EXCLUSÃO -->
     <DeleteQuestion
       v-if="deletingQuestionId"
@@ -673,5 +686,13 @@ onMounted(() => {
         </div>
       </Transition>
     </Teleport>
+
+    <!-- MODAL DE IMPORTAÇÃO PERSONALIZADA EM TXT OU JSON COM LIVE PREVIEW -->
+    <ImportQuestionsModal
+      :show="showTxtJsonModal"
+      :subjects="subjects"
+      @close="showTxtJsonModal = false"
+      @imported="getQuestions"
+    />
   </div>
 </template>

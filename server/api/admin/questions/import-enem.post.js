@@ -1,6 +1,6 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import prisma from '#server/utils/prisma'
-import { requireAdmin } from '#server/utils/require-admin.js'
+import { requireAdmin } from '#server/utils/require-admin'
 import { ensureQuestionsSchema } from '#server/utils/ensure-schema'
 
 // Mapeamento de matérias escolares específicas
@@ -144,7 +144,21 @@ export default defineEventHandler(async (event) => {
 
   while (hasMore) {
     const url = `https://api.enem.dev/v1/exams/${year}/questions?limit=${limit}&offset=${offset}`
-    const response = await fetch(url)
+    const fetchController = new AbortController()
+    const fetchTimer = setTimeout(() => fetchController.abort(), 20000)
+
+    let response
+    try {
+      response = await fetch(url, { signal: fetchController.signal })
+    } catch (fErr) {
+      clearTimeout(fetchTimer)
+      throw createError({
+        statusCode: 504,
+        statusMessage: `Tempo limite esgotado ao contatar api.enem.dev para o ano ${year}. Tente novamente.`
+      })
+    }
+    clearTimeout(fetchTimer)
+
     if (!response.ok) {
       throw createError({
         statusCode: 502,
@@ -192,18 +206,36 @@ export default defineEventHandler(async (event) => {
         if (q.alternativesIntroduction && q.alternativesIntroduction.trim()) statementParts.push(q.alternativesIntroduction.trim())
         const statement = statementParts.join('\n\n') || `Questão do ENEM ${year}`
 
-        const primaryImage = Array.isArray(q.files) && q.files.length > 0 ? q.files[0] : null
-        const allImagesJson = Array.isArray(q.files) && q.files.length > 0 ? JSON.stringify(q.files) : null
+        let primaryImage = null
+        let allImagesJson = null
+        if (Array.isArray(q.files) && q.files.length > 0) {
+          const validFiles = q.files.map(f => {
+            if (typeof f === 'string' && f.trim()) return f.trim()
+            if (f && typeof f === 'object' && f.url) return String(f.url).trim()
+            return null
+          }).filter(Boolean)
+
+          if (validFiles.length > 0) {
+            primaryImage = validFiles[0]
+            allImagesJson = JSON.stringify(validFiles)
+          }
+        }
 
         const existingId = existingMap.get(title)
 
-        const alternativesData = (Array.isArray(q.alternatives) ? q.alternatives : [])
-          .filter(alt => validLetters.includes(alt.letter?.trim()?.toUpperCase()))
-          .map(alt => ({
-            letter: alt.letter.trim().toUpperCase(),
-            text: alt.text || '',
-            imageUrl: alt.file || null
-          }))
+        const seenLetters = new Set()
+        const alternativesData = []
+        for (const alt of (Array.isArray(q.alternatives) ? q.alternatives : [])) {
+          const letter = alt.letter?.trim()?.toUpperCase()
+          if (letter && validLetters.includes(letter) && !seenLetters.has(letter)) {
+            seenLetters.add(letter)
+            alternativesData.push({
+              letter,
+              text: alt.text ? String(alt.text).trim() : '',
+              imageUrl: alt.file ? String(alt.file).trim() : null
+            })
+          }
+        }
 
         const hasEnoughOptions = alternativesData.length >= 5
         const emptyCount = alternativesData.filter(o => !o.text && !o.imageUrl).length
@@ -222,6 +254,28 @@ export default defineEventHandler(async (event) => {
               active: isActive
             }
           })
+
+          for (const opt of alternativesData) {
+            await prisma.questionOption.upsert({
+              where: {
+                questionId_letter: {
+                  questionId: existingId,
+                  letter: opt.letter
+                }
+              },
+              update: {
+                text: opt.text,
+                imageUrl: opt.imageUrl
+              },
+              create: {
+                questionId: existingId,
+                letter: opt.letter,
+                text: opt.text,
+                imageUrl: opt.imageUrl
+              }
+            }).catch(() => null)
+          }
+
           updatedCount++
         } else {
           await prisma.question.create({
