@@ -108,9 +108,22 @@ async function handleLogout() {
         </span>
       </NuxtLink>
 
+      <!-- Botão Fechar no Mobile -->
       <button
+        v-if="mobileOpen"
         type="button"
-        class="w-8 h-8 flex items-center justify-center rounded-lg border-0 bg-transparent text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100 transition cursor-pointer"
+        class="lg:hidden w-8 h-8 flex items-center justify-center rounded-lg border-0 bg-transparent text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100 transition cursor-pointer"
+        aria-label="Fechar menu"
+        @click="emit('close-mobile')"
+      >
+        <span class="material-symbols-rounded text-xl">close</span>
+      </button>
+
+      <!-- Botão Recolher no Desktop -->
+      <button
+        v-else
+        type="button"
+        class="hidden lg:flex w-8 h-8 items-center justify-center rounded-lg border-0 bg-transparent text-slate-500 hover:bg-slate-100 dark:text-zinc-400 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100 transition cursor-pointer"
         :aria-label="collapsed ? 'Expandir menu' : 'Recolher menu'"
         @click="emit('toggle')"
       >

@@ -70,7 +70,7 @@ const isPhotoSubmission = computed(() => {
 })
 
 const photoRotation = ref(0)
-const photoFilterMode = ref('SHARP') // 'SHARP', 'HIGH_CONTRAST', 'ORIGINAL'
+const photoFilterMode = ref('SHARP') // 'SHARP', 'HIGH_CONTRAST', 'INVERT', 'BRIGHT', 'ORIGINAL'
 const photoWidthMode = ref('FULL') // 'FULL' (100%), 'WIDE' (125%), 'ZOOM' (150%)
 
 function rotateImage() {
@@ -81,6 +81,10 @@ function cycleFilterMode() {
   if (photoFilterMode.value === 'SHARP') {
     photoFilterMode.value = 'HIGH_CONTRAST'
   } else if (photoFilterMode.value === 'HIGH_CONTRAST') {
+    photoFilterMode.value = 'INVERT'
+  } else if (photoFilterMode.value === 'INVERT') {
+    photoFilterMode.value = 'BRIGHT'
+  } else if (photoFilterMode.value === 'BRIGHT') {
     photoFilterMode.value = 'ORIGINAL'
   } else {
     photoFilterMode.value = 'SHARP'
@@ -99,17 +103,25 @@ function cycleWidthMode() {
 
 const photoFilterStyle = computed(() => {
   if (photoFilterMode.value === 'SHARP') {
-    return 'contrast(1.22) brightness(1.02) saturate(0.92)'
+    return 'contrast(1.25) brightness(1.02) saturate(0.9)'
   }
   if (photoFilterMode.value === 'HIGH_CONTRAST') {
-    return 'contrast(1.55) brightness(0.96) grayscale(0.7)'
+    return 'contrast(1.6) brightness(0.95) grayscale(0.8)'
+  }
+  if (photoFilterMode.value === 'INVERT') {
+    return 'invert(0.92) hue-rotate(180deg) contrast(1.3) brightness(0.95)'
+  }
+  if (photoFilterMode.value === 'BRIGHT') {
+    return 'brightness(1.22) contrast(1.28)'
   }
   return 'none'
 })
 
 const photoFilterLabel = computed(() => {
-  if (photoFilterMode.value === 'SHARP') return 'Nitidez Máxima (Ativa)'
+  if (photoFilterMode.value === 'SHARP') return 'Nitidez Extra'
   if (photoFilterMode.value === 'HIGH_CONTRAST') return 'Alto Contraste P&B'
+  if (photoFilterMode.value === 'INVERT') return 'Papel Noturno (Invertido)'
+  if (photoFilterMode.value === 'BRIGHT') return 'Mais Brilho'
   return 'Original'
 })
 
@@ -480,7 +492,7 @@ function handleTextClick(e) {
     <div
       ref="textContainer"
       class="relative w-full transition-all select-text rounded-2xl shadow-xl dark:shadow-2xl border border-slate-300/80 dark:border-zinc-800 p-3 sm:p-6 font-sans text-slate-800 dark:text-zinc-100 bg-[#fcfbfa] dark:bg-[#18181b]"
-      :class="isPhotoSubmission ? 'min-w-[720px] max-w-[1100px] overflow-visible' : 'min-w-[700px] max-w-[850px] min-h-[960px] overflow-hidden'"
+      :class="isPhotoSubmission ? 'w-full max-w-[1100px] overflow-visible' : 'w-full max-w-[850px] min-h-[960px] overflow-hidden'"
       @mouseup="handleMouseUp"
       @click="handleTextClick"
     >

@@ -28,6 +28,7 @@ const creating = ref(false)
 const showModal = ref(false)
 const classrooms = ref([])
 const recentStudents = ref([])
+const dashboardStats = ref({ totalClassrooms: 0, activeClassrooms: 0, totalStudents: 0, pendingCorrections: 0 })
 const toastMessage = ref('')
 const toastType = ref('success')
 
@@ -51,8 +52,9 @@ async function loadData() {
       classrooms.value = classroomsRes.value.classrooms
     }
 
-    if (dashRes.status === 'fulfilled' && dashRes.value?.recentStudents) {
-      recentStudents.value = dashRes.value.recentStudents
+    if (dashRes.status === 'fulfilled') {
+      if (dashRes.value?.recentStudents) recentStudents.value = dashRes.value.recentStudents
+      if (dashRes.value?.stats) dashboardStats.value = dashRes.value.stats
     }
   } catch (err) {
     showToast('Não foi possível carregar as informações.', 'error')
@@ -208,19 +210,24 @@ onMounted(() => {
         </span>
       </div>
 
-      <div class="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
+      <NuxtLink
+        to="/professor/redacoes?status=PENDING"
+        class="rounded-3xl border border-slate-200 bg-white p-5 shadow-xs transition hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900 hover:border-amber-400 dark:hover:border-amber-500/50 cursor-pointer group"
+      >
         <div class="flex items-center justify-between">
           <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">Redações para Corrigir</span>
-          <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400">
+          <div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400 group-hover:scale-105 transition-transform">
             <span class="material-symbols-rounded text-xl">rate_review</span>
           </div>
         </div>
-        <p class="mt-3 text-3xl font-black text-slate-900 dark:text-zinc-100">0</p>
+        <p class="mt-3 text-3xl font-black text-slate-900 dark:text-zinc-100">
+          {{ loading ? '...' : dashboardStats.pendingCorrections }}
+        </p>
         <span class="mt-1 text-[11px] font-semibold text-amber-600 dark:text-amber-400 flex items-center gap-1">
           <span class="material-symbols-rounded text-xs">hourglass_empty</span>
-          Fila de avaliação
+          {{ dashboardStats.pendingCorrections > 0 ? 'Clique para avaliar agora' : 'Fila em dia' }}
         </span>
-      </div>
+      </NuxtLink>
     </div>
 
     <!-- SEÇÃO PRINCIPAL UNIFICADA (TURMAS + ÚLTIMOS INSCRITOS) -->

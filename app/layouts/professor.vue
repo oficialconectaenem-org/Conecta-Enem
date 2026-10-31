@@ -20,6 +20,22 @@ function closeMobileSidebar() {
 
 <template>
   <div class="teacher-shell min-h-screen bg-slate-50 dark:bg-[#09080e] text-slate-900 dark:text-zinc-100 transition-colors duration-200">
+    <!-- Overlay / Backdrop para Mobile -->
+    <Transition
+      enter-active-class="transition-opacity duration-200 ease-out"
+      enter-from-class="opacity-0"
+      enter-to-class="opacity-100"
+      leave-active-class="transition-opacity duration-150 ease-in"
+      leave-from-class="opacity-100"
+      leave-to-class="opacity-0"
+    >
+      <div
+        v-if="mobileSidebarOpen"
+        class="fixed inset-0 z-40 bg-black/60 backdrop-blur-2xs lg:hidden cursor-pointer"
+        @click="closeMobileSidebar"
+      />
+    </Transition>
+
     <TeacherSidebar
       :collapsed="sidebarCollapsed"
       :mobile-open="mobileSidebarOpen"
