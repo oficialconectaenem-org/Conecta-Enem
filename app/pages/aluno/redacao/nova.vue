@@ -287,7 +287,7 @@ const saveAiToHistory = ref(true)
 const savedAiEssayId = ref(null)
 
 const aiSteps = [
-  'Conectando com o cérebro de IA (Google Gemini)...',
+  'Conectando com o cérebro de Inteligência Artificial...',
   'Analisando a modalidade escrita e desvios gramaticais (C1)...',
   'Avaliando adequação temática e repertório sociocultural (C2)...',
   'Examinando projeto de texto, coerência e argumentação (C3)...',

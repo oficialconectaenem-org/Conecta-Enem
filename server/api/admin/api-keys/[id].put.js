@@ -20,6 +20,8 @@ export default defineEventHandler(async (event) => {
       name: body.name,
       key: body.key,
       provider: body.provider,
+      model: body.model,
+      baseUrl: body.baseUrl,
       active: body.active
     })
 
@@ -30,6 +32,8 @@ export default defineEventHandler(async (event) => {
         id: updated.id,
         name: updated.name,
         provider: updated.provider,
+        model: updated.model,
+        baseUrl: updated.baseUrl,
         active: updated.active,
         updatedAt: updated.updatedAt
       }
@@ -41,4 +45,3 @@ export default defineEventHandler(async (event) => {
     })
   }
 })
-

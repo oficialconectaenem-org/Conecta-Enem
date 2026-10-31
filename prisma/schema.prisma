@@ -468,9 +468,11 @@ model QuestionAnswer {
 
 model ApiKey {
   id         String    @id @default(uuid())
-  provider   String    @default("GEMINI")
+  provider   String    @default("GEMINI") // GEMINI, OPENAI, DEEPSEEK, GROQ, OPENROUTER, ANTHROPIC, CUSTOM
   name       String
   key        String    @db.Text
+  model      String?   // Modelo de IA (ex: gpt-4o-mini, deepseek-chat, gemini-2.5-flash)
+  baseUrl    String?   @map("base_url") // URL base para APIs customizadas / proxies (ex: https://api.openai.com/v1)
   active     Boolean   @default(true)
   lastUsedAt DateTime? @map("last_used_at")
   errorCount Int       @default(0) @map("error_count")

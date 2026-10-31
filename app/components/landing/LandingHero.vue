@@ -13,7 +13,7 @@ async function handleInstallHero() {
 </script>
 
 <template>
-  <section class="landing-hero relative isolate overflow-hidden dark:bg-zinc-950 transition-colors duration-200">
+  <section class="relative isolate overflow-hidden bg-gradient-to-br from-[#faf8ff] via-white to-[#fdf4ff] dark:from-[#09090b] dark:via-[#12091f] dark:to-[#09090b] transition-colors duration-200">
     <div class="landing-orb landing-orb--one" />
     <div class="landing-orb landing-orb--two" />
     <div class="landing-grid absolute inset-0 -z-10 opacity-40 dark:opacity-20" />

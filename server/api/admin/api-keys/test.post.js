@@ -1,12 +1,15 @@
 import { defineEventHandler, readBody, createError } from 'h3'
 import { requireAdmin } from '#server/utils/require-admin'
-import { testGeminiApiKey, getApiKeyById } from '#server/services/api-key.service'
+import { testUniversalApiKey, getApiKeyById } from '#server/services/api-key.service'
 
 export default defineEventHandler(async (event) => {
   await requireAdmin(event)
 
   const body = await readBody(event)
   let rawKey = ''
+  let provider = body?.provider || 'GEMINI'
+  let model = body?.model || null
+  let baseUrl = body?.baseUrl || null
 
   if (body?.id) {
     const found = await getApiKeyById(body.id)
@@ -17,6 +20,9 @@ export default defineEventHandler(async (event) => {
       })
     }
     rawKey = found.key
+    provider = found.provider || provider
+    model = found.model || model
+    baseUrl = found.baseUrl || baseUrl
   } else if (typeof body?.key === 'string') {
     rawKey = body.key.trim()
   }
@@ -28,7 +34,11 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const result = await testGeminiApiKey(rawKey)
+  const result = await testUniversalApiKey({
+    key: rawKey,
+    provider,
+    model,
+    baseUrl
+  })
   return result
 })
-

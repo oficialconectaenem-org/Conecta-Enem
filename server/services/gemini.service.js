@@ -1,20 +1,28 @@
-import { getActiveGeminiKeys, recordKeyUsage } from '#server/services/api-key.service'
+import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.service'
+
 /**
- * Serviço de Integração com a API Google Gemini para Correção de Redações do ENEM
+ * Serviço Universal de Inteligência Artificial para Correção Pedagógica de Redações do ENEM
+ * Suporta múltiplos provedores com rotação dinâmica e failover automático:
+ * - Google Gemini (gemini-2.5-flash, gemini-2.0-flash, gemini-1.5-flash, etc.)
+ * - OpenAI (gpt-4o, gpt-4o-mini, etc.)
+ * - DeepSeek (deepseek-chat, deepseek-reasoner)
+ * - Groq Cloud (llama-3.3-70b-versatile, mixtral-8x7b-32768, etc.)
+ * - OpenRouter (multi-modelos com catálogo global)
+ * - Anthropic Claude (claude-3-5-sonnet, claude-3-5-haiku)
+ * - Provedores Personalizados / OpenAI-compatíveis (vLLM, Ollama, LM Studio, etc.)
  */
 
-const GEMINI_MODELS = [
-  'gemini-3.5-flash',
-  'gemini-3.5-flash-lite',
-  'gemini-3.8-flash',
+export const GEMINI_MODELS = [
   'gemini-2.5-flash',
   'gemini-2.0-flash',
-  'gemini-1.5-flash'
+  'gemini-1.5-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite'
 ]
 
-const GEMINI_TIMEOUT_MS = 45000 // 45 segundos de tempo limite
+const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
 
-const SYSTEM_PROMPT = `Você é um corretor e avaliador sênior da banca oficial do ENEM (Exame Nacional do Ensino Médio), com profundo conhecimento da Matriz de Referência do ENEM e do Guia de Redação do Participante do INEP.
+export const SYSTEM_PROMPT = `Você é um corretor e avaliador sênior da banca oficial do ENEM (Exame Nacional do Ensino Médio), com profundo conhecimento da Matriz de Referência do ENEM e do Guia de Redação do Participante do INEP.
 
 Sua missão é realizar uma correção técnica, minuciosa, pedagógica e construtiva da redação enviada pelo estudante.
 
@@ -108,7 +116,7 @@ Sua resposta DEVE ser estritamente um objeto JSON válido, sem cercaduras Markdo
   "generalFeedback": "string"
 }`
 
-const GEMINI_RESPONSE_SCHEMA = {
+export const GEMINI_RESPONSE_SCHEMA = {
   type: 'OBJECT',
   properties: {
     totalScore: { type: 'INTEGER' },
@@ -272,25 +280,250 @@ export function getZeroScoreCorrection(wordCount, reason = 'Texto insuficiente (
 }
 
 /**
- * Corrige uma redação utilizando a API do Gemini
+ * Utilitário de parsing seguro de JSON retornado por qualquer modelo de IA
+ */
+function parseAiJsonResponse(rawText) {
+  if (!rawText || typeof rawText !== 'string') {
+    throw new Error('Resposta vazia da IA.')
+  }
+  let cleaned = rawText.trim()
+  if (cleaned.startsWith('```')) {
+    cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim()
+  }
+  const firstBrace = cleaned.indexOf('{')
+  const lastBrace = cleaned.lastIndexOf('}')
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleaned = cleaned.slice(firstBrace, lastBrace + 1)
+  }
+  try {
+    return JSON.parse(cleaned)
+  } catch (err) {
+    throw new Error(`Falha ao decodificar JSON da IA: ${err.message}. Retorno bruto: ${cleaned.slice(0, 150)}...`)
+  }
+}
+
+/**
+ * Despacha chamada para a API correta de acordo com o provedor da chave
+ */
+async function callAiProvider(keyObj, userContent) {
+  const provider = (keyObj.provider || 'GEMINI').toUpperCase()
+  const rawKey = (keyObj.key || '').trim()
+
+  if (provider === 'GEMINI') {
+    const modelsToTry = keyObj.model
+      ? [keyObj.model, ...GEMINI_MODELS.filter(m => m !== keyObj.model)]
+      : GEMINI_MODELS
+
+    let lastGeminiErr = null
+    for (const model of modelsToTry) {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`
+        const payload = {
+          systemInstruction: {
+            parts: [{ text: SYSTEM_PROMPT }]
+          },
+          contents: [
+            {
+              role: 'user',
+              parts: [{ text: userContent }]
+            }
+          ],
+          generationConfig: {
+            responseMimeType: 'application/json',
+            responseSchema: GEMINI_RESPONSE_SCHEMA,
+            temperature: 0.2
+          }
+        }
+
+        const res = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}))
+          const msg = errData.error?.message || `Erro HTTP ${res.status}`
+          lastGeminiErr = new Error(msg)
+          continue
+        }
+
+        const data = await res.json()
+        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
+        return parseAiJsonResponse(rawText)
+      } catch (err) {
+        clearTimeout(timeoutId)
+        lastGeminiErr = err
+      }
+    }
+    throw lastGeminiErr || new Error('Falha em todos os modelos do Google Gemini.')
+  }
+
+  if (provider === 'ANTHROPIC') {
+    const targetModel = keyObj.model || 'claude-3-5-sonnet-20241022'
+    const baseUrl = (keyObj.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '')
+    const url = `${baseUrl}/messages`
+
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'x-api-key': rawKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: targetModel,
+          max_tokens: 4096,
+          temperature: 0.2,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userContent }]
+        }),
+        signal: controller.signal
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        const msg = errData.error?.message || `Erro Anthropic HTTP ${res.status}`
+        throw new Error(msg)
+      }
+
+      const data = await res.json()
+      const rawText = data.content?.[0]?.text
+      return parseAiJsonResponse(rawText)
+    } catch (err) {
+      clearTimeout(timeoutId)
+      throw err
+    }
+  }
+
+  // Provedores OpenAI-Compatíveis (OPENAI, DEEPSEEK, GROQ, OPENROUTER, CUSTOM)
+  let defaultBase = 'https://api.openai.com/v1'
+  let defaultModel = 'gpt-4o-mini'
+
+  if (provider === 'DEEPSEEK') {
+    defaultBase = 'https://api.deepseek.com'
+    defaultModel = 'deepseek-chat'
+  } else if (provider === 'GROQ') {
+    defaultBase = 'https://api.groq.com/openai/v1'
+    defaultModel = 'llama-3.3-70b-versatile'
+  } else if (provider === 'OPENROUTER') {
+    defaultBase = 'https://openrouter.ai/api/v1'
+    defaultModel = 'openai/gpt-4o-mini'
+  } else if (provider === 'CUSTOM') {
+    defaultBase = keyObj.baseUrl || 'http://localhost:11434/v1'
+    defaultModel = keyObj.model || 'default'
+  }
+
+  const resolvedBase = (keyObj.baseUrl || defaultBase).replace(/\/+$/, '')
+  const resolvedModel = keyObj.model || defaultModel
+  const url = `${resolvedBase}/chat/completions`
+
+  const headers = {
+    'Authorization': `Bearer ${rawKey}`,
+    'Content-Type': 'application/json'
+  }
+
+  if (provider === 'OPENROUTER') {
+    headers['HTTP-Referer'] = 'https://conectaenem.com'
+    headers['X-Title'] = 'Conecta Enem'
+  }
+
+  // Tenta com response_format: json_object primeiro, com fallback automático
+  let controller = new AbortController()
+  let timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+
+  try {
+    let res = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        model: resolvedModel,
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: userContent }
+        ],
+        response_format: { type: 'json_object' },
+        temperature: 0.2
+      }),
+      signal: controller.signal
+    })
+    clearTimeout(timeoutId)
+
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}))
+      const rawErrMsg = errData.error?.message || `Erro HTTP ${res.status}`
+
+      // Se falhar por causa de response_format não suportado, tenta novamente sem esse campo
+      if (rawErrMsg.includes('response_format') || res.status === 400) {
+        controller = new AbortController()
+        timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+        res = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            model: resolvedModel,
+            messages: [
+              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'user', content: userContent }
+            ],
+            temperature: 0.2
+          }),
+          signal: controller.signal
+        })
+        clearTimeout(timeoutId)
+      }
+
+      if (!res.ok) {
+        const retryErr = await res.json().catch(() => ({}))
+        const finalMsg = retryErr.error?.message || rawErrMsg
+        throw new Error(finalMsg)
+      }
+    }
+
+    const data = await res.json()
+    const rawText = data.choices?.[0]?.message?.content
+    return parseAiJsonResponse(rawText)
+  } catch (err) {
+    clearTimeout(timeoutId)
+    throw err
+  }
+}
+
+/**
+ * Corrige uma redação utilizando qualquer API de Inteligência Artificial configurada
  * @param {Object} params
  * @param {string} params.theme - Tema da redação
  * @param {string} params.text - Conteúdo escrito da redação
  * @param {string} [params.title] - Título da redação (opcional)
- * @param {string} [params.apiKey] - Chave da API opcional (caso passe diretamente)
+ * @param {string} [params.apiKey] - Chave opcional informada diretamente
  * @returns {Promise<Object>} Resultado estruturado da correção
  */
-export async function correctEssayWithGemini({ theme, text, title, apiKey }) {
-  // 1. Obtém as chaves disponíveis (com suporte a múltiplas chaves do banco de dados e fallback .env)
+export async function correctEssayWithUniversalAI({ theme, text, title, apiKey }) {
+  // 1. Obtém as chaves disponíveis (com suporte a múltiplos provedores, banco de dados e fallbacks)
   let candidateKeys = []
   if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 0) {
-    candidateKeys = [{ id: 'custom-key', name: 'Chave informada diretamente', key: apiKey.trim(), fromDb: false }]
+    candidateKeys = [{
+      id: 'custom-key',
+      name: 'Chave informada diretamente',
+      key: apiKey.trim(),
+      provider: 'GEMINI',
+      fromDb: false
+    }]
   } else {
-    candidateKeys = await getActiveGeminiKeys()
+    candidateKeys = await getActiveApiKeys()
   }
 
   if (!candidateKeys || candidateKeys.length === 0) {
-    throw new Error('Nenhuma chave da API do Gemini ativa foi configurada. Cadastre ao menos uma chave no Painel Admin ou defina GEMINI_API_KEY no arquivo .env.')
+    throw new Error('Nenhuma chave de Inteligência Artificial ativa foi encontrada. Cadastre ao menos uma chave (Gemini, OpenAI, DeepSeek, Groq, OpenRouter ou Anthropic) no Painel do Administrador.')
   }
 
   // 2. Proteção contra textos curtos: Regra estrita do ENEM (menos de 70 palavras recebe nota zero imediata)
@@ -310,115 +543,45 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
 
   let lastError = null
 
-  // Itera pelas chaves candidatas (rotação e tolerância a falhas / cota)
+  // Itera pelas chaves candidatas (rotação e tolerância a falhas / limites de cota)
   for (const keyObj of candidateKeys) {
-    const resolvedKey = keyObj.key
-    let keySucceeded = false
+    try {
+      const parsedData = await callAiProvider(keyObj, userContent)
+      const result = validateAndNormalizeCorrectionResponse(parsedData)
 
-    // Tenta os modelos em ordem de preferência
-    for (const model of GEMINI_MODELS) {
-      let timeoutId = null
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${resolvedKey}`
+      // Registra sucesso e atualiza timestamp de rotação
+      await recordKeyUsage(keyObj.id, { success: true })
+      return result
+    } catch (err) {
+      const errMsg = err.message || 'Erro desconhecido'
+      console.warn(`[AI Service] Falha na chave "${keyObj.name}" (${keyObj.provider || 'GEMINI'}): ${errMsg}`)
+      lastError = err
 
-        const payload = {
-          systemInstruction: {
-            parts: [{ text: SYSTEM_PROMPT }]
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userContent }]
-            }
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: GEMINI_RESPONSE_SCHEMA,
-            temperature: 0.2
-          }
-        }
-
-        // 5. AbortController / Timeout para evitar conexões presas indefinidamente
-        const controller = new AbortController()
-        timeoutId = setTimeout(() => {
-          controller.abort()
-        }, GEMINI_TIMEOUT_MS)
-
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-        timeoutId = null
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}))
-          const errorMsg = errorData.error?.message || `Erro HTTP ${response.status}`
-          console.warn(`[Gemini Service] Chave "${keyObj.name}" com modelo ${model}: ${errorMsg}`)
-          lastError = new Error(errorMsg)
-          continue
-        }
-
-        const data = await response.json()
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-
-        if (!rawText) {
-          throw new Error('Resposta vazia da API de Inteligência Artificial.')
-        }
-
-        // Sanitiza JSON caso venha com markdown fences
-        const cleanedJson = rawText.trim().replace(/^\`\`\`json/i, '').replace(/^\`\`\`/i, '').replace(/\`\`\`$/i, '').trim()
-        let parsed
-        try {
-          parsed = JSON.parse(cleanedJson)
-        } catch (parseErr) {
-          throw new Error(`Falha ao decodificar JSON retornado pelo Gemini: ${parseErr.message}`)
-        }
-
-        // 4 & 6. Validação estrita do schema e normalização/sincronização de notas
-        const result = validateAndNormalizeCorrectionResponse(parsed)
-        keySucceeded = true
-        await recordKeyUsage(keyObj.id, { success: true })
-        return result
-      } catch (err) {
-        if (timeoutId) {
-          clearTimeout(timeoutId)
-        }
-        const isTimeout = err.name === 'AbortError' || err.message?.includes('aborted')
-        const message = isTimeout
-          ? `Tempo limite de ${GEMINI_TIMEOUT_MS / 1000}s esgotado ao aguardar o modelo ${model}.`
-          : err.message
-
-        console.warn(`[Gemini Service] Chave "${keyObj.name}" com modelo ${model}:`, message)
-        lastError = new Error(message)
-      }
-    }
-
-    if (!keySucceeded) {
-      await recordKeyUsage(keyObj.id, { success: false, error: lastError?.message })
-      console.warn(`[Gemini Service] Chave "${keyObj.name}" falhou para todos os modelos. Tentando próxima chave configurada...`)
+      // Registra erro para incrementar contador e dar prioridade a outras chaves saudáveis
+      await recordKeyUsage(keyObj.id, { success: false, error: errMsg })
     }
   }
 
-  let userFriendlyMessage = lastError?.message || 'Erro desconhecido na API do Gemini.'
-  if (userFriendlyMessage.includes('service account is deleted or disabled') || userFriendlyMessage.includes('service account bound to the API key')) {
-    userFriendlyMessage = 'A chave do Google Gemini (GEMINI_API_KEY) está vinculada a um projeto ou conta de serviço desativada no Google Cloud. Por favor, gere uma nova chave em https://aistudio.google.com/app/apikey (em um novo projeto) e atualize o arquivo .env do servidor.'
-  } else if (userFriendlyMessage.includes('API key not valid') || userFriendlyMessage.includes('API_KEY_INVALID')) {
-    userFriendlyMessage = 'A chave de API do Gemini (GEMINI_API_KEY) configurada no servidor é inválida. Atualize-a no arquivo .env.'
-  } else if (userFriendlyMessage.includes('RESOURCE_EXHAUSTED') || userFriendlyMessage.includes('Quota exceeded')) {
-    userFriendlyMessage = 'O limite gratuito de requisições da Inteligência Artificial foi atingido temporariamente. Aguarde um minuto e tente novamente.'
+  let userFriendlyMessage = lastError?.message || 'Erro na comunicação com os servidores de IA.'
+  if (userFriendlyMessage.includes('service account is deleted or disabled')) {
+    userFriendlyMessage = 'A chave do Google Gemini está vinculada a uma conta desativada no Google Cloud. Cadastre uma nova chave em https://aistudio.google.com/app/apikey no Painel Admin.'
+  } else if (userFriendlyMessage.includes('API key not valid') || userFriendlyMessage.includes('invalid_api_key')) {
+    userFriendlyMessage = 'A chave de API de IA configurada é inválida ou expirou. Atualize-a no Painel do Administrador.'
+  } else if (userFriendlyMessage.includes('RESOURCE_EXHAUSTED') || userFriendlyMessage.includes('Quota exceeded') || userFriendlyMessage.includes('insufficient_quota')) {
+    userFriendlyMessage = 'O limite de cota das chaves de IA cadastradas foi atingido temporariamente. Cadastre uma chave adicional ou aguarde a liberação da cota.'
   }
 
   throw new Error(`Não foi possível corrigir a redação no momento: ${userFriendlyMessage}`)
 }
 
+// Aliases para total compatibilidade retroativa com código existente
+export const correctEssayWithGemini = correctEssayWithUniversalAI
+export const correctEssayWithAI = correctEssayWithUniversalAI
+
 /**
- * 4 & 6. Validação estrita do schema e sincronização precisa de notas e detalhamento
+ * Validação estrita do schema e sincronização precisa de notas e detalhamento pedagógico
  */
-function validateAndNormalizeCorrectionResponse(data) {
+export function validateAndNormalizeCorrectionResponse(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) {
     throw new Error('Validação de schema falhou: a resposta da IA não é um objeto JSON válido.')
   }
@@ -431,13 +594,13 @@ function validateAndNormalizeCorrectionResponse(data) {
     return validScores.reduce((prev, curr) => Math.abs(curr - num) < Math.abs(prev - num) ? curr : prev, 0)
   }
 
-  // Validação estrita pedagógica: Parecer Geral
+  // Parecer Geral
   const generalFeedback = typeof data.generalFeedback === 'string' ? data.generalFeedback.trim() : ''
   if (!generalFeedback || generalFeedback.length < 20) {
     throw new Error('Validação pedagógica falhou: parecer geral da IA insuficiente ou ausente.')
   }
 
-  // Validação estrita do mapa de competências
+  // Detalhamento de competências
   if (!data.competencies || typeof data.competencies !== 'object' || Array.isArray(data.competencies)) {
     throw new Error('Validação pedagógica falhou: detalhamento de competências ausente.')
   }
@@ -453,13 +616,12 @@ function validateAndNormalizeCorrectionResponse(data) {
   const normalizedCompetencies = {}
   const scores = {}
 
-  // 4. Sincroniza notas raiz e competências para evitar qualquer divergência
+  // Sincroniza notas raiz e competências para evitar qualquer divergência
   for (const k of ['c1', 'c2', 'c3', 'c4', 'c5']) {
     const rawComp = data.competencies[k]
     const rootScore = clampScore(data[`${k}Score`])
     const compScore = clampScore(rawComp?.score)
 
-    // Se ambos informados, prioriza o score detalhado da competência; senão usa o que estiver presente
     const finalScore = compScore !== null ? compScore : (rootScore !== null ? rootScore : null)
 
     if (finalScore === null) {
@@ -480,7 +642,7 @@ function validateAndNormalizeCorrectionResponse(data) {
     }
   }
 
-  // C5: Valida e sincroniza elementos da proposta de intervenção
+  // C5: Elementos da proposta de intervenção
   const c5Score = scores.c5
   const rawElements = data.competencies?.c5?.interventionElements
   normalizedCompetencies.c5.interventionElements = {
@@ -491,7 +653,7 @@ function validateAndNormalizeCorrectionResponse(data) {
     detalhamento: typeof rawElements?.detalhamento === 'boolean' ? rawElements.detalhamento : c5Score === 200
   }
 
-  // Desvios gramaticais: validação estrita de tipos
+  // Desvios gramaticais
   const grammarErrors = Array.isArray(data.grammarErrors)
     ? data.grammarErrors
         .filter(g => g && typeof g === 'object')
@@ -505,7 +667,7 @@ function validateAndNormalizeCorrectionResponse(data) {
         .filter(g => g.original || g.suggestion)
     : []
 
-  // Pontos fortes: validação de array de strings
+  // Pontos fortes
   const positivePoints = Array.isArray(data.positivePoints)
     ? data.positivePoints.filter(p => typeof p === 'string' && p.trim().length > 0).map(p => p.trim())
     : []
@@ -514,7 +676,7 @@ function validateAndNormalizeCorrectionResponse(data) {
     positivePoints.push('Desenvolvimento textual estruturado em concordância com a proposta solicitada.')
   }
 
-  // Oportunidades de melhoria: validação de array de strings
+  // Oportunidades de melhoria
   const improvements = Array.isArray(data.improvements)
     ? data.improvements.filter(i => typeof i === 'string' && i.trim().length > 0).map(i => i.trim())
     : (Array.isArray(data.improvementTips)

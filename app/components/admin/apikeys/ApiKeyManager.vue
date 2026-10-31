@@ -6,6 +6,81 @@ const envKeyMasked = ref(null)
 
 const error = ref('')
 const successMessage = ref('')
+const selectedProviderFilter = ref('ALL')
+
+// Definição completa de provedores suportados
+const PROVIDERS = [
+  {
+    id: 'GEMINI',
+    name: 'Google Gemini',
+    shortName: 'Gemini',
+    description: 'Modelos Gemini 2.5, 2.0 e 1.5 Flash (AI Studio)',
+    defaultModel: 'gemini-2.5-flash',
+    docsUrl: 'https://aistudio.google.com/app/apikey',
+    icon: 'neurology',
+    badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800'
+  },
+  {
+    id: 'OPENAI',
+    name: 'OpenAI (ChatGPT)',
+    shortName: 'OpenAI',
+    description: 'GPT-4o, GPT-4o-mini, o1 e o3',
+    defaultModel: 'gpt-4o-mini',
+    docsUrl: 'https://platform.openai.com/api-keys',
+    icon: 'psychology',
+    badgeClass: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800'
+  },
+  {
+    id: 'DEEPSEEK',
+    name: 'DeepSeek AI',
+    shortName: 'DeepSeek',
+    description: 'DeepSeek Chat (V3) e DeepSeek Reasoner (R1)',
+    defaultModel: 'deepseek-chat',
+    docsUrl: 'https://platform.deepseek.com/api_keys',
+    icon: 'explore',
+    badgeClass: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800'
+  },
+  {
+    id: 'GROQ',
+    name: 'Groq Cloud',
+    shortName: 'Groq',
+    description: 'Ultra-rápido: Llama 3.3 70B, Mixtral',
+    defaultModel: 'llama-3.3-70b-versatile',
+    docsUrl: 'https://console.groq.com/keys',
+    icon: 'bolt',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:border-amber-800'
+  },
+  {
+    id: 'OPENROUTER',
+    name: 'OpenRouter',
+    shortName: 'OpenRouter',
+    description: 'Hub global com centenas de modelos abertos e fechados',
+    defaultModel: 'openai/gpt-4o-mini',
+    docsUrl: 'https://openrouter.ai/keys',
+    icon: 'alt_route',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200 dark:bg-purple-950/50 dark:text-purple-300 dark:border-purple-800'
+  },
+  {
+    id: 'ANTHROPIC',
+    name: 'Anthropic Claude',
+    shortName: 'Claude',
+    description: 'Claude 3.5 Sonnet e Claude 3.5 Haiku',
+    defaultModel: 'claude-3-5-haiku-20241022',
+    docsUrl: 'https://console.anthropic.com/settings/keys',
+    icon: 'smart_toy',
+    badgeClass: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200 dark:bg-fuchsia-950/50 dark:text-fuchsia-300 dark:border-fuchsia-800'
+  },
+  {
+    id: 'CUSTOM',
+    name: 'Personalizado',
+    shortName: 'Custom',
+    description: 'Qualquer API compatível com OpenAI (Ollama, vLLM, etc.)',
+    defaultModel: '',
+    docsUrl: '',
+    icon: 'terminal',
+    badgeClass: 'bg-zinc-100 text-zinc-700 border-zinc-300 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700'
+  }
+]
 
 // Modal Criar/Editar
 const showModal = ref(false)
@@ -17,6 +92,8 @@ const form = ref({
   name: '',
   key: '',
   provider: 'GEMINI',
+  model: '',
+  baseUrl: '',
   active: true
 })
 
@@ -24,7 +101,7 @@ const showSecret = ref(false)
 const testingFormKey = ref(false)
 const formTestResult = ref(null)
 
-// Teste em linha (na tabela)
+// Teste em linha (na lista)
 const testingKeyId = ref(null)
 const inlineTestResults = ref({})
 
@@ -35,6 +112,25 @@ const deleting = ref(false)
 
 // Cópia
 const copiedId = ref(null)
+
+function getProviderMeta(providerId) {
+  const norm = (providerId || 'GEMINI').toUpperCase()
+  return PROVIDERS.find(p => p.id === norm) || PROVIDERS[PROVIDERS.length - 1]
+}
+
+const activeCount = computed(() => keys.value.filter(k => k.active).length)
+const errorCount = computed(() => keys.value.filter(k => (k.errorCount || 0) > 0).length)
+const connectedProvidersCount = computed(() => {
+  const set = new Set(keys.value.map(k => (k.provider || 'GEMINI').toUpperCase()))
+  return set.size
+})
+
+const filteredKeys = computed(() => {
+  if (selectedProviderFilter.value === 'ALL') return keys.value
+  return keys.value.filter(k => (k.provider || 'GEMINI').toUpperCase() === selectedProviderFilter.value)
+})
+
+const currentProviderMeta = computed(() => getProviderMeta(form.value.provider))
 
 async function fetchKeys() {
   loading.value = true
@@ -54,16 +150,16 @@ async function fetchKeys() {
   }
 }
 
-const activeCount = computed(() => keys.value.filter(k => k.active).length)
-const errorCount = computed(() => keys.value.filter(k => (k.errorCount || 0) > 0).length)
-
-function openCreateModal() {
+function openCreateModal(providerId = 'GEMINI') {
   isEditing.value = false
   currentId.value = null
+  const meta = getProviderMeta(providerId)
   form.value = {
     name: '',
     key: '',
-    provider: 'GEMINI',
+    provider: meta.id,
+    model: '',
+    baseUrl: '',
     active: true
   }
   showSecret.value = false
@@ -76,8 +172,10 @@ function openEditModal(keyItem) {
   currentId.value = keyItem.id
   form.value = {
     name: keyItem.name,
-    key: '', // Por segurança não preenche a chave bruta, só se o usuário quiser sobrescrever
-    provider: keyItem.provider || 'GEMINI',
+    key: '', // Por segurança não traz a chave bruta, só se for atualizar
+    provider: (keyItem.provider || 'GEMINI').toUpperCase(),
+    model: keyItem.model || '',
+    baseUrl: keyItem.baseUrl || '',
     active: Boolean(keyItem.active)
   }
   showSecret.value = false
@@ -95,9 +193,17 @@ async function testCurrentFormKey() {
   formTestResult.value = null
 
   try {
-    const payload = form.value.key.trim()
-      ? { key: form.value.key.trim() }
-      : { id: currentId.value }
+    const payload = {
+      provider: form.value.provider,
+      model: form.value.model.trim() || undefined,
+      baseUrl: form.value.baseUrl.trim() || undefined
+    }
+
+    if (form.value.key.trim()) {
+      payload.key = form.value.key.trim()
+    } else if (currentId.value) {
+      payload.id = currentId.value
+    }
 
     const res = await $fetch('/api/admin/api-keys/test', {
       method: 'POST',
@@ -109,7 +215,7 @@ async function testCurrentFormKey() {
   } catch (err) {
     formTestResult.value = {
       valid: false,
-      error: err.data?.statusMessage || err.message || 'Erro ao conectar à API do Gemini.'
+      error: err.data?.statusMessage || err.message || 'Erro ao conectar à API de Inteligência Artificial.'
     }
   } finally {
     testingFormKey.value = false
@@ -127,21 +233,38 @@ async function handleSaveKey() {
     return
   }
 
+  if (form.value.provider === 'CUSTOM' && !form.value.baseUrl.trim()) {
+    formTestResult.value = { valid: false, error: 'Para provedores personalizados, a URL Base é obrigatória (ex: http://localhost:11434/v1).' }
+    return
+  }
+
   modalLoading.value = true
   formTestResult.value = null
 
   try {
+    const payload = {
+      name: form.value.name.trim(),
+      provider: form.value.provider,
+      model: form.value.model.trim() || null,
+      baseUrl: form.value.baseUrl.trim() || null,
+      active: form.value.active
+    }
+
+    if (form.value.key.trim()) {
+      payload.key = form.value.key.trim()
+    }
+
     if (isEditing.value) {
       await $fetch(`/api/admin/api-keys/${currentId.value}`, {
         method: 'PUT',
-        body: form.value,
+        body: payload,
         credentials: 'include'
       })
       successMessage.value = 'Chave de API atualizada com sucesso!'
     } else {
       await $fetch('/api/admin/api-keys', {
         method: 'POST',
-        body: form.value,
+        body: payload,
         credentials: 'include'
       })
       successMessage.value = 'Nova chave de API cadastrada com sucesso!'
@@ -196,14 +319,13 @@ async function handleInlineTest(keyItem) {
     inlineTestResults.value[keyItem.id] = res
 
     if (res.valid) {
-      // Zera o contador de erros visualmente
       keyItem.errorCount = 0
       keyItem.lastError = null
     }
   } catch (err) {
     inlineTestResults.value[keyItem.id] = {
       valid: false,
-      error: err.data?.statusMessage || err.message || 'Erro no teste.'
+      error: err.data?.statusMessage || err.message || 'Erro no teste de conexão.'
     }
   } finally {
     testingKeyId.value = null
@@ -276,7 +398,7 @@ onMounted(() => {
           </h1>
         </div>
         <p class="mt-1 text-xs sm:text-sm text-zinc-500 dark:text-zinc-400">
-          Cadastre múltiplas chaves do Google Gemini com failover automático e rotação inteligente para o Laboratório de Redação.
+          Cadastre chaves de qualquer provedor (Gemini, OpenAI, DeepSeek, Groq, OpenRouter, Anthropic ou Custom) com rotação inteligente e failover automático para a correção de redações.
         </p>
       </div>
 
@@ -294,7 +416,7 @@ onMounted(() => {
 
         <button
           type="button"
-          @click="openCreateModal"
+          @click="openCreateModal('GEMINI')"
           class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-xs font-bold text-white transition shadow-sm cursor-pointer shadow-purple-600/20 active:scale-95"
         >
           <span class="material-symbols-rounded text-base">add</span>
@@ -349,152 +471,191 @@ onMounted(() => {
         <span class="flex h-2.5 w-2.5 rounded-full" :class="activeCount > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-zinc-300 dark:bg-zinc-700'" />
       </div>
 
-      <!-- ALERTAS / ERROS -->
+      <!-- PROVEDORES CONECTADOS -->
       <div class="flex items-center justify-between p-4.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
         <div class="flex items-center gap-3.5">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl" :class="errorCount > 0 ? 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'">
-            <span class="material-symbols-rounded">{{ errorCount > 0 ? 'warning' : 'verified_user' }}</span>
+          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-blue-100 dark:bg-blue-950/50 text-blue-700 dark:text-blue-300 font-bold">
+            <span class="material-symbols-rounded">hub</span>
           </div>
           <div>
-            <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Com Erros / Cota</div>
-            <div class="text-2xl font-black text-zinc-900 dark:text-zinc-100">{{ errorCount }}</div>
+            <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Provedores de IA</div>
+            <div class="text-2xl font-black text-zinc-900 dark:text-zinc-100">{{ connectedProvidersCount }} / {{ PROVIDERS.length }}</div>
           </div>
         </div>
       </div>
 
-      <!-- FALLBACK .ENV -->
+      <!-- STATUS DO SISTEMA -->
       <div class="flex items-center justify-between p-4.5 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xs">
         <div class="flex items-center gap-3.5">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 font-bold">
-            <span class="material-symbols-rounded">terminal</span>
+          <div
+            class="flex h-11 w-11 items-center justify-center rounded-xl font-bold"
+            :class="errorCount === 0 && activeCount > 0 ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300' : 'bg-amber-100 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300'"
+          >
+            <span class="material-symbols-rounded">{{ errorCount === 0 && activeCount > 0 ? 'verified_user' : 'warning' }}</span>
           </div>
           <div>
-            <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Fallback no .env</div>
-            <div class="text-xs font-bold text-zinc-700 dark:text-zinc-300 mt-1">
-              {{ hasEnvFallback ? 'Configurado' : 'Não configurado' }}
+            <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Saúde da IA</div>
+            <div class="text-sm font-black text-zinc-900 dark:text-zinc-100">
+              {{ activeCount === 0 ? 'Sem Chaves' : errorCount === 0 ? '100% Operacional' : `${errorCount} com alerta` }}
             </div>
           </div>
         </div>
-        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold" :class="hasEnvFallback ? 'bg-indigo-50 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'">
-          {{ hasEnvFallback ? 'Ativo' : 'Ausente' }}
-        </span>
       </div>
     </div>
 
-    <!-- BANNER EXPLICATIVO DE ALTA DISPONIBILIDADE -->
-    <div class="rounded-2xl border border-purple-200/80 dark:border-purple-900/40 bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-fuchsia-50/50 dark:from-purple-950/20 dark:via-zinc-900/50 dark:to-fuchsia-950/20 p-5 backdrop-blur-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      <div class="flex items-start gap-3.5">
-        <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-600 text-white font-bold shadow-xs">
-          <span class="material-symbols-rounded text-xl">auto_mode</span>
-        </div>
-        <div class="space-y-1">
-          <h3 class="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100">
-            Rotação Inteligente & Redundância Ativa
-          </h3>
-          <p class="text-[11px] sm:text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-3xl">
-            Quando você cadastra mais de uma chave do Gemini, o sistema distribui as requisições entre elas. Se uma chave atingir o limite de cota gratuita (Rate Limit 429) ou apresentar instabilidade, a próxima chave ativa assume automaticamente, sem interromper as correções dos alunos.
+    <!-- BANNER DE FALLBACK (.ENV) -->
+    <div
+      v-if="hasEnvFallback"
+      class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl border border-blue-200 dark:border-blue-900 bg-blue-50/60 dark:bg-blue-950/30 text-xs"
+    >
+      <div class="flex items-center gap-3">
+        <span class="material-symbols-rounded text-blue-600 dark:text-blue-400 text-xl">shield</span>
+        <div>
+          <p class="font-bold text-blue-900 dark:text-blue-200">
+            Chave de contingência configurada no arquivo .env
+          </p>
+          <p class="text-blue-700/80 dark:text-blue-300/80 text-[11px]">
+            O sistema possui chave fixa configurada no servidor ({{ envKeyMasked }}), usada caso todas as chaves do banco de dados fiquem offline.
           </p>
         </div>
       </div>
-
-      <a
-        href="https://aistudio.google.com/app/apikey"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="inline-flex shrink-0 items-center gap-1.5 px-3.5 py-2 rounded-xl border border-purple-200 dark:border-purple-800 bg-white/80 dark:bg-zinc-900/80 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-900/40 transition shadow-2xs"
-      >
-        <span>Criar nova chave no Google</span>
-        <span class="material-symbols-rounded text-sm">open_in_new</span>
-      </a>
-    </div>
-
-    <!-- TABELA / LISTA DE CHAVES -->
-    <div class="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shadow-2xs">
-      <div class="p-4 sm:p-5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
-        <h2 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
-          Chaves Configuradas ({{ keys.length }})
-        </h2>
-        <span class="text-xs text-zinc-400">
-          Provedor padrão: Google Gemini
+      <div class="flex items-center gap-2 shrink-0">
+        <span class="px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 font-bold text-[10px] uppercase tracking-wider">
+          Proteção Ativa
         </span>
       </div>
+    </div>
 
-      <!-- CARREGANDO -->
-      <div v-if="loading" class="p-12 text-center space-y-3">
-        <div class="h-8 w-8 animate-spin rounded-full border-3 border-purple-600 border-t-transparent mx-auto" />
-        <p class="text-xs font-medium text-zinc-500">Carregando chaves de API...</p>
+    <!-- SELETOR RÁPIDO DE PROVEDOR PARA FILTRAR -->
+    <div class="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <button
+        type="button"
+        @click="selectedProviderFilter = 'ALL'"
+        class="px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer border"
+        :class="selectedProviderFilter === 'ALL'
+          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+          : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
+      >
+        Todos os Provedores ({{ keys.length }})
+      </button>
+
+      <button
+        v-for="prov in PROVIDERS"
+        :key="prov.id"
+        type="button"
+        @click="selectedProviderFilter = prov.id"
+        class="px-3 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap cursor-pointer flex items-center gap-1.5 border"
+        :class="selectedProviderFilter === prov.id
+          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+          : 'bg-white dark:bg-zinc-900 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800'"
+      >
+        <span class="material-symbols-rounded text-sm">{{ prov.icon }}</span>
+        <span>{{ prov.shortName }}</span>
+        <span class="text-[10px] opacity-75">({{ keys.filter(k => (k.provider || 'GEMINI').toUpperCase() === prov.id).length }})</span>
+      </button>
+    </div>
+
+    <!-- LISTAGEM DE CHAVES CADASTRADAS -->
+    <div class="rounded-3xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xs overflow-hidden">
+      <!-- CABEÇALHO DO CARD -->
+      <div class="flex items-center justify-between p-5 border-b border-zinc-100 dark:border-zinc-800">
+        <div>
+          <h2 class="text-sm font-black text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
+            Chaves de Inteligência Artificial Cadastradas
+          </h2>
+          <p class="text-xs text-zinc-400">
+            A IA avalia cada redação rotacionando entre as chaves ativas saudáveis para evitar limites de cota.
+          </p>
+        </div>
       </div>
 
       <!-- ESTADO VAZIO -->
-      <div v-else-if="keys.length === 0" class="p-12 text-center space-y-4">
-        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 dark:bg-zinc-800 text-purple-600 dark:text-purple-400 mx-auto">
+      <div v-if="!loading && filteredKeys.length === 0" class="p-12 text-center space-y-4">
+        <div class="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-purple-50 dark:bg-purple-950/40 text-purple-600 dark:text-purple-400">
           <span class="material-symbols-rounded text-3xl">key_off</span>
         </div>
-        <div class="max-w-md mx-auto space-y-1">
-          <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
-            Nenhuma chave de API cadastrada no banco
+        <div>
+          <h3 class="text-base font-black text-zinc-800 dark:text-zinc-200">
+            {{ selectedProviderFilter === 'ALL' ? 'Nenhuma chave cadastrada no banco' : 'Nenhuma chave cadastrada para este provedor' }}
           </h3>
-          <p class="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
-            Cadastre sua primeira chave de API do Google Gemini para alimentar o corretor de redações com inteligência artificial.
-            <span v-if="hasEnvFallback" class="block mt-1 text-purple-600 dark:text-purple-400 font-semibold">
-              (No momento o sistema está utilizando a chave configurada no arquivo .env)
-            </span>
+          <p class="text-xs text-zinc-400 max-w-md mx-auto mt-1">
+            Cadastre sua primeira chave de API (Gemini, OpenAI, DeepSeek, Groq, OpenRouter ou Anthropic) para alimentar o corretor de redações.
           </p>
         </div>
-        <button
-          type="button"
-          @click="openCreateModal"
-          class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-xs font-bold text-white transition shadow-sm cursor-pointer shadow-purple-600/20"
-        >
-          <span class="material-symbols-rounded text-base">add</span>
-          <span>Cadastrar Primeira Chave</span>
-        </button>
+        <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+          <button
+            v-for="prov in PROVIDERS.slice(0, 4)"
+            :key="prov.id"
+            type="button"
+            @click="openCreateModal(prov.id)"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-purple-500 hover:text-purple-600 transition cursor-pointer shadow-2xs"
+          >
+            <span class="material-symbols-rounded text-sm">{{ prov.icon }}</span>
+            <span>+ Adicionar {{ prov.shortName }}</span>
+          </button>
+        </div>
       </div>
 
-      <!-- LISTAGEM -->
+      <!-- LISTA DE CHAVES -->
       <div v-else class="divide-y divide-zinc-100 dark:divide-zinc-800">
         <div
-          v-for="keyItem in keys"
+          v-for="keyItem in filteredKeys"
           :key="keyItem.id"
-          class="p-4 sm:p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-zinc-50/50 dark:hover:bg-zinc-800/40 transition"
+          class="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 transition hover:bg-zinc-50/70 dark:hover:bg-zinc-800/40"
         >
-          <!-- IDENTIFICAÇÃO E CHAVE -->
-          <div class="space-y-1.5 min-w-0 flex-1">
-            <div class="flex items-center gap-2.5 flex-wrap">
-              <span class="text-sm font-black text-zinc-900 dark:text-zinc-100 truncate">
+          <!-- INFORMAÇÕES DA CHAVE -->
+          <div class="space-y-2 max-w-2xl">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-black text-zinc-900 dark:text-zinc-100">
                 {{ keyItem.name }}
               </span>
 
               <!-- BADGE DO PROVEDOR -->
-              <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-100 dark:bg-purple-950/70 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
-                <span class="material-symbols-rounded text-xs">neurology</span>
-                {{ keyItem.provider || 'GEMINI' }}
+              <span
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg border text-[10px] font-extrabold uppercase tracking-wider"
+                :class="getProviderMeta(keyItem.provider).badgeClass"
+              >
+                <span class="material-symbols-rounded text-xs">{{ getProviderMeta(keyItem.provider).icon }}</span>
+                {{ getProviderMeta(keyItem.provider).shortName }}
               </span>
 
-              <!-- BADGE DE STATUS -->
+              <!-- MODELO PERSONALIZADO (SE HOUVER) -->
               <span
-                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold"
-                :class="keyItem.active ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 border border-zinc-200 dark:border-zinc-700'"
+                v-if="keyItem.model"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-mono font-bold"
+                :title="`Modelo configurado: ${keyItem.model}`"
+              >
+                <span class="material-symbols-rounded text-[10px]">smart_toy</span>
+                {{ keyItem.model }}
+              </span>
+
+              <!-- BASE URL PERSONALIZADA (SE HOUVER) -->
+              <span
+                v-if="keyItem.baseUrl"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 text-[10px] font-mono truncate max-w-[200px]"
+                :title="`URL Base: ${keyItem.baseUrl}`"
+              >
+                <span class="material-symbols-rounded text-[10px]">link</span>
+                {{ keyItem.baseUrl }}
+              </span>
+
+              <!-- BADGE DE ATIVO/INATIVO -->
+              <span
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                :class="keyItem.active ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'"
               >
                 <span class="h-1.5 w-1.5 rounded-full" :class="keyItem.active ? 'bg-emerald-500' : 'bg-zinc-400'" />
-                {{ keyItem.active ? 'Ativa' : 'Inativa' }}
+                {{ keyItem.active ? 'Ativa' : 'Desativada' }}
               </span>
 
-              <!-- BADGE DE SAÚDE / ERROS -->
+              <!-- BADGE DE ALERTA DE ERROS -->
               <span
-                v-if="keyItem.errorCount > 0"
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800"
-                :title="keyItem.lastError || 'Houve falha na última requisição'"
+                v-if="(keyItem.errorCount || 0) > 0"
+                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 text-[10px] font-bold"
+                :title="`${keyItem.errorCount} falha(s) recente(s)`"
               >
                 <span class="material-symbols-rounded text-xs">warning</span>
                 {{ keyItem.errorCount }} falha(s)
-              </span>
-              <span
-                v-else
-                class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-zinc-50 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700"
-              >
-                <span class="material-symbols-rounded text-xs text-emerald-500">verified</span>
-                Saudável
               </span>
             </div>
 
@@ -506,7 +667,7 @@ onMounted(() => {
               <button
                 type="button"
                 @click="copyToClipboard(keyItem.maskedKey, keyItem.id)"
-                class="text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 p-1 rounded-md transition"
+                class="text-zinc-400 hover:text-purple-600 dark:hover:text-purple-400 p-1 rounded-md transition cursor-pointer"
                 title="Copiar visualização da chave"
               >
                 <span class="material-symbols-rounded text-sm">
@@ -565,7 +726,7 @@ onMounted(() => {
                 @click="handleInlineTest(keyItem)"
                 :disabled="testingKeyId === keyItem.id"
                 class="inline-flex items-center gap-1 px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-800 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-950/40 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:text-purple-700 dark:hover:text-purple-300 transition cursor-pointer"
-                title="Testar conexão com a API do Gemini"
+                title="Testar conexão com a API"
               >
                 <span class="material-symbols-rounded text-sm" :class="{ 'animate-spin': testingKeyId === keyItem.id }">
                   {{ testingKeyId === keyItem.id ? 'sync' : 'network_check' }}
@@ -578,7 +739,7 @@ onMounted(() => {
                 type="button"
                 @click="openEditModal(keyItem)"
                 class="p-2 rounded-xl text-zinc-500 hover:text-purple-600 hover:bg-purple-50 dark:hover:bg-zinc-800 transition cursor-pointer"
-                title="Editar nome / chave"
+                title="Editar configurações da chave"
               >
                 <span class="material-symbols-rounded text-base">edit</span>
               </button>
@@ -602,22 +763,22 @@ onMounted(() => {
     <Teleport to="body">
       <div
         v-if="showModal"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs animate-fadeIn"
+        class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs animate-fadeIn overflow-y-auto"
         @click.self="showModal = false"
       >
-        <div class="relative w-full max-w-lg rounded-3xl bg-white dark:bg-zinc-900 p-6 sm:p-7 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5">
+        <div class="relative w-full max-w-xl rounded-3xl bg-white dark:bg-zinc-900 p-6 sm:p-7 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-5 my-8">
           <!-- CABEÇALHO DO MODAL -->
           <div class="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 pb-4">
             <div class="flex items-center gap-3">
               <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-purple-100 dark:bg-zinc-800 text-purple-700 dark:text-purple-400 font-bold">
-                <span class="material-symbols-rounded text-xl">vpn_key</span>
+                <span class="material-symbols-rounded text-xl">{{ currentProviderMeta.icon }}</span>
               </div>
               <div>
                 <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
                   {{ isEditing ? 'Editar Chave de API' : 'Cadastrar Nova Chave de API' }}
                 </h3>
                 <p class="text-[11px] text-zinc-400">
-                  Google Gemini (Generative Language API)
+                  {{ currentProviderMeta.name }} • {{ currentProviderMeta.description }}
                 </p>
               </div>
             </div>
@@ -632,6 +793,28 @@ onMounted(() => {
 
           <!-- FORMULÁRIO -->
           <div class="space-y-4">
+            <!-- SELEÇÃO DO PROVEDOR -->
+            <div>
+              <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-2">
+                Selecione o Provedor de IA *
+              </label>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <button
+                  v-for="prov in PROVIDERS"
+                  :key="prov.id"
+                  type="button"
+                  @click="form.provider = prov.id"
+                  class="flex items-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition text-left cursor-pointer"
+                  :class="form.provider === prov.id
+                    ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300 ring-2 ring-purple-600/20'
+                    : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/60 text-zinc-600 dark:text-zinc-400'"
+                >
+                  <span class="material-symbols-rounded text-base shrink-0">{{ prov.icon }}</span>
+                  <span class="truncate">{{ prov.shortName }}</span>
+                </button>
+              </div>
+            </div>
+
             <!-- NOME IDENTIFICADOR -->
             <div>
               <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
@@ -640,37 +823,12 @@ onMounted(() => {
               <input
                 v-model="form.name"
                 type="text"
-                placeholder="Ex: AI Studio - Conta Principal ou Conta Backup 1"
+                :placeholder="`Ex: ${currentProviderMeta.name} - Produção ou Conta Backup`"
                 class="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 px-3.5 py-2.5 text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
               />
               <span class="text-[10px] text-zinc-400 mt-1 block">
-                Um nome amigável para você identificar qual projeto ou conta do Google AI Studio gerou esta chave.
+                Um nome amigável para identificar a conta ou projeto de onde esta chave se origina.
               </span>
-            </div>
-
-            <!-- PROVEDOR -->
-            <div>
-              <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1.5">
-                Provedor de IA
-              </label>
-              <div class="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  @click="form.provider = 'GEMINI'"
-                  class="flex items-center justify-center gap-2 p-2.5 rounded-xl border text-xs font-bold transition"
-                  :class="form.provider === 'GEMINI' ? 'border-purple-600 bg-purple-50 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300' : 'border-zinc-200 dark:border-zinc-700 text-zinc-500'"
-                >
-                  <span class="material-symbols-rounded text-base">neurology</span>
-                  <span>Google Gemini</span>
-                </button>
-                <div
-                  class="flex items-center justify-center gap-2 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30 text-zinc-400 text-xs font-medium cursor-not-allowed"
-                  title="Em breve"
-                >
-                  <span class="material-symbols-rounded text-base">mail</span>
-                  <span>Resend / SMTP</span>
-                </div>
-              </div>
             </div>
 
             <!-- CHAVE DE API (INPUT COM TOGGLE) -->
@@ -680,12 +838,13 @@ onMounted(() => {
                   {{ isEditing ? 'Nova Chave de API (deixe em branco para manter a atual)' : 'Chave de API (API Key) *' }}
                 </label>
                 <a
-                  href="https://aistudio.google.com/app/apikey"
+                  v-if="currentProviderMeta.docsUrl"
+                  :href="currentProviderMeta.docsUrl"
                   target="_blank"
                   rel="noopener noreferrer"
                   class="text-[11px] font-bold text-purple-600 dark:text-purple-400 hover:underline inline-flex items-center gap-0.5"
                 >
-                  Obter chave no AI Studio
+                  Obter chave em {{ currentProviderMeta.shortName }}
                   <span class="material-symbols-rounded text-xs">open_in_new</span>
                 </a>
               </div>
@@ -694,13 +853,13 @@ onMounted(() => {
                 <input
                   v-model="form.key"
                   :type="showSecret ? 'text' : 'password'"
-                  placeholder="AIzaSy..."
+                  :placeholder="form.provider === 'GEMINI' ? 'AIzaSy...' : form.provider === 'OPENAI' ? 'sk-proj-...' : form.provider === 'DEEPSEEK' ? 'sk-...' : 'Cole sua chave de API aqui...'"
                   class="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 pl-3.5 pr-20 py-2.5 text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
                 />
                 <button
                   type="button"
                   @click="showSecret = !showSecret"
-                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 p-1 rounded-md cursor-pointer"
                   :title="showSecret ? 'Ocultar' : 'Visualizar'"
                 >
                   <span class="material-symbols-rounded text-base">
@@ -710,13 +869,48 @@ onMounted(() => {
               </div>
             </div>
 
+            <!-- CAMPOS AVANÇADOS: MODELO & BASE URL -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <!-- MODELO ESPECÍFICO (OPCIONAL) -->
+              <div>
+                <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  Modelo Específico (Opcional)
+                </label>
+                <input
+                  v-model="form.model"
+                  type="text"
+                  :placeholder="`Padrão: ${currentProviderMeta.defaultModel || 'automático'}`"
+                  class="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                />
+                <span class="text-[10px] text-zinc-400 mt-0.5 block">
+                  Deixe vazio para usar o modelo recomendado padrão.
+                </span>
+              </div>
+
+              <!-- URL BASE (CUSTOM OU PROXY) -->
+              <div>
+                <label class="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                  URL Base (Opcional)
+                </label>
+                <input
+                  v-model="form.baseUrl"
+                  type="text"
+                  :placeholder="form.provider === 'CUSTOM' ? 'http://localhost:11434/v1' : 'https://...'"
+                  class="w-full rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 px-3.5 py-2 text-xs font-mono text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 focus:outline-none focus:ring-2 focus:ring-purple-500/40"
+                />
+                <span class="text-[10px] text-zinc-400 mt-0.5 block">
+                  Necessário apenas para Ollama, proxies ou servidor próprio.
+                </span>
+              </div>
+            </div>
+
             <!-- BOTÃO DE TESTAR CONEXÃO DO FORMULÁRIO -->
             <div>
               <button
                 type="button"
                 @click="testCurrentFormKey"
                 :disabled="testingFormKey || (!form.key.trim() && !isEditing)"
-                class="w-full py-2 px-3 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                class="w-full py-2.5 px-3 rounded-xl border border-purple-200 dark:border-purple-800 bg-purple-50/60 dark:bg-purple-950/30 text-purple-700 dark:text-purple-300 hover:bg-purple-100 dark:hover:bg-purple-900/50 text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <span class="material-symbols-rounded text-base" :class="{ 'animate-spin': testingFormKey }">
                   {{ testingFormKey ? 'sync' : 'network_check' }}
@@ -730,7 +924,7 @@ onMounted(() => {
                   v-if="formTestResult.valid"
                   class="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-xs font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-2"
                 >
-                  <span class="material-symbols-rounded text-base text-emerald-600">check_circle</span>
+                  <span class="material-symbols-rounded text-base text-emerald-600 shrink-0">check_circle</span>
                   <span>{{ formTestResult.message || 'Chave validada com sucesso!' }}</span>
                 </div>
                 <div
@@ -747,27 +941,22 @@ onMounted(() => {
             <div class="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-800">
               <div>
                 <p class="text-xs font-bold text-zinc-900 dark:text-zinc-100">Chave Ativa para Rotação</p>
-                <p class="text-[10px] text-zinc-500">Se desativada, a chave não será utilizada nas correções de redações.</p>
+                <p class="text-[10px] text-zinc-500">Se desativada, a chave não será incluída nas chamadas de IA da plataforma.</p>
               </div>
-              <button
-                type="button"
-                @click="form.active = !form.active"
-                class="p-1 rounded-lg text-2xl transition cursor-pointer"
-                :class="form.active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'"
-              >
-                <span class="material-symbols-rounded">
-                  {{ form.active ? 'toggle_on' : 'toggle_off' }}
-                </span>
-              </button>
+              <input
+                v-model="form.active"
+                type="checkbox"
+                class="h-5 w-5 rounded-md border-zinc-300 text-purple-600 focus:ring-purple-500 cursor-pointer"
+              />
             </div>
           </div>
 
-          <!-- BOTÕES DE AÇÃO -->
-          <div class="pt-3 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-end gap-2.5">
+          <!-- BOTÕES DO MODAL -->
+          <div class="flex items-center justify-end gap-2.5 pt-3 border-t border-zinc-100 dark:border-zinc-800">
             <button
               type="button"
               @click="showModal = false"
-              class="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              class="px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition cursor-pointer"
             >
               Cancelar
             </button>
@@ -775,10 +964,10 @@ onMounted(() => {
               type="button"
               @click="handleSaveKey"
               :disabled="modalLoading"
-              class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-xs font-bold text-white transition shadow-sm cursor-pointer shadow-purple-600/20 disabled:opacity-50 flex items-center gap-2"
+              class="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-xs font-bold text-white transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 shadow-sm shadow-purple-600/25"
             >
-              <span v-if="modalLoading" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              <span>{{ isEditing ? 'Salvar Alterações' : 'Cadastrar Chave' }}</span>
+              <span v-if="modalLoading" class="material-symbols-rounded text-sm animate-spin">sync</span>
+              <span>{{ isEditing ? 'Atualizar Chave' : 'Cadastrar Chave' }}</span>
             </button>
           </div>
         </div>
@@ -792,30 +981,27 @@ onMounted(() => {
         class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 p-4 backdrop-blur-xs animate-fadeIn"
         @click.self="showDeleteModal = false"
       >
-        <div class="relative w-full max-w-md rounded-3xl bg-white dark:bg-zinc-900 p-6 sm:p-7 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
-          <div class="flex items-center gap-3">
-            <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-950/50 text-red-600 font-bold">
-              <span class="material-symbols-rounded text-2xl">delete</span>
+        <div class="w-full max-w-sm rounded-3xl bg-white dark:bg-zinc-900 p-6 shadow-2xl border border-zinc-200 dark:border-zinc-800 space-y-4">
+          <div class="flex items-center gap-3 text-red-600">
+            <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950/50">
+              <span class="material-symbols-rounded text-xl">delete_forever</span>
             </div>
             <div>
-              <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">
-                Remover Chave de API
-              </h3>
-              <p class="text-xs text-zinc-500">
-                Tem certeza que deseja excluir esta chave?
-              </p>
+              <h3 class="text-sm font-black text-zinc-900 dark:text-zinc-100">Excluir Chave de API?</h3>
+              <p class="text-[11px] text-zinc-400">Esta ação não poderá ser desfeita.</p>
             </div>
           </div>
 
-          <p class="text-xs text-zinc-600 dark:text-zinc-400 bg-zinc-50 dark:bg-zinc-800/50 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 leading-relaxed">
-            A chave <strong>"{{ keyToDelete?.name }}"</strong> deixará de ser utilizada imediatamente nas correções de redação. Esta ação não pode ser desfeita.
+          <p class="text-xs text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            Tem certeza que deseja remover a chave <strong class="text-zinc-900 dark:text-zinc-100 font-bold">"{{ keyToDelete?.name }}"</strong> ({{ getProviderMeta(keyToDelete?.provider).name }})?
           </p>
 
-          <div class="flex items-center justify-end gap-2.5 pt-2">
+          <div class="flex items-center justify-end gap-2 pt-2">
             <button
               type="button"
               @click="showDeleteModal = false"
-              class="px-4 py-2.5 rounded-xl text-xs font-bold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition cursor-pointer"
+              :disabled="deleting"
+              class="px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 transition cursor-pointer"
             >
               Cancelar
             </button>
@@ -823,10 +1009,10 @@ onMounted(() => {
               type="button"
               @click="confirmDelete"
               :disabled="deleting"
-              class="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition shadow-sm cursor-pointer shadow-red-600/20 disabled:opacity-50 flex items-center gap-2"
+              class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-xs font-bold text-white transition cursor-pointer flex items-center gap-1.5"
             >
-              <span v-if="deleting" class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-              <span>Confirmar Exclusão</span>
+              <span v-if="deleting" class="material-symbols-rounded text-sm animate-spin">sync</span>
+              <span>Excluir Chave</span>
             </button>
           </div>
         </div>
@@ -834,4 +1020,3 @@ onMounted(() => {
     </Teleport>
   </div>
 </template>
-

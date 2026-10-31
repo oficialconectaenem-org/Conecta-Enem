@@ -39,15 +39,13 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    const config = useRuntimeConfig(event)
-    const apiKey = config.geminiApiKey || process.env.GEMINI_API_KEY
-
-    // Chama o serviço do Gemini
+    // Chama o serviço de IA universal (utiliza rotação de chaves ativas do banco com failover automático)
+    const customKey = typeof body?.apiKey === 'string' && body.apiKey.trim().length > 0 ? body.apiKey.trim() : undefined
     const result = await correctEssayWithGemini({
       theme,
       text,
       title,
-      apiKey
+      apiKey: customKey
     })
 
     let savedEssayId = null
