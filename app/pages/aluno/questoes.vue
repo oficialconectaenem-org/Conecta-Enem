@@ -81,6 +81,25 @@ const availableYears = computed(() => {
 })
 
 // Filtered Questions List
+// Paginação progressiva para o modo lista
+const listDisplayLimit = ref(15)
+
+watch([selectedSubjectId, selectedDifficulty, selectedYear, searchQuery, selectedStatusFilter], () => {
+  listDisplayLimit.value = 15
+})
+
+const displayedListQuestions = computed(() => {
+  return filteredQuestions.value.slice(0, listDisplayLimit.value)
+})
+
+const hasMoreListQuestions = computed(() => {
+  return listDisplayLimit.value < filteredQuestions.value.length
+})
+
+function loadMoreListQuestions() {
+  listDisplayLimit.value += 15
+}
+
 const filteredQuestions = computed(() => {
   const list = questions.value || []
   if (!Array.isArray(list)) return []
@@ -871,7 +890,7 @@ onMounted(() => {
       class="mt-8 space-y-6"
     >
       <div
-        v-for="(q, idx) in filteredQuestions"
+        v-for="(q, idx) in displayedListQuestions"
         :key="q.id"
         class="student-card rounded-3xl border border-[var(--student-border)] bg-[var(--student-card)] p-6 shadow-xs"
       >
@@ -959,6 +978,21 @@ onMounted(() => {
             <Icon name="material-symbols:arrow-forward-rounded" class="text-sm" />
           </button>
         </div>
+      </div>
+
+      <!-- BOTÃO CARREGAR MAIS NO MODO LISTA -->
+      <div v-if="hasMoreListQuestions" class="flex flex-col items-center justify-center gap-2 pt-4 pb-6">
+        <p class="text-xs text-[var(--student-text-secondary)]">
+          Exibindo <strong>{{ displayedListQuestions.length }}</strong> de <strong>{{ filteredQuestions.length }}</strong> questões
+        </p>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[var(--student-card)] border border-[var(--student-border)] text-sm font-bold text-[var(--student-text)] shadow-xs hover:border-purple-400 hover:text-purple-600 transition cursor-pointer active:scale-98"
+          @click="loadMoreListQuestions"
+        >
+          <span class="material-symbols-rounded text-lg">expand_more</span>
+          <span>Carregar mais questões (+{{ Math.min(15, filteredQuestions.length - displayedListQuestions.length) }})</span>
+        </button>
       </div>
     </div>
   </div>

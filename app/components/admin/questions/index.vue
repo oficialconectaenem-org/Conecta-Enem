@@ -99,6 +99,25 @@ const filteredQuestions = computed(() => {
   })
 })
 
+// Limite progressivo de exibição para máxima performance no DOM
+const displayLimit = ref(24)
+
+watch(filters, () => {
+  displayLimit.value = 24
+}, { deep: true })
+
+const displayedQuestions = computed(() => {
+  return filteredQuestions.value.slice(0, displayLimit.value)
+})
+
+const hasMoreQuestions = computed(() => {
+  return displayLimit.value < filteredQuestions.value.length
+})
+
+function loadMoreQuestions() {
+  displayLimit.value += 24
+}
+
 // Metrics
 const totalCount = computed(() => (Array.isArray(questions.value) ? questions.value.length : 0))
 const easyCount = computed(() => (Array.isArray(questions.value) ? questions.value.filter(q => q.difficulty === 'EASY').length : 0))
@@ -337,19 +356,36 @@ onMounted(() => {
       @create="navigateTo('/admin/questoes/nova')"
     />
 
-    <!-- QUESTION CARDS GRID -->
+    <!-- QUESTION CARDS GRID COM CARREGAMENTO PROGRESSIVO -->
     <div
       v-else
-      class="grid gap-5 md:grid-cols-2 xl:grid-cols-3"
+      class="space-y-6"
     >
-      <QuestionCard
-        v-for="question in filteredQuestions"
-        :key="question.id"
-        :question="question"
-        @view="handleView(question)"
-        @edit="handleEdit(question)"
-        @delete="handleDelete(question)"
-      />
+      <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <QuestionCard
+          v-for="question in displayedQuestions"
+          :key="question.id"
+          :question="question"
+          @view="handleView(question)"
+          @edit="handleEdit(question)"
+          @delete="handleDelete(question)"
+        />
+      </div>
+
+      <!-- BOTÃO CARREGAR MAIS -->
+      <div v-if="hasMoreQuestions" class="flex flex-col items-center justify-center gap-2 pt-4 pb-2">
+        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+          Exibindo <strong>{{ displayedQuestions.length }}</strong> de <strong>{{ filteredQuestions.length }}</strong> questões
+        </p>
+        <button
+          type="button"
+          class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-sm font-bold text-zinc-800 dark:text-zinc-200 shadow-xs hover:border-purple-400 dark:hover:border-purple-600 hover:text-purple-600 dark:hover:text-purple-400 transition cursor-pointer active:scale-98"
+          @click="loadMoreQuestions"
+        >
+          <span class="material-symbols-rounded text-lg">expand_more</span>
+          <span>Carregar mais questões (+{{ Math.min(24, filteredQuestions.length - displayedQuestions.length) }})</span>
+        </button>
+      </div>
     </div>
 
     <!-- MODAL DE VISUALIZAÇÃO DE QUESTÃO -->
@@ -556,6 +592,14 @@ onMounted(() => {
       </Transition>
     </Teleport>
 
+
+    <!-- MODAL DE IMPORTAÇÃO PERSONALIZADA EM TXT OU JSON COM LIVE PREVIEW -->
+    <ImportQuestionsModal
+      :show="showTxtJsonModal"
+      :subjects="subjects"
+      @close="showTxtJsonModal = false"
+      @imported="getQuestions"
+    />
 
     <!-- MODAL DE EXCLUSÃO -->
     <DeleteQuestion

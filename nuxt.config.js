@@ -2,7 +2,11 @@ export default defineNuxtConfig({
   compatibilityDate: '2026-08-09',
 
   devtools: {
-    enabled: true
+    enabled: process.env.NODE_ENV !== 'production'
+  },
+
+  nitro: {
+    compressPublicAssets: true
   },
 
   modules: [
@@ -43,6 +47,8 @@ export default defineNuxtConfig({
         { rel: 'icon', type: 'image/png', href: '/images/icone mobile.png' },
         { rel: 'manifest', href: '/manifest.json' },
         { rel: 'apple-touch-icon', href: '/images/icone mobile.png' },
+        { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+        { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
         {
           rel: 'stylesheet',
           href: 'https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0,0'

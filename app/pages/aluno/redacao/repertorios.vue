@@ -7,7 +7,7 @@ useSeoMeta({
   title: 'Repertórios Socioculturais — Conecta Enem'
 })
 
-const { data, pending, error } = await useFetch('/api/student/redacao/repertoires')
+const { data, pending, error } = useLazyFetch('/api/student/redacao/repertoires')
 const repertoires = computed(() => data.value?.repertoires || [])
 
 const searchQuery = ref('')

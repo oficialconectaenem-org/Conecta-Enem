@@ -7,7 +7,7 @@ useSeoMeta({
   title: 'Banco de Argumentos — Conecta Enem'
 })
 
-const { data, pending, error } = await useFetch('/api/student/redacao/arguments')
+const { data, pending, error } = useLazyFetch('/api/student/redacao/arguments')
 const argumentsList = computed(() => data.value?.arguments || [])
 
 const searchQuery = ref('')

@@ -92,7 +92,7 @@ const strategicConnectors = [
   }
 ]
 
-const { data: dbTopicsData } = await useFetch('/api/student/redacao/topics')
+const { data: dbTopicsData } = useLazyFetch('/api/student/redacao/topics')
 
 const suggestedThemes = computed(() => {
   const dbTopics = (dbTopicsData.value?.topics || []).map(t => {
