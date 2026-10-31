@@ -523,7 +523,7 @@ export async function correctEssayWithUniversalAI({ theme, text, title, apiKey }
   }
 
   if (!candidateKeys || candidateKeys.length === 0) {
-    throw new Error('Nenhuma chave de Inteligência Artificial ativa foi encontrada. Cadastre ao menos uma chave (Gemini, OpenAI, DeepSeek, Groq, OpenRouter ou Anthropic) no Painel do Administrador.')
+    throw new Error('Nenhuma chave de Inteligência Artificial ativa foi cadastrada. Acesse o Painel Admin (/admin/chaves-api) e cadastre sua chave de API (Gemini, OpenAI, DeepSeek, Groq, OpenRouter ou Claude) para habilitar a correção de redações.')
   }
 
   // 2. Proteção contra textos curtos: Regra estrita do ENEM (menos de 70 palavras recebe nota zero imediata)
