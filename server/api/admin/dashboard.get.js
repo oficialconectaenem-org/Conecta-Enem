@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
         select: {
           id: true,
           name: true,
-          color: true,
+          slug: true,
           _count: { select: { questions: true } }
         },
         orderBy: {

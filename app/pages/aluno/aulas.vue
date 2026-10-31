@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 definePageMeta({
   layout: 'aluno',
 })
@@ -24,11 +24,11 @@ watch(searchQuery, (val) => {
 })
 
 // --- Fetch do backend ---
-const { data: subjectsData } = await useFetch('/api/student/aulas', {
+const { data: subjectsList } = useLazyFetch('/api/subjects/active', {
   credentials: 'include'
 })
 
-const { data, pending, error, refresh } = await useFetch('/api/student/aulas', {
+const { data, pending, error, refresh } = useLazyFetch('/api/student/aulas', {
   credentials: 'include',
   query: computed(() => ({
     ...(selectedSubjectId.value ? { subjectId: selectedSubjectId.value } : {}),
@@ -40,7 +40,7 @@ const { data, pending, error, refresh } = await useFetch('/api/student/aulas', {
 const subjects = computed(() => data.value?.subjects || [])
 
 // Mantém todas as matérias nos filtros, mesmo depois de uma seleção.
-const filterSubjects = computed(() => subjectsData.value?.subjects || [])
+const filterSubjects = computed(() => subjectsList.value?.subjects || data.value?.subjects || [])
 
 // Contagem de aulas por matéria
 function countLessons(subject) {

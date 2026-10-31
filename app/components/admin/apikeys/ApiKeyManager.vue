@@ -14,8 +14,8 @@ const PROVIDERS = [
     id: 'GEMINI',
     name: 'Google Gemini',
     shortName: 'Gemini',
-    description: 'Modelos Gemini 2.5, 2.0 e 1.5 Flash (AI Studio)',
-    defaultModel: 'gemini-2.5-flash',
+    description: 'Modelos Gemini 3.8, 2.0 e 1.5 Flash (AI Studio)',
+    defaultModel: 'gemini-3.8-flash',
     docsUrl: 'https://aistudio.google.com/app/apikey',
     icon: 'neurology',
     badgeClass: 'bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800'

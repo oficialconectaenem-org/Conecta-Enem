@@ -83,14 +83,13 @@ export default defineEventHandler(async (event) => {
             select: {
               id: true,
               statement: true,
-              discipline: true,
               year: true,
               difficulty: true,
               subject: {
                 select: {
                   id: true,
                   name: true,
-                  color: true
+                  slug: true
                 }
               }
             }
@@ -159,13 +158,12 @@ export default defineEventHandler(async (event) => {
             select: {
               id: true,
               title: true,
-              duration: true,
               module: {
                 select: {
                   id: true,
-                  title: true,
+                  name: true,
                   subject: {
-                    select: { id: true, name: true, color: true }
+                    select: { id: true, name: true, slug: true }
                   }
                 }
               }
@@ -303,11 +301,10 @@ export default defineEventHandler(async (event) => {
         question: {
           id: q.question?.id,
           statement: q.question?.statement,
-          discipline: q.question?.discipline,
           difficulty: q.question?.difficulty,
           year: q.question?.year,
-          subjectName: q.question?.subject?.name || q.question?.discipline || 'Geral',
-          subjectColor: q.question?.subject?.color || '#8b5cf6'
+          subjectName: q.question?.subject?.name || 'Geral',
+          subjectColor: '#8b5cf6'
         }
       })),
       lessonProgress: lessonProgress.map(lp => ({
@@ -316,10 +313,9 @@ export default defineEventHandler(async (event) => {
         lesson: {
           id: lp.lesson?.id,
           title: lp.lesson?.title,
-          duration: lp.lesson?.duration,
-          moduleTitle: lp.lesson?.module?.title,
+          moduleTitle: lp.lesson?.module?.name || 'Módulo',
           subjectName: lp.lesson?.module?.subject?.name || 'Geral',
-          subjectColor: lp.lesson?.module?.subject?.color || '#8b5cf6'
+          subjectColor: '#8b5cf6'
         }
       })),
       classrooms

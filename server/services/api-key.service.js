@@ -5,8 +5,8 @@ let tableInitialized = false
 export const PROVIDER_CONFIGS = {
   GEMINI: {
     name: 'Google Gemini',
-    defaultModel: 'gemini-2.5-flash',
-    fallbackModels: ['gemini-2.0-flash', 'gemini-1.5-flash'],
+    defaultModel: 'gemini-3.8-flash',
+    fallbackModels: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'],
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   OPENAI: {
@@ -94,6 +94,13 @@ export async function ensureApiKeysTable() {
       if (!colNames.includes('provider')) {
         await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`provider\` VARCHAR(191) NOT NULL DEFAULT 'GEMINI';`).catch(() => null)
       }
+
+      // Atualiza automaticamente chaves antigas do Gemini de 2.5 para 3.8
+      await prisma.$executeRawUnsafe(`
+        UPDATE \`api_keys\`
+        SET \`model\` = 'gemini-3.8-flash', \`error_count\` = 0, \`last_error\` = NULL
+        WHERE \`provider\` = 'GEMINI' AND (\`model\` IS NULL OR \`model\` = 'gemini-2.5-flash');
+      `).catch(() => null)
     } catch {
       // Fallback com ALTER direto caso SHOW COLUMNS falhe
       await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`model\` VARCHAR(191) NULL;`).catch(() => null)
@@ -278,7 +285,10 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
 
   const normalizedProvider = (provider || 'GEMINI').toUpperCase()
   const cfg = PROVIDER_CONFIGS[normalizedProvider] || PROVIDER_CONFIGS.CUSTOM
-  const resolvedModel = model?.trim() || cfg.defaultModel
+  let resolvedModel = model?.trim() || cfg.defaultModel
+  if (normalizedProvider === 'GEMINI' && (!resolvedModel || resolvedModel === 'gemini-2.5-flash')) {
+    resolvedModel = 'gemini-3.8-flash'
+  }
   const resolvedBaseUrl = (baseUrl?.trim() || cfg.defaultBaseUrl || '').replace(/\/+$/, '')
 
   const startTime = Date.now()
@@ -289,16 +299,38 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
     let response = null
 
     if (normalizedProvider === 'GEMINI') {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${resolvedModel || 'gemini-2.5-flash'}:generateContent?key=${rawKey}`
-      response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: 'ping' }] }],
-          generationConfig: { maxOutputTokens: 2 }
-        }),
-        signal: controller.signal
-      })
+      const geminiModelsToTry = [
+        resolvedModel,
+        'gemini-3.8-flash',
+        'gemini-2.0-flash',
+        'gemini-1.5-flash'
+      ].filter((m, idx, arr) => m && arr.indexOf(m) === idx)
+
+      let lastErrText = ''
+      for (const curModel of geminiModelsToTry) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${curModel}:generateContent?key=${rawKey}`
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'ping' }] }],
+            generationConfig: { maxOutputTokens: 2 }
+          }),
+          signal: controller.signal
+        })
+
+        if (response.ok) {
+          resolvedModel = curModel
+          break
+        }
+
+        const cloneErr = await response.clone().json().catch(() => ({}))
+        lastErrText = cloneErr.error?.message || cloneErr.message || ''
+        // Se o erro for de modelo indisponível/descontinuado, tenta o próximo modelo
+        if (!lastErrText.includes('no longer available') && !lastErrText.includes('not found') && !lastErrText.includes('is not supported')) {
+          break
+        }
+      }
     } else if (normalizedProvider === 'ANTHROPIC') {
       const url = `${resolvedBaseUrl || 'https://api.anthropic.com/v1'}/messages`
       response = await fetch(url, {

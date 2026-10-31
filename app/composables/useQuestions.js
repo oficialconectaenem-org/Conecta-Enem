@@ -1,9 +1,15 @@
 export function useQuestions() {
-  const questions = ref([])
-  const loading = ref(false)
-  const error = ref(null)
+  const questions = useState('conecta_questions_list', () => [])
+  const loading = useState('conecta_questions_loading', () => false)
+  const error = useState('conecta_questions_error', () => null)
 
-  async function getQuestions(params = {}) {
+  async function getQuestions(params = {}, { force = false } = {}) {
+    const hasFilters = Boolean(
+      params.search || params.subjectId || params.difficulty || params.year || params.status
+    )
+    if (!hasFilters && !force && Array.isArray(questions.value) && questions.value.length > 0) {
+      return questions.value
+    }
     loading.value = true
     error.value = null
 
