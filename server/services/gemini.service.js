@@ -13,11 +13,13 @@ import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.servi
  */
 
 export const GEMINI_MODELS = [
-  'gemini-3.8-flash',
-  'gemini-3.8-flash-latest'
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+  'gemini-1.5-flash-latest',
+  'gemini-2.0-flash-001'
 ]
 
-const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
+const AI_TIMEOUT_MS = 25000 // 25 segundos de tempo limite por chamada
 
 export const SYSTEM_PROMPT = `Você é um corretor e avaliador sênior da banca oficial do ENEM (Exame Nacional do Ensino Médio), com domínio técnico estrito da Matriz de Referência do ENEM e dos Guias de Correção Oficiais do INEP para 2025/2026.
 
@@ -490,21 +492,20 @@ async function callAiProvider(keyObj, userContent, options = {}) {
 
   if (provider === 'GEMINI') {
     let preferredModel = (keyObj.model || '').trim()
-    if (!preferredModel || !preferredModel.includes('3.8')) {
-      preferredModel = 'gemini-3.8-flash'
-    }
-    const modelsToTry = [preferredModel, ...GEMINI_MODELS].filter((m, i, a) => m && a.indexOf(m) === i)
+    const modelsToTry = [
+      preferredModel,
+      ...GEMINI_MODELS
+    ].filter((m, i, a) => m && a.indexOf(m) === i)
 
     let lastGeminiErr = null
     let primaryOverloadErr = null
 
     for (const model of modelsToTry) {
-      // Tenta até 3 vezes se encontrar sobrecarga temporária (503 / 429) com backoff progressivo
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // Tenta até 2 vezes para sobrecarga temporária
+      for (let attempt = 0; attempt < 2; attempt++) {
         if (attempt > 0) {
-          const waitMs = attempt === 1 ? 2500 : 4000
-          console.info(`[AI Gemini] Aguardando ${waitMs}ms antes de nova tentativa no modelo ${model}...`)
-          await new Promise(resolve => setTimeout(resolve, waitMs))
+          console.info(`[AI Gemini] Aguardando 1.5s antes de retentar modelo ${model}...`)
+          await new Promise(resolve => setTimeout(resolve, 1500))
         }
 
         const controller = new AbortController()
@@ -560,20 +561,24 @@ async function callAiProvider(keyObj, userContent, options = {}) {
           clearTimeout(timeoutId)
 
           if (!res.ok) {
+            // Se for modelo não encontrado ou não suportado (404), avança IMEDIATAMENTE para o próximo modelo sem esperar!
+            if (res.status === 404 || rawMsg.includes('not found') || rawMsg.includes('is not supported')) {
+              console.warn(`[AI Gemini] Modelo ${model} indisponível (${rawMsg}). Avançando imediatamente para próximo modelo...`)
+              lastGeminiErr = new Error(rawMsg)
+              break
+            }
+
             const isHighDemand = res.status === 503 || res.status === 429 ||
               rawMsg.includes('high demand') || rawMsg.includes('Resource has been exhausted') || rawMsg.includes('spikes in demand') || rawMsg.includes('quota')
 
             if (isHighDemand) {
               primaryOverloadErr = new Error('Os servidores da IA do Google estão enfrentando alta demanda temporária neste momento. Por favor, clique em "Tentar Novamente Agora" em alguns instantes.')
-              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária (tentativa ${attempt + 1}/3): ${rawMsg}`)
-              if (attempt < 2) continue
+              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária: ${rawMsg}`)
+              if (attempt < 1) continue
               break
             }
 
-            // Não sobrescrever primaryOverloadErr com erro de modelo inexistente ou 404
-            if (!rawMsg.includes('not found') && !rawMsg.includes('is not supported')) {
-              lastGeminiErr = new Error(rawMsg)
-            }
+            lastGeminiErr = new Error(rawMsg)
             break
           }
 
@@ -582,7 +587,7 @@ async function callAiProvider(keyObj, userContent, options = {}) {
           return parseAiJsonResponse(rawText)
         } catch (err) {
           clearTimeout(timeoutId)
-          if (attempt < 2) continue
+          if (attempt < 1) continue
           lastGeminiErr = err
         }
       }
