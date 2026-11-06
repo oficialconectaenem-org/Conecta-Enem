@@ -11,6 +11,9 @@ useSeoMeta({
 
 const { questions, loading, error, getQuestions } = useQuestions()
 
+const route = useRoute()
+const router = useRouter()
+
 const subjects = ref([])
 const loadingSubjects = ref(true)
 
@@ -20,6 +23,10 @@ const selectedDifficulty = ref('')
 const selectedYear = ref('')
 const searchQuery = ref('')
 const selectedStatusFilter = ref('ALL') // 'ALL', 'UNANSWERED', 'CORRECT', 'INCORRECT'
+const selectedHasImages = ref('') // '', 'true', 'false'
+const selectedHasExplanation = ref('') // '', 'true', 'false'
+const selectedSort = ref('year_desc') // 'year_desc', 'year_asc', 'random', 'difficulty_desc', 'difficulty_asc'
+const showAdvancedFilters = ref(false)
 
 // Practice State
 const currentIndex = ref(0)
@@ -74,19 +81,118 @@ const availableYears = computed(() => {
   const years = new Set()
   if (Array.isArray(questions.value)) {
     questions.value.forEach(q => {
-      if (q.year) years.add(q.year)
+      if (q.year && q.active !== false) years.add(q.year)
     })
   }
   return Array.from(years).sort((a, b) => b - a)
 })
 
+// Métricas de contagem por filtro para os Badges
+const totalActiveQuestions = computed(() => {
+  if (!Array.isArray(questions.value)) return 0
+  return questions.value.filter(q => q.active !== false).length
+})
+
+const subjectCounts = computed(() => {
+  const map = {}
+  if (Array.isArray(questions.value)) {
+    questions.value.forEach(q => {
+      if (q.active !== false) {
+        const sId = q.subjectId || q.subject?.id
+        if (sId) map[sId] = (map[sId] || 0) + 1
+      }
+    })
+  }
+  return map
+})
+
+const yearCounts = computed(() => {
+  const map = {}
+  if (Array.isArray(questions.value)) {
+    questions.value.forEach(q => {
+      if (q.active !== false && q.year) {
+        map[q.year] = (map[q.year] || 0) + 1
+      }
+    })
+  }
+  return map
+})
+
+const difficultyCounts = computed(() => {
+  const map = { EASY: 0, MEDIUM: 0, HARD: 0 }
+  if (Array.isArray(questions.value)) {
+    questions.value.forEach(q => {
+      if (q.active !== false && q.difficulty) {
+        map[q.difficulty] = (map[q.difficulty] || 0) + 1
+      }
+    })
+  }
+  return map
+})
+
+const hasActiveFilters = computed(() => {
+  return Boolean(
+    selectedSubjectId.value ||
+    selectedDifficulty.value ||
+    selectedYear.value ||
+    searchQuery.value.trim() ||
+    selectedStatusFilter.value !== 'ALL' ||
+    selectedHasImages.value ||
+    selectedHasExplanation.value ||
+    (selectedSort.value && selectedSort.value !== 'year_desc')
+  )
+})
+
+const activeFiltersCount = computed(() => {
+  let count = 0
+  if (selectedSubjectId.value) count++
+  if (selectedDifficulty.value) count++
+  if (selectedYear.value) count++
+  if (searchQuery.value.trim()) count++
+  if (selectedStatusFilter.value !== 'ALL') count++
+  if (selectedHasImages.value) count++
+  if (selectedHasExplanation.value) count++
+  if (selectedSort.value && selectedSort.value !== 'year_desc') count++
+  return count
+})
+
+// Algoritmo de Embaralhamento para o modo Simulado
+const shuffleSeed = ref(0)
+function shuffleArray(arr) {
+  const copy = [...arr]
+  let seed = shuffleSeed.value || 12345
+  for (let i = copy.length - 1; i > 0; i--) {
+    seed = (seed * 9301 + 49297) % 233280
+    const j = Math.floor((seed / 233280) * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j], copy[i]]
+  }
+  return copy
+}
+
 // Filtered Questions List
 // Paginação progressiva para o modo lista
 const listDisplayLimit = ref(15)
 
-watch([selectedSubjectId, selectedDifficulty, selectedYear, searchQuery, selectedStatusFilter], () => {
-  listDisplayLimit.value = 15
-})
+watch(
+  [selectedSubjectId, selectedDifficulty, selectedYear, searchQuery, selectedStatusFilter, selectedHasImages, selectedHasExplanation, selectedSort],
+  () => {
+    listDisplayLimit.value = 15
+    currentIndex.value = 0
+
+    // Sincroniza parâmetros na URL para permitir compartilhamento e salvar estado
+    const query = {}
+    if (selectedSubjectId.value) query.materia = selectedSubjectId.value
+    if (selectedDifficulty.value) query.dificuldade = selectedDifficulty.value
+    if (selectedYear.value) query.ano = selectedYear.value
+    if (selectedStatusFilter.value !== 'ALL') query.status = selectedStatusFilter.value
+    if (searchQuery.value.trim()) query.busca = searchQuery.value.trim()
+    if (selectedHasImages.value) query.imagens = selectedHasImages.value
+    if (selectedHasExplanation.value) query.explicacao = selectedHasExplanation.value
+    if (selectedSort.value && selectedSort.value !== 'year_desc') query.ordem = selectedSort.value
+
+    router.replace({ query }).catch(() => {})
+  }
+)
 
 const displayedListQuestions = computed(() => {
   return filteredQuestions.value.slice(0, listDisplayLimit.value)
@@ -100,45 +206,81 @@ function loadMoreListQuestions() {
   listDisplayLimit.value += 15
 }
 
+const difficultyWeights = { EASY: 1, MEDIUM: 2, HARD: 3 }
+
 const filteredQuestions = computed(() => {
   const list = questions.value || []
   if (!Array.isArray(list)) return []
 
-  return list.filter((q) => {
-    // Only active questions for students
+  const result = list.filter((q) => {
+    // Apenas questões ativas para alunos
     if (q.active === false) return false
 
-    // Subject
+    // Matéria
     if (selectedSubjectId.value) {
       const sId = q.subjectId || q.subject?.id
       if (sId !== selectedSubjectId.value) return false
     }
 
-    // Difficulty
+    // Dificuldade
     if (selectedDifficulty.value && q.difficulty !== selectedDifficulty.value) {
       return false
     }
 
-    // Year
+    // Ano do ENEM
     if (selectedYear.value && q.year !== Number(selectedYear.value)) {
       return false
     }
 
-    // Search
+    // Busca inteligente expandida (enunciado, título e opções)
     if (searchQuery.value.trim()) {
       const term = searchQuery.value.toLowerCase().trim()
       const inStatement = q.statement?.toLowerCase().includes(term)
       const inTitle = q.title?.toLowerCase().includes(term)
-      if (!inStatement && !inTitle) return false
+      const inOptions = Array.isArray(q.options) && q.options.some(opt => opt.text?.toLowerCase().includes(term))
+      if (!inStatement && !inTitle && !inOptions) return false
     }
 
-    // Status filter
+    // Status no histórico do aluno
     const ans = sessionAnswers[q.id]
     if (selectedStatusFilter.value === 'UNANSWERED' && ans) return false
     if (selectedStatusFilter.value === 'CORRECT' && (!ans || !ans.correct)) return false
     if (selectedStatusFilter.value === 'INCORRECT' && (!ans || ans.correct)) return false
 
+    // Recurso Visual (com ou sem figuras/imagens)
+    const hasImg = Boolean(q.imageUrl || (q.images && q.images !== '[]' && q.images !== ''))
+    if (selectedHasImages.value === 'true' && !hasImg) return false
+    if (selectedHasImages.value === 'false' && hasImg) return false
+
+    // Gabarito Comentado (com ou sem resolução explicada)
+    const hasExp = Boolean(q.explanation && q.explanation.trim())
+    if (selectedHasExplanation.value === 'true' && !hasExp) return false
+    if (selectedHasExplanation.value === 'false' && hasExp) return false
+
     return true
+  })
+
+  // Ordenação inteligente
+  if (selectedSort.value === 'random') {
+    return shuffleArray(result)
+  }
+
+  return result.sort((a, b) => {
+    if (selectedSort.value === 'year_asc') {
+      return (a.year || 0) - (b.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
+    }
+    if (selectedSort.value === 'difficulty_desc') {
+      const diffA = difficultyWeights[a.difficulty] || 0
+      const diffB = difficultyWeights[b.difficulty] || 0
+      return diffB - diffA || (b.year || 0) - (a.year || 0)
+    }
+    if (selectedSort.value === 'difficulty_asc') {
+      const diffA = difficultyWeights[a.difficulty] || 0
+      const diffB = difficultyWeights[b.difficulty] || 0
+      return diffA - diffB || (b.year || 0) - (a.year || 0)
+    }
+    // Padrão: ano decrescente + criação
+    return (b.year || 0) - (a.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
   })
 })
 
@@ -313,7 +455,47 @@ function clearFilters() {
   selectedYear.value = ''
   searchQuery.value = ''
   selectedStatusFilter.value = 'ALL'
+  selectedHasImages.value = ''
+  selectedHasExplanation.value = ''
+  selectedSort.value = 'year_desc'
   currentIndex.value = 0
+}
+
+function removeSingleFilter(key) {
+  if (key === 'subject') selectedSubjectId.value = ''
+  else if (key === 'difficulty') selectedDifficulty.value = ''
+  else if (key === 'year') selectedYear.value = ''
+  else if (key === 'search') searchQuery.value = ''
+  else if (key === 'status') selectedStatusFilter.value = 'ALL'
+  else if (key === 'images') selectedHasImages.value = ''
+  else if (key === 'explanation') selectedHasExplanation.value = ''
+  else if (key === 'sort') selectedSort.value = 'year_desc'
+  currentIndex.value = 0
+}
+
+function applyPreset(preset) {
+  currentIndex.value = 0
+  if (preset === 'INCORRECT') {
+    selectedStatusFilter.value = selectedStatusFilter.value === 'INCORRECT' ? 'ALL' : 'INCORRECT'
+  } else if (preset === 'UNANSWERED') {
+    selectedStatusFilter.value = selectedStatusFilter.value === 'UNANSWERED' ? 'ALL' : 'UNANSWERED'
+  } else if (preset === 'HARD') {
+    selectedDifficulty.value = selectedDifficulty.value === 'HARD' ? '' : 'HARD'
+  } else if (preset === 'IMAGES') {
+    selectedHasImages.value = selectedHasImages.value === 'true' ? '' : 'true'
+  } else if (preset === 'RANDOM') {
+    if (selectedSort.value === 'random') {
+      selectedSort.value = 'year_desc'
+    } else {
+      shuffleSeed.value = Date.now()
+      selectedSort.value = 'random'
+    }
+  }
+}
+
+function getSubjectName(id) {
+  const sub = subjects.value.find(s => s.id === id)
+  return sub?.name || id
 }
 
 function resetStats() {
@@ -331,6 +513,15 @@ const difficultyLabels = {
 }
 
 onMounted(() => {
+  if (route.query.materia) selectedSubjectId.value = String(route.query.materia)
+  if (route.query.dificuldade) selectedDifficulty.value = String(route.query.dificuldade)
+  if (route.query.ano) selectedYear.value = String(route.query.ano)
+  if (route.query.status) selectedStatusFilter.value = String(route.query.status)
+  if (route.query.busca) searchQuery.value = String(route.query.busca)
+  if (route.query.imagens) selectedHasImages.value = String(route.query.imagens)
+  if (route.query.explicacao) selectedHasExplanation.value = String(route.query.explicacao)
+  if (route.query.ordem) selectedSort.value = String(route.query.ordem)
+
   loadData()
 })
 </script>
@@ -424,12 +615,12 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- FILTROS POR MATÉRIA (TABS/CHIPS) -->
+    <!-- FILTROS POR MATÉRIA (TABS/CHIPS COM CONTADORES) -->
     <section class="mt-8">
       <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           type="button"
-          class="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition"
+          class="inline-flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             selectedSubjectId === ''
               ? 'bg-[var(--student-primary-solid)] text-white shadow-sm'
@@ -437,14 +628,20 @@ onMounted(() => {
           "
           @click="selectedSubjectId = ''; currentIndex = 0"
         >
-          Todas as matérias
+          <span>Todas as matérias</span>
+          <span
+            class="rounded-full px-2 py-0.5 text-[10px] font-black"
+            :class="selectedSubjectId === '' ? 'bg-white/20 text-white' : 'bg-[var(--student-surface)] text-[var(--student-text-muted)]'"
+          >
+            {{ totalActiveQuestions }}
+          </span>
         </button>
 
         <button
           v-for="sub in subjects"
           :key="sub.id"
           type="button"
-          class="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition"
+          class="inline-flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             selectedSubjectId === sub.id
               ? 'bg-[var(--student-primary-solid)] text-white shadow-sm'
@@ -452,15 +649,90 @@ onMounted(() => {
           "
           @click="selectedSubjectId = sub.id; currentIndex = 0"
         >
-          {{ sub.name }}
+          <span>{{ sub.name }}</span>
+          <span
+            v-if="subjectCounts[sub.id]"
+            class="rounded-full px-2 py-0.5 text-[10px] font-black"
+            :class="selectedSubjectId === sub.id ? 'bg-white/20 text-white' : 'bg-[var(--student-surface)] text-[var(--student-text-muted)]'"
+          >
+            {{ subjectCounts[sub.id] }}
+          </span>
         </button>
       </div>
     </section>
 
-    <!-- BARRA DE FILTROS SECUNDÁRIOS -->
-    <section class="mt-4 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] p-3.5 shadow-xs">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)_auto]">
-        <!-- BUSCA -->
+    <!-- BARRA DE ATALHOS RÁPIDOS (1 CLIQUE) -->
+    <section class="mt-3 flex flex-wrap items-center gap-2">
+      <span class="text-xs font-bold text-[var(--student-text-secondary)] flex items-center gap-1.5 mr-1">
+        <Icon name="material-symbols:bolt-rounded" class="text-amber-500 text-sm" />
+        Treino Rápido:
+      </span>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
+        :class="selectedStatusFilter === 'INCORRECT'
+          ? 'bg-red-500 text-white border-red-500 shadow-xs'
+          : 'border-[var(--student-border)] bg-[var(--student-card)] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'"
+        @click="applyPreset('INCORRECT')"
+      >
+        <Icon name="material-symbols:cancel-rounded" class="text-sm" />
+        <span>Refazer Erros ({{ totalIncorrect }})</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
+        :class="selectedStatusFilter === 'UNANSWERED'
+          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+          : 'border-[var(--student-border)] bg-[var(--student-card)] text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30'"
+        @click="applyPreset('UNANSWERED')"
+      >
+        <Icon name="material-symbols:auto-awesome-rounded" class="text-sm" />
+        <span>Questões Inéditas</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
+        :class="selectedDifficulty === 'HARD'
+          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
+          : 'border-[var(--student-border)] bg-[var(--student-card)] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'"
+        @click="applyPreset('HARD')"
+      >
+        <Icon name="material-symbols:local-fire-department-rounded" class="text-sm" />
+        <span>Desafio Difícil</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
+        :class="selectedHasImages === 'true'
+          ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+          : 'border-[var(--student-border)] bg-[var(--student-card)] text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30'"
+        @click="applyPreset('IMAGES')"
+      >
+        <Icon name="material-symbols:image-rounded" class="text-sm" />
+        <span>Com Imagens</span>
+      </button>
+
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
+        :class="selectedSort === 'random'
+          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+          : 'border-[var(--student-border)] bg-[var(--student-card)] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'"
+        @click="applyPreset('RANDOM')"
+      >
+        <Icon name="material-symbols:shuffle-rounded" class="text-sm" />
+        <span>Modo Simulado</span>
+      </button>
+    </section>
+
+    <!-- BARRA DE FILTROS PRINCIPAL -->
+    <section class="mt-4 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] p-4 shadow-xs">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_repeat(3,1fr)_auto]">
+        <!-- BUSCA INTELIGENTE EXPANDIDA -->
         <div class="relative">
           <Icon
             name="material-symbols:search-rounded"
@@ -469,10 +741,19 @@ onMounted(() => {
           <input
             v-model="searchQuery"
             type="search"
-            placeholder="Buscar por termo..."
-            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] pl-9 pr-3 text-xs text-[var(--student-text)] outline-none transition focus:border-purple-500"
+            placeholder="Buscar no enunciado, título ou alternativas..."
+            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] pl-9 pr-8 text-xs text-[var(--student-text)] outline-none transition focus:border-purple-500"
             @input="currentIndex = 0"
           />
+          <button
+            v-if="searchQuery"
+            type="button"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--student-text-muted)] hover:text-red-500 p-1"
+            title="Limpar busca"
+            @click="searchQuery = ''; currentIndex = 0"
+          >
+            ✕
+          </button>
         </div>
 
         <!-- DIFICULDADE -->
@@ -482,12 +763,12 @@ onMounted(() => {
           @change="currentIndex = 0"
         >
           <option value="">Todas as dificuldades</option>
-          <option value="EASY">Fácil</option>
-          <option value="MEDIUM">Média</option>
-          <option value="HARD">Difícil</option>
+          <option value="EASY">Fácil ({{ difficultyCounts.EASY }})</option>
+          <option value="MEDIUM">Média ({{ difficultyCounts.MEDIUM }})</option>
+          <option value="HARD">Difícil ({{ difficultyCounts.HARD }})</option>
         </select>
 
-        <!-- ANO -->
+        <!-- ANO ENEM -->
         <select
           v-model="selectedYear"
           class="h-10 rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
@@ -499,7 +780,7 @@ onMounted(() => {
             :key="year"
             :value="year"
           >
-            ENEM {{ year }}
+            ENEM {{ year }} ({{ yearCounts[year] || 0 }})
           </option>
         </select>
 
@@ -510,21 +791,168 @@ onMounted(() => {
           @change="currentIndex = 0"
         >
           <option value="ALL">Todas as questões</option>
-          <option value="UNANSWERED">Não respondidas</option>
+          <option value="UNANSWERED">Não respondidas (Inéditas)</option>
           <option value="CORRECT">Acertadas</option>
-          <option value="INCORRECT">Erradas</option>
+          <option value="INCORRECT">Erradas (Refazer)</option>
         </select>
 
-        <!-- LIMPAR -->
-        <button
-          v-if="selectedSubjectId || selectedDifficulty || selectedYear || searchQuery || selectedStatusFilter !== 'ALL'"
-          type="button"
-          class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--student-border)] px-3 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)]"
-          @click="clearFilters"
-        >
-          <Icon name="material-symbols:filter-alt-off-rounded" class="text-sm" />
-          <span>Limpar</span>
-        </button>
+        <!-- BOTÕES: MAIS FILTROS & LIMPAR -->
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--student-border)] px-3 text-xs font-bold transition hover:border-purple-500 hover:text-purple-600"
+            :class="showAdvancedFilters ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 text-purple-600 dark:text-purple-300' : 'text-[var(--student-text-secondary)]'"
+            @click="showAdvancedFilters = !showAdvancedFilters"
+          >
+            <Icon name="material-symbols:tune-rounded" class="text-base" />
+            <span class="hidden sm:inline">Mais</span>
+            <Icon
+              name="material-symbols:keyboard-arrow-down-rounded"
+              class="text-base transition-transform duration-200"
+              :class="showAdvancedFilters ? 'rotate-180' : ''"
+            />
+          </button>
+
+          <button
+            v-if="hasActiveFilters"
+            type="button"
+            title="Limpar todos os filtros"
+            class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/40 px-3 text-xs font-bold text-red-600 dark:text-red-400 transition hover:bg-red-100"
+            @click="clearFilters"
+          >
+            <Icon name="material-symbols:filter-alt-off-rounded" class="text-sm" />
+            <span class="hidden sm:inline">Limpar</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- PAINEL DE FILTROS AVANÇADOS (EXPANSÍVEL) -->
+      <div
+        v-if="showAdvancedFilters"
+        class="mt-3.5 grid gap-3 border-t border-[var(--student-border)] pt-3.5 sm:grid-cols-2 lg:grid-cols-3"
+      >
+        <!-- RECURSO VISUAL -->
+        <div>
+          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Recurso Visual</label>
+          <select
+            v-model="selectedHasImages"
+            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
+            @change="currentIndex = 0"
+          >
+            <option value="">Todas (com e sem imagens)</option>
+            <option value="true">Apenas com figuras, gráficos ou tabelas</option>
+            <option value="false">Apenas texto puro</option>
+          </select>
+        </div>
+
+        <!-- RESOLUÇÃO COMENTADA -->
+        <div>
+          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Gabarito Comentado</label>
+          <select
+            v-model="selectedHasExplanation"
+            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
+            @change="currentIndex = 0"
+          >
+            <option value="">Todas as questões</option>
+            <option value="true">Apenas com resolução passo a passo</option>
+          </select>
+        </div>
+
+        <!-- ORDENAÇÃO -->
+        <div>
+          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Ordenação</label>
+          <select
+            v-model="selectedSort"
+            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
+            @change="currentIndex = 0"
+          >
+            <option value="year_desc">ENEM Mais recente primeiro</option>
+            <option value="year_asc">ENEM Mais antigo primeiro</option>
+            <option value="difficulty_desc">Dificuldade (Difícil → Fácil)</option>
+            <option value="difficulty_asc">Dificuldade (Fácil → Difícil)</option>
+            <option value="random">Ordem Aleatória (Simulado)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BARRA DE FILTROS ATIVOS COM REMOÇÃO INDIVIDUAL & CONTADOR -->
+      <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--student-border)] pt-3 text-xs">
+        <div class="flex flex-wrap items-center gap-1.5">
+          <span class="font-bold text-[var(--student-text-secondary)]">Filtros:</span>
+
+          <span
+            v-if="selectedSubjectId"
+            class="inline-flex items-center gap-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+          >
+            {{ getSubjectName(selectedSubjectId) }}
+            <button type="button" @click="removeSingleFilter('subject')" class="hover:text-purple-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedYear"
+            class="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-950/60 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+          >
+            ENEM {{ selectedYear }}
+            <button type="button" @click="removeSingleFilter('year')" class="hover:text-blue-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedDifficulty"
+            class="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
+          >
+            {{ selectedDifficulty === 'EASY' ? 'Fácil' : selectedDifficulty === 'MEDIUM' ? 'Média' : 'Difícil' }}
+            <button type="button" @click="removeSingleFilter('difficulty')" class="hover:text-amber-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedStatusFilter !== 'ALL'"
+            class="inline-flex items-center gap-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700"
+          >
+            {{ selectedStatusFilter === 'UNANSWERED' ? 'Inéditas' : selectedStatusFilter === 'CORRECT' ? 'Acertadas' : 'Erradas' }}
+            <button type="button" @click="removeSingleFilter('status')" class="hover:text-zinc-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedHasImages"
+            class="inline-flex items-center gap-1 rounded-lg bg-sky-100 dark:bg-sky-950/60 px-2.5 py-1 text-xs font-bold text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800"
+          >
+            {{ selectedHasImages === 'true' ? 'Com Imagens' : 'Texto Puro' }}
+            <button type="button" @click="removeSingleFilter('images')" class="hover:text-sky-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedHasExplanation"
+            class="inline-flex items-center gap-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+          >
+            Com Resolução
+            <button type="button" @click="removeSingleFilter('explanation')" class="hover:text-emerald-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="searchQuery.trim()"
+            class="inline-flex items-center gap-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+          >
+            Busca: "{{ searchQuery }}"
+            <button type="button" @click="removeSingleFilter('search')" class="hover:text-purple-900 ml-0.5">✕</button>
+          </span>
+
+          <span
+            v-if="selectedSort && selectedSort !== 'year_desc'"
+            class="inline-flex items-center gap-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+          >
+            {{ selectedSort === 'random' ? 'Modo Simulado' : selectedSort === 'year_asc' ? 'Mais Antigas' : selectedSort === 'difficulty_desc' ? 'Mais Difíceis' : 'Mais Fáceis' }}
+            <button type="button" @click="removeSingleFilter('sort')" class="hover:text-emerald-900 ml-0.5">✕</button>
+          </span>
+
+          <span v-if="!hasActiveFilters" class="text-[var(--student-text-muted)] italic">
+            Nenhum filtro aplicado (exibindo todas as questões)
+          </span>
+        </div>
+
+        <!-- CONTADOR DE QUESTÕES ENCONTRADAS -->
+        <div class="font-bold text-[var(--student-text-secondary)]">
+          Mostrando <strong class="text-purple-600 dark:text-purple-400">{{ filteredQuestions.length }}</strong> de {{ totalActiveQuestions }} questões
+        </div>
       </div>
     </section>
 

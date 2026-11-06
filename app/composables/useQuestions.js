@@ -5,7 +5,14 @@ export function useQuestions() {
 
   async function getQuestions(params = {}, { force = false } = {}) {
     const hasFilters = Boolean(
-      params.search || params.subjectId || params.difficulty || params.year || params.status
+      params.search ||
+      params.subjectId ||
+      params.difficulty ||
+      params.year ||
+      params.status ||
+      params.hasImages ||
+      params.hasExplanation ||
+      params.sort
     )
     if (!hasFilters && !force && Array.isArray(questions.value) && questions.value.length > 0) {
       return questions.value
@@ -20,6 +27,11 @@ export function useQuestions() {
       if (params.difficulty) query.difficulty = params.difficulty
       if (params.year) query.year = params.year
       if (params.status) query.status = params.status
+      if (params.hasImages) query.hasImages = params.hasImages
+      if (params.hasExplanation) query.hasExplanation = params.hasExplanation
+      if (params.sort) query.sort = params.sort
+      if (params.limit) query.limit = params.limit
+      if (params.page) query.page = params.page
 
       const response = await $fetch('/api/questions', { query })
       const list = Array.isArray(response)

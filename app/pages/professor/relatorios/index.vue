@@ -199,7 +199,7 @@ onMounted(() => {
             <div class="h-2.5 w-full rounded-full bg-slate-100 dark:bg-zinc-800 overflow-hidden">
               <div
                 class="h-full rounded-full bg-linear-to-r from-purple-500 to-indigo-600 transition-all duration-500"
-                :style="{ width: \`\${Math.min(100, Math.round((val / 200) * 100))}%\` }"
+                :style="{ width: `${Math.min(100, Math.round((val / 200) * 100))}%` }"
               ></div>
             </div>
           </div>

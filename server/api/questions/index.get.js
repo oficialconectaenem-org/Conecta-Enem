@@ -26,17 +26,71 @@ export default defineEventHandler(async (event) => {
     where.active = false
   }
 
+  // Filtro de Mídia/Imagens
+  if (query.hasImages === 'true') {
+    where.OR = [
+      { imageUrl: { not: null } },
+      { images: { not: null } }
+    ]
+  } else if (query.hasImages === 'false') {
+    where.AND = [
+      { OR: [{ imageUrl: null }, { imageUrl: "" }] },
+      { OR: [{ images: null }, { images: "" }, { images: "[]" }] }
+    ]
+  }
+
+  // Filtro de Explicação/Gabarito Comentado
+  if (query.hasExplanation === 'true') {
+    where.AND = [
+      ...(where.AND || []),
+      { explanation: { not: null } },
+      { explanation: { not: "" } }
+    ]
+  } else if (query.hasExplanation === 'false') {
+    where.OR = [
+      ...(where.OR || []),
+      { explanation: null },
+      { explanation: "" }
+    ]
+  }
+
+  // Busca textual expandida (enunciado, título e alternativas)
   if (query.search) {
     const searchStr = String(query.search).trim()
     if (searchStr) {
-      where.OR = [
+      const searchConditions = [
         { statement: { contains: searchStr } },
-        { title: { contains: searchStr } }
+        { title: { contains: searchStr } },
+        { options: { some: { text: { contains: searchStr } } } }
       ]
+
+      if (where.OR) {
+        where.AND = [
+          ...(where.AND || []),
+          { OR: where.OR },
+          { OR: searchConditions }
+        ]
+        delete where.OR
+      } else {
+        where.OR = searchConditions
+      }
     }
   }
 
-  const isSummary = query.summary === 'true'
+  // Ordenação flexível
+  let orderBy = [{ year: "desc" }, { createdAt: "desc" }]
+  if (query.sort === 'year_asc') {
+    orderBy = [{ year: "asc" }, { createdAt: "desc" }]
+  } else if (query.sort === 'newest') {
+    orderBy = [{ createdAt: "desc" }]
+  } else if (query.sort === 'oldest') {
+    orderBy = [{ createdAt: "asc" }]
+  } else if (query.sort === 'difficulty_asc') {
+    orderBy = [{ difficulty: "asc" }, { year: "desc" }]
+  } else if (query.sort === 'difficulty_desc') {
+    orderBy = [{ difficulty: "desc" }, { year: "desc" }]
+  }
+
   const limit = query.limit ? Math.min(Math.max(Number(query.limit), 1), 500) : undefined
   const page = query.page ? Math.max(Number(query.page), 1) : 1
   const skip = limit ? (page - 1) * limit : undefined
@@ -66,10 +120,7 @@ export default defineEventHandler(async (event) => {
           }
         }
       },
-      orderBy: [
-        { year: "desc" },
-        { createdAt: "desc" }
-      ]
+      orderBy
     }),
     limit ? prisma.question.count({ where }) : undefined
   ])

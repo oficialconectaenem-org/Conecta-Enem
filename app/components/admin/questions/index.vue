@@ -16,7 +16,20 @@ const filters = reactive({
   subjectId: '',
   difficulty: '',
   status: '',
-  year: ''
+  year: '',
+  hasImages: '',
+  hasExplanation: '',
+  sort: 'year_desc'
+})
+
+const availableYears = computed(() => {
+  const years = new Set()
+  if (Array.isArray(questions.value)) {
+    questions.value.forEach(q => {
+      if (q.year) years.add(q.year)
+    })
+  }
+  return Array.from(years).sort((a, b) => b - a)
 })
 
 // Modal states
@@ -65,20 +78,26 @@ const hasFilters = computed(() => {
     filters.subjectId ||
     filters.difficulty ||
     filters.status ||
-    filters.year
+    filters.year ||
+    filters.hasImages ||
+    filters.hasExplanation ||
+    (filters.sort && filters.sort !== 'year_desc')
   )
 })
+
+const difficultyWeights = { EASY: 1, MEDIUM: 2, HARD: 3 }
 
 const filteredQuestions = computed(() => {
   const list = questions.value || []
   if (!Array.isArray(list)) return []
 
-  return list.filter((q) => {
+  const result = list.filter((q) => {
     if (filters.search) {
       const term = filters.search.toLowerCase().trim()
       const inStatement = q.statement?.toLowerCase().includes(term)
       const inTitle = q.title?.toLowerCase().includes(term)
-      if (!inStatement && !inTitle) return false
+      const inOptions = Array.isArray(q.options) && q.options.some(opt => opt.text?.toLowerCase().includes(term))
+      if (!inStatement && !inTitle && !inOptions) return false
     }
 
     if (filters.subjectId) {
@@ -95,7 +114,42 @@ const filteredQuestions = computed(() => {
 
     if (filters.year && q.year !== Number(filters.year)) return false
 
+    // Filtro de Imagens/Figuras
+    const hasImg = Boolean(q.imageUrl || (q.images && q.images !== '[]' && q.images !== ''))
+    if (filters.hasImages === 'true' && !hasImg) return false
+    if (filters.hasImages === 'false' && hasImg) return false
+
+    // Filtro de Resolução Comentada
+    const hasExp = Boolean(q.explanation && q.explanation.trim())
+    if (filters.hasExplanation === 'true' && !hasExp) return false
+    if (filters.hasExplanation === 'false' && hasExp) return false
+
     return true
+  })
+
+  // Ordenação
+  return result.sort((a, b) => {
+    if (filters.sort === 'year_asc') {
+      return (a.year || 0) - (b.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
+    }
+    if (filters.sort === 'newest') {
+      return new Date(b.createdAt) - new Date(a.createdAt)
+    }
+    if (filters.sort === 'oldest') {
+      return new Date(a.createdAt) - new Date(b.createdAt)
+    }
+    if (filters.sort === 'difficulty_desc') {
+      const diffA = difficultyWeights[a.difficulty] || 0
+      const diffB = difficultyWeights[b.difficulty] || 0
+      return diffB - diffA || (b.year || 0) - (a.year || 0)
+    }
+    if (filters.sort === 'difficulty_asc') {
+      const diffA = difficultyWeights[a.difficulty] || 0
+      const diffB = difficultyWeights[b.difficulty] || 0
+      return diffA - diffB || (b.year || 0) - (a.year || 0)
+    }
+    // Default: year_desc
+    return (b.year || 0) - (a.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
   })
 })
 
@@ -151,6 +205,9 @@ function clearFilters() {
   filters.difficulty = ''
   filters.status = ''
   filters.year = ''
+  filters.hasImages = ''
+  filters.hasExplanation = ''
+  filters.sort = 'year_desc'
 }
 
 const activeViewingImageIndex = ref(0)
@@ -303,6 +360,9 @@ onMounted(() => {
     <QuestionFilters
       :filters="filters"
       :subjects="subjects"
+      :available-years="availableYears"
+      :total-count="totalCount"
+      :filtered-count="filteredQuestions.length"
       :has-filters="hasFilters"
       @update="handleFilterUpdate"
       @clear="clearFilters"
