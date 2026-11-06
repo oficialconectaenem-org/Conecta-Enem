@@ -177,6 +177,9 @@ function updateVisualLines() {
   if (height > 0) {
     measuredVisualLines.value = Math.max(1, Math.round(height / 36))
   }
+  if (textarea && textarea.scrollTop !== 0) {
+    textarea.scrollTop = 0
+  }
 }
 
 watch([essayText, fontSize, mobileViewMode], () => {
@@ -192,7 +195,7 @@ const linesCount = computed(() => {
   return officialLines
 })
 
-const editorTotalLines = computed(() => Math.max(30, Math.max(linesCount.value, measuredVisualLines.value || 0)))
+const editorTotalLines = computed(() => Math.max(30, linesCount.value))
 
 // Detecção inteligente de linhas em branco vazias entre parágrafos
 const blankLinesCount = computed(() => {
@@ -714,6 +717,60 @@ function confirmCustomTheme() {
   currentStep.value = 'FORMAT_SELECTION'
 }
 
+// Geração de Tema Aleatório por Inteligência Artificial (Mesma API e motor do Corretor)
+const isGeneratingAiTheme = ref(false)
+const selectedAiAxis = ref('ALEATORIO')
+const aiThemeError = ref('')
+
+const availableAiAxes = [
+  { id: 'ALEATORIO', label: '🎲 Surpreenda-me' },
+  { id: 'Sociedade e Cidadania', label: '👥 Sociedade' },
+  { id: 'Ciência e Tecnologia', label: '💻 Tecnologia' },
+  { id: 'Meio Ambiente e Sustentabilidade', label: '🌿 Meio Ambiente' },
+  { id: 'Saúde Pública e Mental', label: '🩺 Saúde' },
+  { id: 'Educação e Cultura', label: '📚 Educação' },
+  { id: 'Direitos Humanos', label: '⚖️ Direitos Humanos' }
+]
+
+async function generateRandomAiTheme(customAxis) {
+  aiThemeError.value = ''
+  isGeneratingAiTheme.value = true
+  const targetAxis = customAxis || selectedAiAxis.value
+
+  try {
+    const res = await $fetch('/api/ai/gerar-tema', {
+      method: 'POST',
+      body: {
+        axis: targetAxis === 'ALEATORIO' ? null : targetAxis,
+        saveToDb: true
+      }
+    })
+
+    if (res?.success && res.theme) {
+      const t = res.theme
+      selectedThemeObj.value = {
+        id: t.id || `ai-theme-${Date.now()}`,
+        title: t.title,
+        category: t.axis || 'Geral',
+        instructions: t.description || 'A partir da leitura dos textos motivadores e com base nos conhecimentos construídos ao longo de sua formação, redija um texto dissertativo-argumentativo.',
+        imageUrl: null,
+        motivators: t.motivators || [],
+        hints: t.hints || null,
+        isAiGenerated: true
+      }
+      chosenTheme.value = t.title
+      currentStep.value = 'THEME_DETAIL'
+    } else {
+      aiThemeError.value = 'Não foi possível gerar um tema no momento. Tente novamente.'
+    }
+  } catch (err) {
+    console.error('Erro ao gerar tema com IA:', err)
+    aiThemeError.value = err.data?.statusMessage || err.message || 'Falha ao conectar com o serviço de IA para gerar tema.'
+  } finally {
+    isGeneratingAiTheme.value = false
+  }
+}
+
 // Ao clicar em uma proposta, abre a tela de detalhes com os TEXTOS MOTIVADORES
 function openThemeDetail(theme) {
   selectedThemeObj.value = theme
@@ -987,10 +1044,29 @@ onUnmounted(() => {
           <div
             v-for="(mot, idx) in selectedThemeObj.motivators"
             :key="idx"
-            class="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 space-y-1.5"
+            class="rounded-2xl border border-slate-200 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-800/60 p-4 space-y-1.5"
           >
-            <span class="text-[11px] font-black text-purple-700 uppercase tracking-wide">{{ mot.title }}</span>
-            <p class="text-xs leading-relaxed text-slate-700 text-justify">{{ mot.content }}</p>
+            <span class="text-[11px] font-black text-purple-700 dark:text-purple-300 uppercase tracking-wide">{{ mot.title }}</span>
+            <p class="text-xs leading-relaxed text-slate-700 dark:text-zinc-300 text-justify whitespace-pre-line">{{ mot.content }}</p>
+            <p v-if="mot.source" class="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 italic pt-1 border-t border-slate-200/60 dark:border-zinc-700/60">
+              {{ mot.source }}
+            </p>
+          </div>
+
+          <!-- Dicas da IA caso tema tenha sido gerado -->
+          <div v-if="selectedThemeObj?.hints" class="rounded-2xl border border-purple-200 dark:border-purple-800/60 bg-purple-50/50 dark:bg-purple-950/20 p-4 space-y-2">
+            <span class="text-[11px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wider block">
+              💡 Repertórios Sugeridos:
+            </span>
+            <div class="flex flex-wrap gap-1">
+              <span
+                v-for="(rep, ri) in selectedThemeObj.hints.repertorySuggestions"
+                :key="ri"
+                class="rounded bg-white dark:bg-zinc-800 border border-purple-200 dark:border-purple-800 px-2 py-0.5 text-[10px] font-medium text-purple-800 dark:text-purple-200"
+              >
+                {{ rep }}
+              </span>
+            </div>
           </div>
         </div>
 
@@ -1079,7 +1155,70 @@ onUnmounted(() => {
 
         <!-- Opções de Definição de Tema -->
         <div class="space-y-4">
-          <!-- Opção 1: Tema do Banco de Dados -->
+          <!-- Opção 1 (DESTAQUE MÁXIMO): Tema Aleatório Gerado por IA -->
+          <div class="relative overflow-hidden rounded-2xl border-2 border-purple-500/80 bg-gradient-to-br from-purple-500/10 via-indigo-500/5 to-transparent p-5 space-y-4 shadow-sm">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <div class="flex items-center gap-3.5">
+                <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-md shadow-purple-600/30">
+                  <span class="material-symbols-rounded text-2xl">auto_awesome</span>
+                </div>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="text-base font-black text-[var(--student-text)]">
+                      Tema Aleatório com IA
+                    </h3>
+                    <span class="rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs">
+                      Padrão Oficial ENEM
+                    </span>
+                  </div>
+                  <p class="mt-0.5 text-xs text-[var(--student-text-secondary)]">
+                    A IA formula uma proposta temática inédita e contemporânea completa, com textos motivadores I, II e III autênticos.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Filtros Rápidos de Eixo Temático -->
+            <div class="space-y-2 pt-2 border-t border-[var(--student-border)]">
+              <span class="text-[11px] font-bold text-[var(--student-text-secondary)] uppercase tracking-wider block">
+                Escolha o Eixo ou Deixe a IA Decidir:
+              </span>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="axis in availableAiAxes"
+                  :key="axis.id"
+                  type="button"
+                  @click="selectedAiAxis = axis.id"
+                  :class="selectedAiAxis === axis.id
+                    ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                    : 'bg-white/80 dark:bg-zinc-800/80 text-[var(--student-text)] border-slate-200 dark:border-zinc-700 hover:border-purple-400'"
+                  class="rounded-xl border px-3 py-1.5 text-xs font-bold transition cursor-pointer"
+                >
+                  {{ axis.label }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Botão de Ação para Sortear com IA -->
+            <div class="pt-1 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                @click="generateRandomAiTheme()"
+                :disabled="isGeneratingAiTheme"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-6 py-3 text-xs font-black uppercase tracking-wider shadow-md shadow-purple-600/30 transition cursor-pointer disabled:opacity-50"
+              >
+                <span v-if="isGeneratingAiTheme" class="material-symbols-rounded text-base animate-spin">progress_activity</span>
+                <span v-else class="material-symbols-rounded text-base">casino</span>
+                <span>{{ isGeneratingAiTheme ? 'Gerando Proposta Inédita com IA...' : 'Sortear Tema Agora com IA' }}</span>
+              </button>
+
+              <span v-if="aiThemeError" class="text-xs font-bold text-red-500">
+                {{ aiThemeError }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Opção 2: Tema do Banco de Dados -->
           <div class="rounded-2xl border-2 border-purple-200 dark:border-purple-800/80 bg-[var(--student-card)] p-5 space-y-4 shadow-xs">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3.5">
@@ -1118,6 +1257,16 @@ onUnmounted(() => {
               </span>
               <div class="flex flex-wrap gap-2">
                 <button
+                  type="button"
+                  @click="generateRandomAiTheme()"
+                  :disabled="isGeneratingAiTheme"
+                  class="rounded-xl border border-dashed border-purple-400 bg-purple-100/60 dark:bg-purple-950/40 px-3.5 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center gap-2"
+                >
+                  <span class="material-symbols-rounded text-sm">auto_awesome</span>
+                  <span>✨ Sortear com IA</span>
+                </button>
+
+                <button
                   v-for="theme in suggestedThemes"
                   :key="theme.id"
                   type="button"
@@ -1131,11 +1280,11 @@ onUnmounted(() => {
             </div>
 
             <div v-else class="py-2 text-center text-xs text-[var(--student-text-secondary)]">
-              Nenhum tema cadastrado no banco no momento. Você pode usar a opção de Tema Livre abaixo!
+              Nenhum tema cadastrado no banco no momento. Você pode usar a opção de Tema com IA ou Tema Livre abaixo!
             </div>
           </div>
 
-          <!-- Opção 2: Tema livre -->
+          <!-- Opção 3: Tema livre -->
           <button
             type="button"
             @click="selectCustomThemeFlow"
@@ -1269,30 +1418,37 @@ onUnmounted(() => {
         <div class="flex items-center justify-between">
           <button
             type="button"
-            @click="currentStep = 'CATALOG_THEME'"
-            class="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 hover:text-purple-900 transition"
+            @click="currentStep = 'THEME_SELECTION'"
+            class="inline-flex items-center gap-1.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:text-purple-900 transition cursor-pointer"
           >
             <span class="material-symbols-rounded text-sm">arrow_back</span>
             <span>Trocar Tema</span>
           </button>
-          <span class="text-[10px] font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-full uppercase">
-            {{ selectedThemeObj?.category }}
-          </span>
+
+          <div class="flex items-center gap-2">
+            <span v-if="selectedThemeObj?.isAiGenerated" class="rounded-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider shadow-2xs flex items-center gap-1">
+              <span class="material-symbols-rounded text-xs">auto_awesome</span>
+              <span>Gerado por IA</span>
+            </span>
+            <span class="text-[10px] font-bold text-purple-700 dark:text-purple-300 bg-purple-100 dark:bg-purple-950 px-3 py-1 rounded-full uppercase">
+              {{ selectedThemeObj?.category }}
+            </span>
+          </div>
         </div>
 
         <!-- Banner com a Proposta -->
-        <div class="rounded-3xl border border-purple-200 bg-linear-to-br from-purple-50 to-indigo-50/40 p-6 space-y-2">
-          <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700">Proposta de Redação:</span>
-          <h2 class="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+        <div class="rounded-3xl border border-purple-200 dark:border-purple-800/80 bg-gradient-to-br from-purple-50 to-indigo-50/40 dark:from-purple-950/40 dark:to-zinc-900 p-6 space-y-2">
+          <span class="text-[11px] font-bold uppercase tracking-wider text-purple-700 dark:text-purple-300">Proposta Oficial de Redação:</span>
+          <h2 class="text-lg sm:text-xl font-black text-slate-900 dark:text-zinc-100 leading-tight">
             {{ selectedThemeObj?.title }}
           </h2>
-          <p class="text-xs text-slate-600 italic pt-1">
+          <p class="text-xs text-slate-600 dark:text-zinc-400 italic pt-1 leading-relaxed">
             {{ selectedThemeObj?.instructions }}
           </p>
         </div>
 
         <!-- Imagem / Gráfico de Apoio do Tema -->
-        <div v-if="selectedThemeObj?.imageUrl" class="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs overflow-hidden">
+        <div v-if="selectedThemeObj?.imageUrl" class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-xs overflow-hidden">
           <div class="flex items-center gap-2 mb-3 text-xs font-bold text-slate-500 uppercase tracking-wider">
             <span class="material-symbols-rounded text-purple-600">image</span>
             <span>Gráfico / Imagem de Apoio</span>
@@ -1300,57 +1456,101 @@ onUnmounted(() => {
           <img
             :src="selectedThemeObj.imageUrl"
             alt="Gráfico de Apoio"
-            class="max-h-96 w-full object-contain rounded-xl bg-slate-50 border border-slate-100"
+            class="max-h-96 w-full object-contain rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700"
           />
         </div>
 
         <!-- Textos Motivadores I, II, III -->
         <div class="space-y-4">
-          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-2">
-            <span class="material-symbols-rounded text-base text-purple-600">format_quote</span>
-            <span>Textos Motivadores</span>
+          <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-2">
+            <span class="material-symbols-rounded text-base text-purple-600 dark:text-purple-400">format_quote</span>
+            <span>Textos Motivadores Oficiais</span>
           </h3>
 
           <div
             v-for="(mot, idx) in selectedThemeObj?.motivators"
             :key="idx"
-            class="rounded-2xl border border-slate-200 bg-white p-5 space-y-3 shadow-xs"
+            class="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-3 shadow-xs"
           >
-            <span class="text-xs font-black text-purple-700 uppercase tracking-wide block">
+            <span class="text-xs font-black text-purple-700 dark:text-purple-300 uppercase tracking-wide block">
               {{ mot.title }}
             </span>
-            <p v-if="mot.content" class="text-xs sm:text-sm leading-relaxed text-slate-700 text-justify whitespace-pre-line">
+            <p v-if="mot.content" class="text-xs sm:text-sm leading-relaxed text-slate-700 dark:text-zinc-300 text-justify whitespace-pre-line">
               {{ mot.content }}
+            </p>
+            <p v-if="mot.source" class="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 italic pt-2 border-t border-slate-100 dark:border-zinc-800">
+              {{ mot.source }}
             </p>
             <div v-if="mot.imageUrl" class="pt-2">
               <img
                 :src="mot.imageUrl"
                 alt="Gráfico / Imagem do Motivador"
-                class="max-h-80 w-full object-contain rounded-xl bg-slate-50 border border-slate-100 p-1"
+                class="max-h-80 w-full object-contain rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 p-1"
               />
             </div>
           </div>
         </div>
 
-        <!-- Botão para avançar para redação -->
-        <div class="flex items-center justify-between pt-4 border-t border-slate-200">
+        <!-- Dicas Pedagógicas da IA (Repertórios e Núcleos da Tese) -->
+        <div v-if="selectedThemeObj?.hints" class="rounded-2xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/60 dark:bg-purple-950/30 p-5 space-y-3">
+          <div class="flex items-center gap-2 text-xs font-black text-purple-700 dark:text-purple-300 uppercase tracking-wider">
+            <span class="material-symbols-rounded text-base">lightbulb</span>
+            <span>Dicas Pedagógicas da IA para este Tema</span>
+          </div>
+
+          <div v-if="selectedThemeObj.hints.problemCores?.length" class="space-y-1">
+            <span class="text-[11px] font-bold text-slate-700 dark:text-zinc-300 block">Núcleos Argumentativos Sugeridos para a Tese:</span>
+            <ul class="list-disc list-inside text-xs text-slate-600 dark:text-zinc-400 space-y-0.5">
+              <li v-for="(pc, pci) in selectedThemeObj.hints.problemCores" :key="pci">{{ pc }}</li>
+            </ul>
+          </div>
+
+          <div v-if="selectedThemeObj.hints.repertorySuggestions?.length" class="space-y-1 pt-1">
+            <span class="text-[11px] font-bold text-slate-700 dark:text-zinc-300 block">Repertórios Socioculturais Pertinentes:</span>
+            <div class="flex flex-wrap gap-1.5">
+              <span
+                v-for="(rep, repi) in selectedThemeObj.hints.repertorySuggestions"
+                :key="repi"
+                class="rounded-lg bg-white dark:bg-zinc-800 border border-purple-200 dark:border-purple-800 px-2.5 py-1 text-[11px] font-medium text-purple-800 dark:text-purple-200"
+              >
+                {{ rep }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Botão para avançar para redação ou sortear outro -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200 dark:border-zinc-800">
           <button
             type="button"
-            @click="currentStep = 'CATALOG_THEME'"
-            class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 hover:text-slate-900 transition"
+            @click="currentStep = 'THEME_SELECTION'"
+            class="inline-flex items-center gap-1 text-xs font-bold text-slate-600 dark:text-zinc-400 hover:text-slate-900 transition cursor-pointer"
           >
             <span class="material-symbols-rounded text-sm">arrow_back</span>
             <span>Voltar aos Temas</span>
           </button>
 
-          <button
-            type="button"
-            @click="proceedToFormatFromDetail"
-            class="inline-flex items-center gap-2 rounded-2xl bg-purple-600 px-6 py-3 text-xs font-black text-white hover:bg-purple-700 shadow-md shadow-purple-600/20 transition"
-          >
-            <span>Ir para a Redação</span>
-            <span class="material-symbols-rounded text-base">arrow_forward</span>
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              v-if="selectedThemeObj?.isAiGenerated"
+              type="button"
+              @click="generateRandomAiTheme()"
+              :disabled="isGeneratingAiTheme"
+              class="inline-flex items-center gap-1.5 rounded-2xl border border-purple-300 dark:border-purple-700 bg-white dark:bg-zinc-800 px-4 py-3 text-xs font-black text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-zinc-700 transition cursor-pointer disabled:opacity-50"
+            >
+              <span class="material-symbols-rounded text-sm" :class="{ 'animate-spin': isGeneratingAiTheme }">casino</span>
+              <span>Sortear Outro</span>
+            </button>
+
+            <button
+              type="button"
+              @click="proceedToFormatFromDetail"
+              class="inline-flex items-center gap-2 rounded-2xl bg-purple-600 px-6 py-3 text-xs font-black text-white hover:bg-purple-700 shadow-md shadow-purple-600/20 transition cursor-pointer"
+            >
+              <span>Ir para a Redação</span>
+              <span class="material-symbols-rounded text-base">arrow_forward</span>
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1836,11 +2036,13 @@ onUnmounted(() => {
                     v-model="essayText"
                     rows="30"
                     placeholder="Escreva sua redação aqui... Pressione Tab ou use '+ Novo Parágrafo' para iniciar o recuo."
-                    class="enem-ruled-textarea w-full text-slate-800 dark:text-zinc-100 select-text outline-none resize-none relative z-10"
+                    class="enem-ruled-textarea w-full text-slate-800 dark:text-zinc-100 select-text outline-none resize-none overflow-hidden relative z-10"
                     :style="{
                       height: `${editorTotalLines * 36}px`,
                       minHeight: '1080px',
-                      fontSize: `${fontSize}px`
+                      fontSize: `${fontSize}px`,
+                      overflow: 'hidden',
+                      overflowY: 'hidden'
                     }"
                     @keydown="handleTextareaKeydown"
                     @paste="handlePaste"
@@ -2717,8 +2919,11 @@ textarea.enem-ruled-textarea {
   outline: none !important;
   box-sizing: border-box !important;
   min-height: 1080px !important; /* 30 linhas do ENEM x 36px */
+  overflow: hidden !important;
   overflow-y: hidden !important;
   overflow-x: hidden !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
   background-color: transparent !important;
   background-image: repeating-linear-gradient(
     to bottom,
@@ -2735,6 +2940,12 @@ textarea.enem-ruled-textarea {
   letter-spacing: -0.005em;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
+}
+
+textarea.enem-ruled-textarea::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 textarea.enem-ruled-textarea::placeholder {

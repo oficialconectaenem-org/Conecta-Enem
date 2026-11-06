@@ -6,7 +6,7 @@ export const PROVIDER_CONFIGS = {
   GEMINI: {
     name: 'Google Gemini',
     defaultModel: 'gemini-2.0-flash',
-    fallbackModels: ['gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-8b', 'gemini-1.5-pro'],
+    fallbackModels: ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-001'],
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   OPENAI: {
@@ -303,7 +303,9 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
         resolvedModel,
         'gemini-2.0-flash',
         'gemini-1.5-flash',
-        'gemini-2.0-flash-lite'
+        'gemini-1.5-flash-002',
+        'gemini-1.5-flash-001',
+        'gemini-1.5-flash-latest'
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx)
 
       let lastErrText = ''
@@ -465,12 +467,13 @@ export async function getActiveApiKeys() {
   ]
 
   for (const c of envCandidates) {
-    if (c.key && c.key.trim().length > 0) {
+    const k = (c.key || '').trim()
+    if (k && k.length >= 20 && !k.includes('sua_chave') && !k.includes('your_key') && !k.includes('placeholder')) {
       return [{
         id: `env-${c.provider.toLowerCase()}`,
         name: c.name,
         provider: c.provider,
-        key: c.key.trim(),
+        key: k,
         model: null,
         baseUrl: null,
         fromDb: false

@@ -12,27 +12,22 @@ export function calculateEnemLines(text, charsPerLine = 116) {
   const trimmed = text.trim()
   if (!trimmed) return 0
 
-  // Normaliza quebras de linha e descarta linhas vazias no fim do texto
-  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd()
-  const paragraphs = normalized.split('\n')
+  // No padrão do ENEM e no Glau, a medição é baseada estritamente nos parágrafos reais do texto com recuo de margem
+  // Quebras de linha duplas (\n\n) funcionam como separador de parágrafos e não inflam a contagem oficial
+  const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const paragraphs = normalized
+    .split(/\n+/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+
+  if (paragraphs.length === 0) return 0
+
   let totalLines = 0
-  let prevWasEmpty = false
 
-  for (const rawParagraph of paragraphs) {
-    // Linha vazia intencional (espaço entre parágrafos)
-    if (!rawParagraph.trim()) {
-      if (!prevWasEmpty) {
-        totalLines += 1
-        prevWasEmpty = true
-      }
-      continue
-    }
-
-    prevWasEmpty = false
-
-    // Simula quebra de linha real por palavras
-    const words = rawParagraph.trim().split(/\s+/)
-    let currentLineLen = 0
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/)
+    // Todo parágrafo do ENEM inicia com recuo de parágrafo (~4 caracteres)
+    let currentLineLen = 4
     let paragraphLines = 1
 
     for (const word of words) {

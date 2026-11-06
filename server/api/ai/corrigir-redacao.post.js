@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   // 1. Rate limit: Protege cota e custos de IA contra requisições abusivas
   checkRateLimit(event, {
     keyPrefix: 'ai_corrigir_redacao',
-    maxRequests: 5,
+    maxRequests: 30,
     windowMs: 60 * 1000
   })
 

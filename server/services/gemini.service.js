@@ -15,9 +15,10 @@ import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.servi
 export const GEMINI_MODELS = [
   'gemini-2.0-flash',
   'gemini-1.5-flash',
-  'gemini-2.0-flash-lite',
-  'gemini-1.5-flash-8b',
-  'gemini-1.5-pro'
+  'gemini-1.5-flash-002',
+  'gemini-1.5-flash-001',
+  'gemini-1.5-flash-latest',
+  'gemini-2.0-flash-001'
 ]
 
 const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
@@ -332,6 +333,71 @@ export const GEMINI_RESPONSE_SCHEMA = {
   required: ['totalScore', 'c1Score', 'c2Score', 'c3Score', 'c4Score', 'c5Score', 'competencies', 'generalFeedback']
 }
 
+export const THEME_GENERATION_SYSTEM_PROMPT = `Você é um formulador sênior da banca oficial do ENEM e do INEP, especialista em criar propostas oficiais de redação dissertativo-argumentativa no mais alto padrão de exigência do Exame Nacional do Ensino Médio.
+
+Sua missão é conceber uma proposta de redação INÉDITA, instigante, contemporânea e de grande relevância para a sociedade brasileira, com textos motivadores densos, analíticos e de alto nível reflexivo.
+
+DIRETRIZES DA BANCA DO ENEM:
+1. TÍTULO DO TEMA (title):
+   - Deve seguir a formulação canônica do ENEM, delimitando um problema social, cultural, ambiental, educacional, científico ou tecnológico vivido no Brasil.
+   - Utilize estruturas canônicas: "Desafios para...", "Caminhos para combater...", "A persistência de...", "O papel de... na garantia de...", "Impactos de... na sociedade brasileira", "A importância da... no Brasil contemporâneo", "Invisibilidade e...", etc.
+   - Deve ser claro, específico (com recorte temático preciso) e centrado na realidade brasileira.
+
+2. EIXO TEMÁTICO (axis):
+   - Categorize em um dos eixos oficiais: "Sociedade e Cidadania", "Ciência e Tecnologia", "Saúde Pública e Mental", "Meio Ambiente e Sustentabilidade", "Educação e Cultura", "Direitos Humanos", "Economia e Trabalho".
+
+3. INSTRUÇÕES OFICIAIS (description):
+   - Redija a instrução oficial do edital do ENEM: "A partir da leitura dos textos motivadores seguintes e com base nos conhecimentos construídos ao longo de sua formação, redija um texto dissertativo-argumentativo em modalidade escrita formal da língua portuguesa sobre o tema \"[TÍTULO]\", apresentando proposta de intervenção que respeite os direitos humanos. Selecione, organize e relacione, de forma coerente e coesa, argumentos e fatos para defesa de seu ponto de vista."
+
+4. TEXTOS MOTIVADORES (motivators - forneça exatamente 3 ou 4 textos motivadores diversificados):
+   - Texto I: Contextualização jornalística ou sociológica contendo dados estatísticos ou demográficos realistas (com indicação de fonte fidedigna: ex: IBGE, Ipea, Fiocruz, Ministérios, OMS).
+   - Texto II: Perspectiva legal, constitucional ou de direitos fundamentais (com citação de dispositivo da CF/88, declaração universal ou legislação brasileira).
+   - Texto III: Análise crítica conceitual sobre as causas estruturais ou os impactos reais e cotidianos do problema sobre as pessoas.
+   - Texto IV (opcional): Síntese reflexiva ou infográfico textual.
+   - Cada motivador DEVE conter: "title" (ex: "Texto I"), "content" (parágrafos densos e bem escritos) e "source" (ex: "Fonte: IBGE / Censo Demográfico").
+
+5. DICAS PEDAGÓGICAS (hints):
+   - repertorySuggestions: Array com 3 sugestões de repertório sociocultural legitimado diretamente aplicáveis (filósofos, sociólogos, obras literárias, filmes, leis ou marcos históricos brasileiros).
+   - problemCores: Array com 2 núcleos problemáticos centrais (Argumento 1 e Argumento 2) para direcionar o projeto de texto e a tese do estudante.
+
+Retorne EXCLUSIVAMENTE o objeto JSON válido conforme o schema.`
+
+export const THEME_GENERATION_SCHEMA = {
+  type: 'OBJECT',
+  properties: {
+    title: { type: 'STRING' },
+    axis: { type: 'STRING' },
+    description: { type: 'STRING' },
+    motivators: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          title: { type: 'STRING' },
+          content: { type: 'STRING' },
+          source: { type: 'STRING' }
+        },
+        required: ['title', 'content', 'source']
+      }
+    },
+    hints: {
+      type: 'OBJECT',
+      properties: {
+        repertorySuggestions: {
+          type: 'ARRAY',
+          items: { type: 'STRING' }
+        },
+        problemCores: {
+          type: 'ARRAY',
+          items: { type: 'STRING' }
+        }
+      },
+      required: ['repertorySuggestions', 'problemCores']
+    }
+  },
+  required: ['title', 'axis', 'description', 'motivators', 'hints']
+}
+
 /**
  * Retorna objeto padrão de redação anulada com nota zero (critério oficial ENEM: texto insuficiente)
  */
@@ -418,67 +484,99 @@ function parseAiJsonResponse(rawText) {
 /**
  * Despacha chamada para a API correta de acordo com o provedor da chave
  */
-async function callAiProvider(keyObj, userContent) {
+async function callAiProvider(keyObj, userContent, options = {}) {
+  const systemPrompt = options.systemPrompt || SYSTEM_PROMPT
+  const responseSchema = options.responseSchema || null
+  const temperature = options.temperature !== undefined ? options.temperature : 0.2
+  const maxTokens = options.maxTokens || 8192
   const provider = (keyObj.provider || 'GEMINI').toUpperCase()
   const rawKey = (keyObj.key || '').trim()
 
   if (provider === 'GEMINI') {
     let preferredModel = keyObj.model
-    if (!preferredModel || preferredModel.includes('3.8') || preferredModel.includes('2.5') || preferredModel.includes('3.5')) {
+    if (!preferredModel || preferredModel.includes('3.8') || preferredModel.includes('2.5') || preferredModel.includes('3.5') || preferredModel.includes('pro') || preferredModel.includes('lite') || preferredModel.includes('8b')) {
       preferredModel = 'gemini-2.0-flash'
     }
     const modelsToTry = [preferredModel, ...GEMINI_MODELS].filter((m, i, a) => m && a.indexOf(m) === i)
 
     let lastGeminiErr = null
+    let primaryOverloadErr = null
+
     for (const model of modelsToTry) {
-      // Tenta até 2 vezes para o modelo atual se encontrar sobrecarga temporária (503 / 429)
-      for (let attempt = 0; attempt < 2; attempt++) {
+      // Tenta até 3 vezes se encontrar sobrecarga temporária (503 / 429) com backoff progressivo
+      for (let attempt = 0; attempt < 3; attempt++) {
         if (attempt > 0) {
-          console.info(`[AI Gemini] Aguardando 1.5s antes de nova tentativa no modelo ${model}...`)
-          await new Promise(resolve => setTimeout(resolve, 1500))
+          const waitMs = attempt === 1 ? 2500 : 4000
+          console.info(`[AI Gemini] Aguardando ${waitMs}ms antes de nova tentativa no modelo ${model}...`)
+          await new Promise(resolve => setTimeout(resolve, waitMs))
         }
 
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
         try {
           const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`
-          const payload = {
-            systemInstruction: {
-              parts: [{ text: SYSTEM_PROMPT }]
-            },
-            contents: [
-              {
-                role: 'user',
-                parts: [{ text: userContent }]
-              }
-            ],
-            generationConfig: {
-              responseMimeType: 'application/json',
-              responseSchema: GEMINI_RESPONSE_SCHEMA,
-              temperature: 0.2
-            }
-          }
+          
+          let useSchema = responseSchema
+          let res = null
+          let rawMsg = ''
 
-          const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload),
-            signal: controller.signal
-          })
+          for (let schemaTry = 0; schemaTry < 2; schemaTry++) {
+            const payload = {
+              systemInstruction: {
+                parts: [{ text: systemPrompt }]
+              },
+              contents: [
+                {
+                  role: 'user',
+                  parts: [{ text: userContent }]
+                }
+              ],
+              generationConfig: {
+                responseMimeType: 'application/json',
+                ...(useSchema ? { responseSchema: useSchema } : {}),
+                temperature,
+                maxOutputTokens: 8192
+              }
+            }
+
+            res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+              signal: controller.signal
+            })
+
+            if (res.ok) break
+
+            const errData = await res.json().catch(() => ({}))
+            rawMsg = errData.error?.message || `Erro HTTP ${res.status}`
+
+            // Se falhar com erro de schema ou 400 Bad Request e estava usando responseSchema,
+            // retenta na 2ª tentativa sem responseSchema (apenas responseMimeType: 'application/json')
+            if (useSchema && (res.status === 400 || rawMsg.includes('schema') || rawMsg.includes('Schema') || rawMsg.includes('INVALID_ARGUMENT'))) {
+              console.warn(`[AI Gemini] Erro de schema no modelo ${model} (${rawMsg}). Retentando sem responseSchema...`)
+              useSchema = null
+              continue
+            }
+            break
+          }
 
           clearTimeout(timeoutId)
 
           if (!res.ok) {
-            const errData = await res.json().catch(() => ({}))
-            const msg = errData.error?.message || `Erro HTTP ${res.status}`
-            lastGeminiErr = new Error(msg)
-
             const isHighDemand = res.status === 503 || res.status === 429 ||
-              msg.includes('high demand') || msg.includes('Resource has been exhausted') || msg.includes('spikes in demand')
+              rawMsg.includes('high demand') || rawMsg.includes('Resource has been exhausted') || rawMsg.includes('spikes in demand') || rawMsg.includes('quota')
 
-            if (isHighDemand && attempt === 0) {
-              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária (${msg}). Retentando...`)
-              continue
+            if (isHighDemand) {
+              primaryOverloadErr = new Error('Os servidores da IA do Google estão enfrentando alta demanda temporária neste momento. Por favor, clique em "Tentar Novamente Agora" em alguns instantes.')
+              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária (tentativa ${attempt + 1}/3): ${rawMsg}`)
+              if (attempt < 2) continue
+              break
+            }
+
+            // Não sobrescrever primaryOverloadErr com erro de modelo inexistente ou 404
+            if (!rawMsg.includes('not found') && !rawMsg.includes('is not supported')) {
+              lastGeminiErr = new Error(rawMsg)
             }
             break
           }
@@ -488,12 +586,12 @@ async function callAiProvider(keyObj, userContent) {
           return parseAiJsonResponse(rawText)
         } catch (err) {
           clearTimeout(timeoutId)
+          if (attempt < 2) continue
           lastGeminiErr = err
-          if (attempt === 0) continue
         }
       }
     }
-    throw lastGeminiErr || new Error('Falha em todos os modelos do Google Gemini.')
+    throw primaryOverloadErr || lastGeminiErr || new Error('Falha nos servidores do Google Gemini. Por favor, tente novamente em alguns segundos.')
   }
 
   if (provider === 'ANTHROPIC') {
@@ -513,9 +611,9 @@ async function callAiProvider(keyObj, userContent) {
         },
         body: JSON.stringify({
           model: targetModel,
-          max_tokens: 4096,
-          temperature: 0.2,
-          system: SYSTEM_PROMPT,
+          max_tokens: maxTokens,
+          temperature,
+          system: systemPrompt,
           messages: [{ role: 'user', content: userContent }]
         }),
         signal: controller.signal
@@ -580,11 +678,11 @@ async function callAiProvider(keyObj, userContent) {
       body: JSON.stringify({
         model: resolvedModel,
         messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'system', content: systemPrompt },
           { role: 'user', content: userContent }
         ],
         response_format: { type: 'json_object' },
-        temperature: 0.2
+        temperature
       }),
       signal: controller.signal
     })
@@ -604,10 +702,10 @@ async function callAiProvider(keyObj, userContent) {
           body: JSON.stringify({
             model: resolvedModel,
             messages: [
-              { role: 'system', content: SYSTEM_PROMPT },
+              { role: 'system', content: systemPrompt },
               { role: 'user', content: userContent }
             ],
-            temperature: 0.2
+            temperature
           }),
           signal: controller.signal
         })
@@ -711,6 +809,92 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
 // Aliases para total compatibilidade retroativa com código existente
 export const correctEssayWithGemini = correctEssayWithUniversalAI
 export const correctEssayWithAI = correctEssayWithUniversalAI
+
+/**
+ * Gera uma proposta de redação aleatória e inédita no padrão oficial ENEM com textos motivadores densos
+ * Utiliza o mesmo pool de chaves, rotação e failover da correção pedagógica
+ */
+export async function generateRandomEssayThemeWithAI({ axis, customInstruction, apiKey } = {}) {
+  // 1. Obtém as chaves candidatas
+  let candidateKeys = []
+  if (apiKey && typeof apiKey === 'string' && apiKey.trim().length > 0) {
+    candidateKeys = [{
+      id: 'custom-key',
+      name: 'Chave informada diretamente',
+      key: apiKey.trim(),
+      provider: 'GEMINI',
+      fromDb: false
+    }]
+  } else {
+    candidateKeys = await getActiveApiKeys()
+  }
+
+  if (!candidateKeys || candidateKeys.length === 0) {
+    throw new Error('Nenhuma chave de Inteligência Artificial ativa foi cadastrada. Acesse o Painel Admin (/admin/chaves-api) para cadastrar sua chave de API.')
+  }
+
+  const axisPrompt = axis && axis !== 'ALEATORIO' && axis !== 'TODOS'
+    ? `Eixo Temático Obrigatório: "${axis}". Desenvolva um tema especificamente focado neste eixo.`
+    : `Selecione aleatoriamente um eixo temático instigante com alta probabilidade no ENEM (Sociedade e Cidadania, Ciência e Tecnologia, Saúde Pública e Mental, Meio Ambiente e Sustentabilidade, Educação e Cultura, Direitos Humanos ou Economia e Trabalho).`
+
+  const userContent = `Elabore uma proposta oficial de redação dissertativo-argumentativa para o ENEM 2025/2026.
+${axisPrompt}
+${customInstruction ? `Instrução ou foco específico: ${customInstruction}\n` : ''}
+REQUISITOS OBRIGATÓRIOS:
+1. Tema inédito, contemporâneo e de grande impacto no Brasil.
+2. Formulado no estilo clássico do INEP ("Desafios para...", "Caminhos para combater...", "A persistência de...", etc.).
+3. 3 a 4 textos motivadores densos e realistas com fontes fidedignas (Texto I: dados estatísticos; Texto II: legislação/Constituição; Texto III: análise crítica social/causas).
+4. Sugestões de repertórios socioculturais pertinentes e 2 núcleos argumentativos para direcionar o aluno.
+
+Retorne EXCLUSIVAMENTE o objeto JSON com: title, axis, description, motivators, hints.`
+
+  let lastError = null
+
+  for (const keyObj of candidateKeys) {
+    try {
+      const parsedData = await callAiProvider(keyObj, userContent, {
+        systemPrompt: THEME_GENERATION_SYSTEM_PROMPT,
+        responseSchema: THEME_GENERATION_SCHEMA,
+        temperature: 0.75, // Criatividade para gerar temas variados
+        maxTokens: 4096
+      })
+
+      if (!parsedData || !parsedData.title) {
+        throw new Error('Resposta da IA não contém os campos necessários da proposta temática.')
+      }
+
+      const motivators = Array.isArray(parsedData.motivators)
+        ? parsedData.motivators.map((m, idx) => ({
+            title: m.title || `Texto ${['I', 'II', 'III', 'IV'][idx] || idx + 1}`,
+            content: typeof m.content === 'string' ? m.content.trim() : '',
+            source: typeof m.source === 'string' ? m.source.trim() : 'Fonte: Dados Oficiais'
+          })).filter(m => m.content.length > 0)
+        : []
+
+      const normalized = {
+        title: String(parsedData.title).trim(),
+        axis: String(parsedData.axis || axis || 'Geral').trim(),
+        description: String(parsedData.description || `A partir da leitura dos textos motivadores seguintes e com base nos conhecimentos construídos ao longo de sua formação, redija um texto dissertativo-argumentativo em modalidade escrita formal da língua portuguesa sobre o tema "${parsedData.title}", apresentando proposta de intervenção que respeite os direitos humanos. Selecione, organize e relacione, de forma coerente e coesa, argumentos e fatos para defesa de seu ponto de vista.`).trim(),
+        motivators,
+        hints: {
+          repertorySuggestions: Array.isArray(parsedData.hints?.repertorySuggestions) ? parsedData.hints.repertorySuggestions : [],
+          problemCores: Array.isArray(parsedData.hints?.problemCores) ? parsedData.hints.problemCores : []
+        }
+      }
+
+      await recordKeyUsage(keyObj.id, { success: true })
+      return normalized
+    } catch (err) {
+      console.warn(`[AI Theme Generator] Falha na chave "${keyObj.name}": ${err.message}`)
+      lastError = err
+      await recordKeyUsage(keyObj.id, { success: false, error: err.message })
+    }
+  }
+
+  throw new Error(`Não foi possível gerar um tema aleatório no momento: ${lastError?.message || 'Falha na comunicação com a IA.'}`)
+}
+
+export const generateThemeWithAI = generateRandomEssayThemeWithAI
 
 /**
  * Validação estrita do schema e sincronização precisa de notas e detalhamento pedagógico
