@@ -5,6 +5,7 @@ import QuestionCard from './QuestionCard.vue'
 import QuestionEmptyState from './QuestionEmptyState.vue'
 import DeleteQuestion from './DeleteQuestion.vue'
 import ImportQuestionsModal from './ImportQuestionsModal.vue'
+import { identifyQuestionSubject, CANONICAL_SLUG_MAP } from '#shared/utils/subject-classifier'
 
 const { questions, loading, error, getQuestions } = useQuestions()
 
@@ -16,10 +17,7 @@ const filters = reactive({
   subjectId: '',
   difficulty: '',
   status: '',
-  year: '',
-  hasImages: '',
-  hasExplanation: '',
-  sort: 'year_desc'
+  year: ''
 })
 
 const availableYears = computed(() => {
@@ -78,14 +76,37 @@ const hasFilters = computed(() => {
     filters.subjectId ||
     filters.difficulty ||
     filters.status ||
-    filters.year ||
-    filters.hasImages ||
-    filters.hasExplanation ||
-    (filters.sort && filters.sort !== 'year_desc')
+    filters.year
   )
 })
 
-const difficultyWeights = { EASY: 1, MEDIUM: 2, HARD: 3 }
+function matchQuestionToAdminSubject(q, targetSubjectId) {
+  if (!targetSubjectId) return true
+  const targetSub = subjects.value.find(s => s.id === targetSubjectId)
+  if (!targetSub) {
+    return (q.subjectId === targetSubjectId || q.subject?.id === targetSubjectId)
+  }
+
+  const targetSlug = targetSub.slug || targetSub.name || targetSub.id
+  const targetCanonical = CANONICAL_SLUG_MAP[targetSlug] || targetSlug
+
+  const qSub = q.subject || subjects.value.find(s => s.id === (q.subjectId || q.subject?.id))
+  const qSlug = qSub?.slug || q.subjectSlug || ''
+  const qCanonical = CANONICAL_SLUG_MAP[qSlug] || qSlug
+
+  const detectedSlug = identifyQuestionSubject(q, qCanonical)
+  const detectedCanonical = CANONICAL_SLUG_MAP[detectedSlug] || detectedSlug
+
+  if (detectedCanonical && detectedCanonical !== targetCanonical) {
+    return false
+  }
+
+  if (detectedCanonical === targetCanonical) {
+    return true
+  }
+
+  return (q.subjectId === targetSubjectId || q.subject?.id === targetSubjectId)
+}
 
 const filteredQuestions = computed(() => {
   const list = questions.value || []
@@ -101,8 +122,9 @@ const filteredQuestions = computed(() => {
     }
 
     if (filters.subjectId) {
-      const sId = q.subjectId || q.subject?.id
-      if (sId !== filters.subjectId) return false
+      if (!matchQuestionToAdminSubject(q, filters.subjectId)) {
+        return false
+      }
     }
 
     if (filters.difficulty) {
@@ -114,41 +136,11 @@ const filteredQuestions = computed(() => {
 
     if (filters.year && q.year !== Number(filters.year)) return false
 
-    // Filtro de Imagens/Figuras
-    const hasImg = Boolean(q.imageUrl || (q.images && q.images !== '[]' && q.images !== ''))
-    if (filters.hasImages === 'true' && !hasImg) return false
-    if (filters.hasImages === 'false' && hasImg) return false
-
-    // Filtro de Resolução Comentada
-    const hasExp = Boolean(q.explanation && q.explanation.trim())
-    if (filters.hasExplanation === 'true' && !hasExp) return false
-    if (filters.hasExplanation === 'false' && hasExp) return false
-
     return true
   })
 
-  // Ordenação
+  // Ordenação padrão: ano mais recente primeiro
   return result.sort((a, b) => {
-    if (filters.sort === 'year_asc') {
-      return (a.year || 0) - (b.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
-    }
-    if (filters.sort === 'newest') {
-      return new Date(b.createdAt) - new Date(a.createdAt)
-    }
-    if (filters.sort === 'oldest') {
-      return new Date(a.createdAt) - new Date(b.createdAt)
-    }
-    if (filters.sort === 'difficulty_desc') {
-      const diffA = difficultyWeights[a.difficulty] || 0
-      const diffB = difficultyWeights[b.difficulty] || 0
-      return diffB - diffA || (b.year || 0) - (a.year || 0)
-    }
-    if (filters.sort === 'difficulty_asc') {
-      const diffA = difficultyWeights[a.difficulty] || 0
-      const diffB = difficultyWeights[b.difficulty] || 0
-      return diffA - diffB || (b.year || 0) - (a.year || 0)
-    }
-    // Default: year_desc
     return (b.year || 0) - (a.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
   })
 })
@@ -205,9 +197,6 @@ function clearFilters() {
   filters.difficulty = ''
   filters.status = ''
   filters.year = ''
-  filters.hasImages = ''
-  filters.hasExplanation = ''
-  filters.sort = 'year_desc'
 }
 
 const activeViewingImageIndex = ref(0)
@@ -361,8 +350,6 @@ onMounted(() => {
       :filters="filters"
       :subjects="subjects"
       :available-years="availableYears"
-      :total-count="totalCount"
-      :filtered-count="filteredQuestions.length"
       :has-filters="hasFilters"
       @update="handleFilterUpdate"
       @clear="clearFilters"

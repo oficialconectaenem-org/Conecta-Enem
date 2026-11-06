@@ -2,6 +2,7 @@ import { defineEventHandler, readBody, createError } from 'h3'
 import prisma from '#server/utils/prisma'
 import { requireAdmin } from '#server/utils/require-admin'
 import { ensureQuestionsSchema } from '#server/utils/ensure-schema'
+import { identifyQuestionSubject } from '#shared/utils/subject-classifier'
 
 // Mapeamento de matérias escolares específicas
 const DETAILED_SUBJECTS = {
@@ -19,79 +20,23 @@ const DETAILED_SUBJECTS = {
   artes: { name: 'Artes & Educação Física', slug: 'artes', order: 12 }
 }
 
-const NATUREZA_KEYWORDS = {
-  fisica: ['velocidade', 'aceleração', 'força', 'atrito', 'gravidade', 'cinética', 'potencial', 'joule', 'newton', 'circuito', 'corrente', 'volt', 'resistor', 'potência', 'magnético', 'onda', 'frequência', 'reflexão', 'refração', 'óptica', 'calor', 'termodinâmica', 'temperatura', 'pressão', 'empuxo', 'densidade'],
-  quimica: ['átomo', 'elétron', 'mol', 'molar', 'reação', 'estequiometria', 'ligação química', 'ácido', 'base', 'ph', 'solução', 'concentração', 'equilíbrio químico', 'oxidação', 'redução', 'pilha', 'tabela periódica', 'carbono', 'orgânica', 'hidrocarboneto', 'álcool', 'polímero', 'entalpia'],
-  biologia: ['célula', 'dna', 'rna', 'gene', 'genética', 'mutação', 'fotossíntese', 'mitocôndria', 'ecologia', 'ecossistema', 'cadeia alimentar', 'biodiversidade', 'bioma', 'evolução', 'darwin', 'seleção natural', 'vírus', 'bactéria', 'vacina', 'imunidade', 'fisiologia', 'neurônio', 'digestão', 'planta']
-}
-
-const HUMANAS_KEYWORDS = {
-  filosofia: ['filósofo', 'platão', 'aristóteles', 'kant', 'descartes', 'sêneca', 'nietzsche', 'ética', 'moral', 'razão', 'epistemologia', 'metafísica', 'verdade', 'virtude', 'existencialismo', 'iluminismo'],
-  sociologia: ['sociólogo', 'marx', 'weber', 'durkheim', 'foucault', 'sociedade', 'classe social', 'estratificação', 'trabalho', 'alienação', 'capitalismo', 'burguesia', 'desigualdade', 'movimentos sociais', 'identidade', 'cidadania'],
-  geografia: ['clima', 'relevo', 'vegetação', 'cerrado', 'caatinga', 'amazônia', 'bacia hidrográfica', 'placas tectônicas', 'solo', 'urbanização', 'metrópole', 'migração', 'demografia', 'agronegócio', 'globalização', 'geopolítica', 'latitude'],
-  historia: ['século', 'império', 'colônia', 'república', 'escravidão', 'ditadura', 'constituição', 'revolução', 'guerra', 'independência', 'idade média', 'antiguidade', 'roma', 'grécia', 'renascimento', 'era vargas', 'regime militar']
-}
-
-function countKeywords(text, keywords) {
-  let score = 0
-  const lower = text.toLowerCase()
-  for (const kw of keywords) {
-    const regex = new RegExp(`\\b${kw}`, 'gi')
-    const matches = lower.match(regex)
-    if (matches) score += matches.length
-  }
-  return score
-}
-
 function identifySubject(q) {
   const discipline = q.discipline
   const language = q.language?.toLowerCase()
-  const text = `${q.context || ''} ${q.alternativesIntroduction || ''} ${q.title || ''}`
 
   if (language === 'ingles' || (discipline === 'linguagens' && q.index <= 5 && language === 'ingles')) return 'ingles'
   if (language === 'espanhol' || (discipline === 'linguagens' && q.index <= 5 && language === 'espanhol')) return 'espanhol'
   if (discipline === 'matematica') return 'matematica'
 
-  if (discipline === 'ciencias-natureza') {
-    const scoreFisica = countKeywords(text, NATUREZA_KEYWORDS.fisica)
-    const scoreQuimica = countKeywords(text, NATUREZA_KEYWORDS.quimica)
-    const scoreBiologia = countKeywords(text, NATUREZA_KEYWORDS.biologia)
-
-    if (scoreFisica > scoreQuimica && scoreFisica > scoreBiologia) return 'fisica'
-    if (scoreQuimica > scoreFisica && scoreQuimica > scoreBiologia) return 'quimica'
-    if (scoreBiologia > 0) return 'biologia'
-
-    const mod = q.index % 3
-    if (mod === 0) return 'fisica'
-    if (mod === 1) return 'quimica'
-    return 'biologia'
+  // Utiliza o classificador semântico oficial de alta precisão
+  const questionForClassifier = {
+    statement: `${q.context || ''} ${q.alternativesIntroduction || ''}`,
+    title: q.title || '',
+    options: (q.alternatives || []).map(a => ({ text: a.text || '' })),
+    language: q.language
   }
 
-  if (discipline === 'ciencias-humanas') {
-    const scoreFilo = countKeywords(text, HUMANAS_KEYWORDS.filosofia)
-    const scoreSocio = countKeywords(text, HUMANAS_KEYWORDS.sociologia)
-    const scoreGeo = countKeywords(text, HUMANAS_KEYWORDS.geografia)
-    const scoreHist = countKeywords(text, HUMANAS_KEYWORDS.historia)
-
-    if (scoreFilo > scoreSocio && scoreFilo > scoreGeo && scoreHist) return 'filosofia'
-    if (scoreSocio > scoreFilo && scoreSocio > scoreGeo && scoreHist) return 'sociologia'
-    if (scoreGeo > scoreFilo && scoreGeo > scoreSocio && scoreHist) return 'geografia'
-    if (scoreHist > 0) return 'historia'
-
-    const mod = q.index % 4
-    if (mod === 0) return 'historia'
-    if (mod === 1) return 'geografia'
-    if (mod === 2) return 'filosofia'
-    return 'sociologia'
-  }
-
-  if (discipline === 'linguagens') {
-    const scoreArtes = countKeywords(text, ['arte', 'pintura', 'escultura', 'quadro', 'museu', 'modernismo', 'vanguarda', 'dança', 'teatro'])
-    if (scoreArtes >= 2) return 'artes'
-    return 'portugues'
-  }
-
-  return 'portugues'
+  return identifyQuestionSubject(questionForClassifier, null)
 }
 
 function calculateDifficulty(q) {

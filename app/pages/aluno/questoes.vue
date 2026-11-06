@@ -1,5 +1,6 @@
 <script setup>
 import { useQuestions } from '~/composables/useQuestions'
+import { identifyQuestionSubject, CANONICAL_SLUG_MAP } from '#shared/utils/subject-classifier'
 
 definePageMeta({
   layout: 'aluno'
@@ -11,22 +12,15 @@ useSeoMeta({
 
 const { questions, loading, error, getQuestions } = useQuestions()
 
-const route = useRoute()
-const router = useRouter()
-
 const subjects = ref([])
 const loadingSubjects = ref(true)
 
-// Filters
+// Filtros Principais
 const selectedSubjectId = ref('')
 const selectedDifficulty = ref('')
 const selectedYear = ref('')
 const searchQuery = ref('')
 const selectedStatusFilter = ref('ALL') // 'ALL', 'UNANSWERED', 'CORRECT', 'INCORRECT'
-const selectedHasImages = ref('') // '', 'true', 'false'
-const selectedHasExplanation = ref('') // '', 'true', 'false'
-const selectedSort = ref('year_desc') // 'year_desc', 'year_asc', 'random', 'difficulty_desc', 'difficulty_asc'
-const showAdvancedFilters = ref(false)
 
 // Practice State
 const currentIndex = ref(0)
@@ -76,7 +70,7 @@ async function loadAnswers() {
   }
 }
 
-// Available years extracted from questions
+// Anos disponíveis extraídos das questões
 const availableYears = computed(() => {
   const years = new Set()
   if (Array.isArray(questions.value)) {
@@ -87,112 +81,12 @@ const availableYears = computed(() => {
   return Array.from(years).sort((a, b) => b - a)
 })
 
-// Métricas de contagem por filtro para os Badges
-const totalActiveQuestions = computed(() => {
-  if (!Array.isArray(questions.value)) return 0
-  return questions.value.filter(q => q.active !== false).length
-})
-
-const subjectCounts = computed(() => {
-  const map = {}
-  if (Array.isArray(questions.value)) {
-    questions.value.forEach(q => {
-      if (q.active !== false) {
-        const sId = q.subjectId || q.subject?.id
-        if (sId) map[sId] = (map[sId] || 0) + 1
-      }
-    })
-  }
-  return map
-})
-
-const yearCounts = computed(() => {
-  const map = {}
-  if (Array.isArray(questions.value)) {
-    questions.value.forEach(q => {
-      if (q.active !== false && q.year) {
-        map[q.year] = (map[q.year] || 0) + 1
-      }
-    })
-  }
-  return map
-})
-
-const difficultyCounts = computed(() => {
-  const map = { EASY: 0, MEDIUM: 0, HARD: 0 }
-  if (Array.isArray(questions.value)) {
-    questions.value.forEach(q => {
-      if (q.active !== false && q.difficulty) {
-        map[q.difficulty] = (map[q.difficulty] || 0) + 1
-      }
-    })
-  }
-  return map
-})
-
-const hasActiveFilters = computed(() => {
-  return Boolean(
-    selectedSubjectId.value ||
-    selectedDifficulty.value ||
-    selectedYear.value ||
-    searchQuery.value.trim() ||
-    selectedStatusFilter.value !== 'ALL' ||
-    selectedHasImages.value ||
-    selectedHasExplanation.value ||
-    (selectedSort.value && selectedSort.value !== 'year_desc')
-  )
-})
-
-const activeFiltersCount = computed(() => {
-  let count = 0
-  if (selectedSubjectId.value) count++
-  if (selectedDifficulty.value) count++
-  if (selectedYear.value) count++
-  if (searchQuery.value.trim()) count++
-  if (selectedStatusFilter.value !== 'ALL') count++
-  if (selectedHasImages.value) count++
-  if (selectedHasExplanation.value) count++
-  if (selectedSort.value && selectedSort.value !== 'year_desc') count++
-  return count
-})
-
-// Algoritmo de Embaralhamento para o modo Simulado
-const shuffleSeed = ref(0)
-function shuffleArray(arr) {
-  const copy = [...arr]
-  let seed = shuffleSeed.value || 12345
-  for (let i = copy.length - 1; i > 0; i--) {
-    seed = (seed * 9301 + 49297) % 233280
-    const j = Math.floor((seed / 233280) * (i + 1))
-    ;[copy[i], copy[j]] = [copy[j], copy[i]]
-  }
-  return copy
-}
-
-// Filtered Questions List
 // Paginação progressiva para o modo lista
 const listDisplayLimit = ref(15)
 
-watch(
-  [selectedSubjectId, selectedDifficulty, selectedYear, searchQuery, selectedStatusFilter, selectedHasImages, selectedHasExplanation, selectedSort],
-  () => {
-    listDisplayLimit.value = 15
-    currentIndex.value = 0
-
-    // Sincroniza parâmetros na URL para permitir compartilhamento e salvar estado
-    const query = {}
-    if (selectedSubjectId.value) query.materia = selectedSubjectId.value
-    if (selectedDifficulty.value) query.dificuldade = selectedDifficulty.value
-    if (selectedYear.value) query.ano = selectedYear.value
-    if (selectedStatusFilter.value !== 'ALL') query.status = selectedStatusFilter.value
-    if (searchQuery.value.trim()) query.busca = searchQuery.value.trim()
-    if (selectedHasImages.value) query.imagens = selectedHasImages.value
-    if (selectedHasExplanation.value) query.explicacao = selectedHasExplanation.value
-    if (selectedSort.value && selectedSort.value !== 'year_desc') query.ordem = selectedSort.value
-
-    router.replace({ query }).catch(() => {})
-  }
-)
+watch([selectedSubjectId, selectedDifficulty, selectedYear, searchQuery, selectedStatusFilter], () => {
+  listDisplayLimit.value = 15
+})
 
 const displayedListQuestions = computed(() => {
   return filteredQuestions.value.slice(0, listDisplayLimit.value)
@@ -206,20 +100,64 @@ function loadMoreListQuestions() {
   listDisplayLimit.value += 15
 }
 
-const difficultyWeights = { EASY: 1, MEDIUM: 2, HARD: 3 }
+/**
+ * Validação Semântica Rigorosa de Matéria:
+ * Garante que questões cadastradas com matéria errada ou sem matéria
+ * não vazem para outras disciplinas ao clicar no filtro.
+ */
+function matchQuestionToSelectedSubject(q, targetSub) {
+  if (!targetSub) return true
 
+  const targetSlug = targetSub.slug || targetSub.name || targetSub.id
+  const targetId = targetSub.id
+  const targetCanonical = CANONICAL_SLUG_MAP[targetSlug] || targetSlug
+
+  // 1. Identifica a matéria informada na questão
+  const qSub = q.subject || subjects.value.find(s => s.id === (q.subjectId || q.subject?.id))
+  const qSlug = qSub?.slug || q.subjectSlug || ''
+  const qCanonical = CANONICAL_SLUG_MAP[qSlug] || qSlug
+
+  // 2. Classifica a questão em tempo real com base no seu texto
+  const detectedSlug = identifyQuestionSubject(q, qCanonical)
+  const detectedCanonical = CANONICAL_SLUG_MAP[detectedSlug] || detectedSlug
+
+  // 3. Se o classificador detectou com clareza que o conteúdo é de OUTRA matéria (ex: Biologia cadastrada como Física),
+  // descarta a questão do filtro atual para evitar contaminação
+  if (detectedCanonical && detectedCanonical !== targetCanonical) {
+    return false
+  }
+
+  // 4. Se o classificador confirmou a matéria alvo
+  if (detectedCanonical === targetCanonical) {
+    return true
+  }
+
+  // 5. Fallback para quando não há termos fortes no texto: respeita o ID original cadastrado
+  if (q.subjectId === targetId || q.subject?.id === targetId) {
+    return true
+  }
+
+  return false
+}
+
+// Lista Filtrada de Questões
 const filteredQuestions = computed(() => {
   const list = questions.value || []
   if (!Array.isArray(list)) return []
 
-  const result = list.filter((q) => {
+  const targetSub = selectedSubjectId.value
+    ? subjects.value.find(s => s.id === selectedSubjectId.value)
+    : null
+
+  return list.filter((q) => {
     // Apenas questões ativas para alunos
     if (q.active === false) return false
 
-    // Matéria
-    if (selectedSubjectId.value) {
-      const sId = q.subjectId || q.subject?.id
-      if (sId !== selectedSubjectId.value) return false
+    // Filtro rigoroso de Matéria (sem vazamentos de outras disciplinas)
+    if (targetSub) {
+      if (!matchQuestionToSelectedSubject(q, targetSub)) {
+        return false
+      }
     }
 
     // Dificuldade
@@ -232,7 +170,7 @@ const filteredQuestions = computed(() => {
       return false
     }
 
-    // Busca inteligente expandida (enunciado, título e opções)
+    // Busca inteligente no enunciado, título ou alternativas
     if (searchQuery.value.trim()) {
       const term = searchQuery.value.toLowerCase().trim()
       const inStatement = q.statement?.toLowerCase().includes(term)
@@ -247,40 +185,7 @@ const filteredQuestions = computed(() => {
     if (selectedStatusFilter.value === 'CORRECT' && (!ans || !ans.correct)) return false
     if (selectedStatusFilter.value === 'INCORRECT' && (!ans || ans.correct)) return false
 
-    // Recurso Visual (com ou sem figuras/imagens)
-    const hasImg = Boolean(q.imageUrl || (q.images && q.images !== '[]' && q.images !== ''))
-    if (selectedHasImages.value === 'true' && !hasImg) return false
-    if (selectedHasImages.value === 'false' && hasImg) return false
-
-    // Gabarito Comentado (com ou sem resolução explicada)
-    const hasExp = Boolean(q.explanation && q.explanation.trim())
-    if (selectedHasExplanation.value === 'true' && !hasExp) return false
-    if (selectedHasExplanation.value === 'false' && hasExp) return false
-
     return true
-  })
-
-  // Ordenação inteligente
-  if (selectedSort.value === 'random') {
-    return shuffleArray(result)
-  }
-
-  return result.sort((a, b) => {
-    if (selectedSort.value === 'year_asc') {
-      return (a.year || 0) - (b.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
-    }
-    if (selectedSort.value === 'difficulty_desc') {
-      const diffA = difficultyWeights[a.difficulty] || 0
-      const diffB = difficultyWeights[b.difficulty] || 0
-      return diffB - diffA || (b.year || 0) - (a.year || 0)
-    }
-    if (selectedSort.value === 'difficulty_asc') {
-      const diffA = difficultyWeights[a.difficulty] || 0
-      const diffB = difficultyWeights[b.difficulty] || 0
-      return diffA - diffB || (b.year || 0) - (a.year || 0)
-    }
-    // Padrão: ano decrescente + criação
-    return (b.year || 0) - (a.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
   })
 })
 
@@ -455,47 +360,7 @@ function clearFilters() {
   selectedYear.value = ''
   searchQuery.value = ''
   selectedStatusFilter.value = 'ALL'
-  selectedHasImages.value = ''
-  selectedHasExplanation.value = ''
-  selectedSort.value = 'year_desc'
   currentIndex.value = 0
-}
-
-function removeSingleFilter(key) {
-  if (key === 'subject') selectedSubjectId.value = ''
-  else if (key === 'difficulty') selectedDifficulty.value = ''
-  else if (key === 'year') selectedYear.value = ''
-  else if (key === 'search') searchQuery.value = ''
-  else if (key === 'status') selectedStatusFilter.value = 'ALL'
-  else if (key === 'images') selectedHasImages.value = ''
-  else if (key === 'explanation') selectedHasExplanation.value = ''
-  else if (key === 'sort') selectedSort.value = 'year_desc'
-  currentIndex.value = 0
-}
-
-function applyPreset(preset) {
-  currentIndex.value = 0
-  if (preset === 'INCORRECT') {
-    selectedStatusFilter.value = selectedStatusFilter.value === 'INCORRECT' ? 'ALL' : 'INCORRECT'
-  } else if (preset === 'UNANSWERED') {
-    selectedStatusFilter.value = selectedStatusFilter.value === 'UNANSWERED' ? 'ALL' : 'UNANSWERED'
-  } else if (preset === 'HARD') {
-    selectedDifficulty.value = selectedDifficulty.value === 'HARD' ? '' : 'HARD'
-  } else if (preset === 'IMAGES') {
-    selectedHasImages.value = selectedHasImages.value === 'true' ? '' : 'true'
-  } else if (preset === 'RANDOM') {
-    if (selectedSort.value === 'random') {
-      selectedSort.value = 'year_desc'
-    } else {
-      shuffleSeed.value = Date.now()
-      selectedSort.value = 'random'
-    }
-  }
-}
-
-function getSubjectName(id) {
-  const sub = subjects.value.find(s => s.id === id)
-  return sub?.name || id
 }
 
 function resetStats() {
@@ -513,15 +378,6 @@ const difficultyLabels = {
 }
 
 onMounted(() => {
-  if (route.query.materia) selectedSubjectId.value = String(route.query.materia)
-  if (route.query.dificuldade) selectedDifficulty.value = String(route.query.dificuldade)
-  if (route.query.ano) selectedYear.value = String(route.query.ano)
-  if (route.query.status) selectedStatusFilter.value = String(route.query.status)
-  if (route.query.busca) searchQuery.value = String(route.query.busca)
-  if (route.query.imagens) selectedHasImages.value = String(route.query.imagens)
-  if (route.query.explicacao) selectedHasExplanation.value = String(route.query.explicacao)
-  if (route.query.ordem) selectedSort.value = String(route.query.ordem)
-
   loadData()
 })
 </script>
@@ -547,7 +403,7 @@ onMounted(() => {
       <div class="flex items-center gap-2 self-start lg:self-auto">
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition"
+          class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             viewMode === 'PRACTICE'
               ? 'bg-[var(--student-primary-solid)] text-white shadow-md shadow-purple-900/10'
@@ -561,7 +417,7 @@ onMounted(() => {
 
         <button
           type="button"
-          class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition"
+          class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             viewMode === 'LIST'
               ? 'bg-[var(--student-primary-solid)] text-white shadow-md shadow-purple-900/10'
@@ -615,12 +471,12 @@ onMounted(() => {
       </div>
     </section>
 
-    <!-- FILTROS POR MATÉRIA (TABS/CHIPS COM CONTADORES) -->
+    <!-- FILTROS POR MATÉRIA (TABS/CHIPS) -->
     <section class="mt-8">
       <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
         <button
           type="button"
-          class="inline-flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
+          class="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             selectedSubjectId === ''
               ? 'bg-[var(--student-primary-solid)] text-white shadow-sm'
@@ -628,111 +484,30 @@ onMounted(() => {
           "
           @click="selectedSubjectId = ''; currentIndex = 0"
         >
-          <span>Todas as matérias</span>
-          <span
-            class="rounded-full px-2 py-0.5 text-[10px] font-black"
-            :class="selectedSubjectId === '' ? 'bg-white/20 text-white' : 'bg-[var(--student-surface)] text-[var(--student-text-muted)]'"
-          >
-            {{ totalActiveQuestions }}
-          </span>
+          Todas as matérias
         </button>
 
         <button
           v-for="sub in subjects"
           :key="sub.id"
           type="button"
-          class="inline-flex items-center gap-2 shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
+          class="shrink-0 rounded-2xl px-4 py-2.5 text-xs font-bold transition cursor-pointer"
           :class="
             selectedSubjectId === sub.id
               ? 'bg-[var(--student-primary-solid)] text-white shadow-sm'
               : 'border border-[var(--student-border)] bg-[var(--student-card)] text-[var(--student-text-secondary)] hover:border-purple-400 hover:text-[var(--student-text)]'
           "
-          @click="selectedSubjectId = sub.id; currentIndex = 0"
+          @click="selectedSubjectId = selectedSubjectId === sub.id ? '' : sub.id; currentIndex = 0"
         >
-          <span>{{ sub.name }}</span>
-          <span
-            v-if="subjectCounts[sub.id]"
-            class="rounded-full px-2 py-0.5 text-[10px] font-black"
-            :class="selectedSubjectId === sub.id ? 'bg-white/20 text-white' : 'bg-[var(--student-surface)] text-[var(--student-text-muted)]'"
-          >
-            {{ subjectCounts[sub.id] }}
-          </span>
+          {{ sub.name }}
         </button>
       </div>
     </section>
 
-    <!-- BARRA DE ATALHOS RÁPIDOS (1 CLIQUE) -->
-    <section class="mt-3 flex flex-wrap items-center gap-2">
-      <span class="text-xs font-bold text-[var(--student-text-secondary)] flex items-center gap-1.5 mr-1">
-        <Icon name="material-symbols:bolt-rounded" class="text-amber-500 text-sm" />
-        Treino Rápido:
-      </span>
-
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
-        :class="selectedStatusFilter === 'INCORRECT'
-          ? 'bg-red-500 text-white border-red-500 shadow-xs'
-          : 'border-[var(--student-border)] bg-[var(--student-card)] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30'"
-        @click="applyPreset('INCORRECT')"
-      >
-        <Icon name="material-symbols:cancel-rounded" class="text-sm" />
-        <span>Refazer Erros ({{ totalIncorrect }})</span>
-      </button>
-
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
-        :class="selectedStatusFilter === 'UNANSWERED'
-          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
-          : 'border-[var(--student-border)] bg-[var(--student-card)] text-purple-700 dark:text-purple-300 hover:bg-purple-50 dark:hover:bg-purple-950/30'"
-        @click="applyPreset('UNANSWERED')"
-      >
-        <Icon name="material-symbols:auto-awesome-rounded" class="text-sm" />
-        <span>Questões Inéditas</span>
-      </button>
-
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
-        :class="selectedDifficulty === 'HARD'
-          ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-          : 'border-[var(--student-border)] bg-[var(--student-card)] text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30'"
-        @click="applyPreset('HARD')"
-      >
-        <Icon name="material-symbols:local-fire-department-rounded" class="text-sm" />
-        <span>Desafio Difícil</span>
-      </button>
-
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
-        :class="selectedHasImages === 'true'
-          ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-          : 'border-[var(--student-border)] bg-[var(--student-card)] text-sky-700 dark:text-sky-400 hover:bg-sky-50 dark:hover:bg-sky-950/30'"
-        @click="applyPreset('IMAGES')"
-      >
-        <Icon name="material-symbols:image-rounded" class="text-sm" />
-        <span>Com Imagens</span>
-      </button>
-
-      <button
-        type="button"
-        class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold border transition cursor-pointer"
-        :class="selectedSort === 'random'
-          ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-          : 'border-[var(--student-border)] bg-[var(--student-card)] text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'"
-        @click="applyPreset('RANDOM')"
-      >
-        <Icon name="material-symbols:shuffle-rounded" class="text-sm" />
-        <span>Modo Simulado</span>
-      </button>
-    </section>
-
-    <!-- BARRA DE FILTROS PRINCIPAL -->
-    <section class="mt-4 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] p-4 shadow-xs">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.6fr_repeat(3,1fr)_auto]">
-        <!-- BUSCA INTELIGENTE EXPANDIDA -->
+    <!-- BARRA DE FILTROS SECUNDÁRIOS -->
+    <section class="mt-4 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] p-3.5 shadow-xs">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1.5fr_repeat(3,1fr)_auto]">
+        <!-- BUSCA -->
         <div class="relative">
           <Icon
             name="material-symbols:search-rounded"
@@ -741,14 +516,14 @@ onMounted(() => {
           <input
             v-model="searchQuery"
             type="search"
-            placeholder="Buscar no enunciado, título ou alternativas..."
+            placeholder="Buscar por termo..."
             class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] pl-9 pr-8 text-xs text-[var(--student-text)] outline-none transition focus:border-purple-500"
             @input="currentIndex = 0"
           />
           <button
             v-if="searchQuery"
             type="button"
-            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--student-text-muted)] hover:text-red-500 p-1"
+            class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-[var(--student-text-muted)] hover:text-red-500 p-1 cursor-pointer"
             title="Limpar busca"
             @click="searchQuery = ''; currentIndex = 0"
           >
@@ -763,12 +538,12 @@ onMounted(() => {
           @change="currentIndex = 0"
         >
           <option value="">Todas as dificuldades</option>
-          <option value="EASY">Fácil ({{ difficultyCounts.EASY }})</option>
-          <option value="MEDIUM">Média ({{ difficultyCounts.MEDIUM }})</option>
-          <option value="HARD">Difícil ({{ difficultyCounts.HARD }})</option>
+          <option value="EASY">Fácil</option>
+          <option value="MEDIUM">Média</option>
+          <option value="HARD">Difícil</option>
         </select>
 
-        <!-- ANO ENEM -->
+        <!-- ANO -->
         <select
           v-model="selectedYear"
           class="h-10 rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
@@ -780,7 +555,7 @@ onMounted(() => {
             :key="year"
             :value="year"
           >
-            ENEM {{ year }} ({{ yearCounts[year] || 0 }})
+            ENEM {{ year }}
           </option>
         </select>
 
@@ -791,168 +566,21 @@ onMounted(() => {
           @change="currentIndex = 0"
         >
           <option value="ALL">Todas as questões</option>
-          <option value="UNANSWERED">Não respondidas (Inéditas)</option>
+          <option value="UNANSWERED">Não respondidas</option>
           <option value="CORRECT">Acertadas</option>
-          <option value="INCORRECT">Erradas (Refazer)</option>
+          <option value="INCORRECT">Erradas</option>
         </select>
 
-        <!-- BOTÕES: MAIS FILTROS & LIMPAR -->
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--student-border)] px-3 text-xs font-bold transition hover:border-purple-500 hover:text-purple-600"
-            :class="showAdvancedFilters ? 'bg-purple-50 dark:bg-purple-950/40 border-purple-500 text-purple-600 dark:text-purple-300' : 'text-[var(--student-text-secondary)]'"
-            @click="showAdvancedFilters = !showAdvancedFilters"
-          >
-            <Icon name="material-symbols:tune-rounded" class="text-base" />
-            <span class="hidden sm:inline">Mais</span>
-            <Icon
-              name="material-symbols:keyboard-arrow-down-rounded"
-              class="text-base transition-transform duration-200"
-              :class="showAdvancedFilters ? 'rotate-180' : ''"
-            />
-          </button>
-
-          <button
-            v-if="hasActiveFilters"
-            type="button"
-            title="Limpar todos os filtros"
-            class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-red-200 bg-red-50/70 dark:border-red-900/40 dark:bg-red-950/40 px-3 text-xs font-bold text-red-600 dark:text-red-400 transition hover:bg-red-100"
-            @click="clearFilters"
-          >
-            <Icon name="material-symbols:filter-alt-off-rounded" class="text-sm" />
-            <span class="hidden sm:inline">Limpar</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- PAINEL DE FILTROS AVANÇADOS (EXPANSÍVEL) -->
-      <div
-        v-if="showAdvancedFilters"
-        class="mt-3.5 grid gap-3 border-t border-[var(--student-border)] pt-3.5 sm:grid-cols-2 lg:grid-cols-3"
-      >
-        <!-- RECURSO VISUAL -->
-        <div>
-          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Recurso Visual</label>
-          <select
-            v-model="selectedHasImages"
-            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
-            @change="currentIndex = 0"
-          >
-            <option value="">Todas (com e sem imagens)</option>
-            <option value="true">Apenas com figuras, gráficos ou tabelas</option>
-            <option value="false">Apenas texto puro</option>
-          </select>
-        </div>
-
-        <!-- RESOLUÇÃO COMENTADA -->
-        <div>
-          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Gabarito Comentado</label>
-          <select
-            v-model="selectedHasExplanation"
-            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
-            @change="currentIndex = 0"
-          >
-            <option value="">Todas as questões</option>
-            <option value="true">Apenas com resolução passo a passo</option>
-          </select>
-        </div>
-
-        <!-- ORDENAÇÃO -->
-        <div>
-          <label class="mb-1 block text-xs font-bold text-[var(--student-text-secondary)]">Ordenação</label>
-          <select
-            v-model="selectedSort"
-            class="h-10 w-full rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 text-xs font-medium text-[var(--student-text)] outline-none transition focus:border-purple-500"
-            @change="currentIndex = 0"
-          >
-            <option value="year_desc">ENEM Mais recente primeiro</option>
-            <option value="year_asc">ENEM Mais antigo primeiro</option>
-            <option value="difficulty_desc">Dificuldade (Difícil → Fácil)</option>
-            <option value="difficulty_asc">Dificuldade (Fácil → Difícil)</option>
-            <option value="random">Ordem Aleatória (Simulado)</option>
-          </select>
-        </div>
-      </div>
-
-      <!-- BARRA DE FILTROS ATIVOS COM REMOÇÃO INDIVIDUAL & CONTADOR -->
-      <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-[var(--student-border)] pt-3 text-xs">
-        <div class="flex flex-wrap items-center gap-1.5">
-          <span class="font-bold text-[var(--student-text-secondary)]">Filtros:</span>
-
-          <span
-            v-if="selectedSubjectId"
-            class="inline-flex items-center gap-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
-          >
-            {{ getSubjectName(selectedSubjectId) }}
-            <button type="button" @click="removeSingleFilter('subject')" class="hover:text-purple-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedYear"
-            class="inline-flex items-center gap-1 rounded-lg bg-blue-100 dark:bg-blue-950/60 px-2.5 py-1 text-xs font-bold text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-          >
-            ENEM {{ selectedYear }}
-            <button type="button" @click="removeSingleFilter('year')" class="hover:text-blue-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedDifficulty"
-            class="inline-flex items-center gap-1 rounded-lg bg-amber-100 dark:bg-amber-950/60 px-2.5 py-1 text-xs font-bold text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800"
-          >
-            {{ selectedDifficulty === 'EASY' ? 'Fácil' : selectedDifficulty === 'MEDIUM' ? 'Média' : 'Difícil' }}
-            <button type="button" @click="removeSingleFilter('difficulty')" class="hover:text-amber-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedStatusFilter !== 'ALL'"
-            class="inline-flex items-center gap-1 rounded-lg bg-zinc-200 dark:bg-zinc-800 px-2.5 py-1 text-xs font-bold text-zinc-800 dark:text-zinc-200 border border-zinc-300 dark:border-zinc-700"
-          >
-            {{ selectedStatusFilter === 'UNANSWERED' ? 'Inéditas' : selectedStatusFilter === 'CORRECT' ? 'Acertadas' : 'Erradas' }}
-            <button type="button" @click="removeSingleFilter('status')" class="hover:text-zinc-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedHasImages"
-            class="inline-flex items-center gap-1 rounded-lg bg-sky-100 dark:bg-sky-950/60 px-2.5 py-1 text-xs font-bold text-sky-700 dark:text-sky-300 border border-sky-200 dark:border-sky-800"
-          >
-            {{ selectedHasImages === 'true' ? 'Com Imagens' : 'Texto Puro' }}
-            <button type="button" @click="removeSingleFilter('images')" class="hover:text-sky-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedHasExplanation"
-            class="inline-flex items-center gap-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-          >
-            Com Resolução
-            <button type="button" @click="removeSingleFilter('explanation')" class="hover:text-emerald-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="searchQuery.trim()"
-            class="inline-flex items-center gap-1 rounded-lg bg-purple-100 dark:bg-purple-950/60 px-2.5 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
-          >
-            Busca: "{{ searchQuery }}"
-            <button type="button" @click="removeSingleFilter('search')" class="hover:text-purple-900 ml-0.5">✕</button>
-          </span>
-
-          <span
-            v-if="selectedSort && selectedSort !== 'year_desc'"
-            class="inline-flex items-center gap-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 px-2.5 py-1 text-xs font-bold text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
-          >
-            {{ selectedSort === 'random' ? 'Modo Simulado' : selectedSort === 'year_asc' ? 'Mais Antigas' : selectedSort === 'difficulty_desc' ? 'Mais Difíceis' : 'Mais Fáceis' }}
-            <button type="button" @click="removeSingleFilter('sort')" class="hover:text-emerald-900 ml-0.5">✕</button>
-          </span>
-
-          <span v-if="!hasActiveFilters" class="text-[var(--student-text-muted)] italic">
-            Nenhum filtro aplicado (exibindo todas as questões)
-          </span>
-        </div>
-
-        <!-- CONTADOR DE QUESTÕES ENCONTRADAS -->
-        <div class="font-bold text-[var(--student-text-secondary)]">
-          Mostrando <strong class="text-purple-600 dark:text-purple-400">{{ filteredQuestions.length }}</strong> de {{ totalActiveQuestions }} questões
-        </div>
+        <!-- LIMPAR -->
+        <button
+          v-if="selectedSubjectId || selectedDifficulty || selectedYear || searchQuery || selectedStatusFilter !== 'ALL'"
+          type="button"
+          class="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl border border-[var(--student-border)] px-3 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] cursor-pointer"
+          @click="clearFilters"
+        >
+          <Icon name="material-symbols:filter-alt-off-rounded" class="text-sm" />
+          <span>Limpar</span>
+        </button>
       </div>
     </section>
 
@@ -981,7 +609,7 @@ onMounted(() => {
       </p>
       <button
         type="button"
-        class="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--student-primary-solid)] px-5 py-2.5 text-xs font-bold text-white transition hover:opacity-90"
+        class="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--student-primary-solid)] px-5 py-2.5 text-xs font-bold text-white transition hover:opacity-90 cursor-pointer"
         @click="clearFilters"
       >
         <Icon name="material-symbols:refresh-rounded" class="text-base" />
@@ -1046,234 +674,191 @@ onMounted(() => {
           class="mt-6 space-y-3"
         >
           <!-- IMAGEM EM DESTAQUE COM TÍTULO -->
-          <div class="rounded-2xl border border-[var(--student-border)] bg-[var(--student-card-muted,#f8fafc)] p-4 text-center space-y-2">
-            <div class="inline-flex items-center gap-1.5 rounded-lg bg-[var(--student-primary-soft)] px-3 py-1 text-xs font-black uppercase tracking-wider text-[var(--student-primary-text)]">
-              <Icon name="material-symbols:image-rounded" class="text-sm" />
-              <span>{{ (getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.title }}</span>
+          <div class="relative overflow-hidden rounded-2xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 shadow-sm flex flex-col items-center">
+            <div
+              v-if="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title"
+              class="w-full bg-[var(--student-surface)] px-4 py-2 border-b border-[var(--student-border)] flex items-center justify-between"
+            >
+              <span class="text-xs font-black text-[var(--student-primary-text)] uppercase tracking-wider">
+                {{ getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title }}
+              </span>
+              <span class="text-[10px] font-bold text-[var(--student-text-muted)]">
+                {{ studentActiveImageIndex + 1 }} de {{ getQuestionImages(currentQuestion).length }}
+              </span>
             </div>
-            <div>
+            <div class="p-3 w-full flex items-center justify-center">
               <img
-                :src="(getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.url"
-                :alt="(getQuestionImages(currentQuestion)[studentActiveImageIndex] || getQuestionImages(currentQuestion)[0])?.title"
-                class="max-h-96 mx-auto rounded-xl object-contain shadow-xs"
+                :src="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.url"
+                :alt="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title || 'Imagem da questão'"
+                class="max-h-96 w-auto object-contain rounded-xl transition-all duration-200"
               />
             </div>
           </div>
 
-          <!-- SELETOR DE IMAGENS QUANDO MAIS DE UMA -->
+          <!-- MINIATURAS QUANDO HOUVER MAIS DE UMA IMAGEM -->
           <div
             v-if="getQuestionImages(currentQuestion).length > 1"
-            class="flex items-center justify-center gap-2 overflow-x-auto py-1"
+            class="flex items-center gap-2 overflow-x-auto pb-1"
           >
             <button
               v-for="(img, idx) in getQuestionImages(currentQuestion)"
               :key="idx"
               type="button"
-              class="relative flex flex-col items-center shrink-0 overflow-hidden rounded-xl border-2 transition cursor-pointer p-1 bg-[var(--student-surface)]"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shrink-0"
               :class="studentActiveImageIndex === idx
-                ? 'border-[var(--student-primary-solid)] ring-2 ring-[var(--student-primary-solid)]/30'
-                : 'border-[var(--student-border)] opacity-70 hover:opacity-100'"
+                ? 'border-[var(--student-primary-solid)] bg-[var(--student-primary-soft)] text-[var(--student-primary-text)] shadow-xs'
+                : 'border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text-secondary)] hover:border-purple-300'"
               @click="studentActiveImageIndex = idx"
             >
-              <img
-                :src="img.url"
-                :alt="img.title"
-                class="h-12 w-16 object-contain bg-slate-100 dark:bg-zinc-800 rounded-lg p-0.5"
-              />
-              <span class="mt-1 text-[10px] font-bold text-[var(--student-text-secondary)] truncate max-w-[70px]">
-                {{ img.title || (idx + 1) }}
-              </span>
+              <Icon name="material-symbols:image-outline-rounded" class="text-sm" />
+              <span>{{ img.title || `Figura ${idx + 1}` }}</span>
             </button>
           </div>
         </div>
 
         <!-- ALTERNATIVAS -->
-        <div class="mt-8 space-y-3.5">
+        <div class="mt-6 space-y-3">
           <button
-            v-for="option in (currentQuestion.options || [])"
-            :key="option.letter"
+            v-for="opt in currentQuestion.options"
+            :key="opt.id || opt.letter"
             type="button"
-            class="w-full flex items-start gap-4 rounded-2xl border p-4 text-left transition"
+            class="flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition cursor-pointer"
             :class="[
-              // Answered correct state
-              currentQuestionAnswer && option.letter === currentQuestion.correctAnswer
-                ? 'border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20 text-emerald-950 dark:text-emerald-200'
-                : '',
-              // Answered wrong state
-              currentQuestionAnswer && !currentQuestionAnswer.correct && option.letter === currentQuestionAnswer.selected
-                ? 'border-red-500 bg-red-500/10 ring-2 ring-red-500/20 text-red-950 dark:text-red-200'
-                : '',
-              // Not answered, selected state
-              !currentQuestionAnswer && selectedOption === option.letter
-                ? 'border-[var(--student-primary-solid)] bg-[var(--student-primary-soft)] ring-2 ring-[var(--student-primary-solid)]/20'
-                : '',
-              // Default unselected state
-              !currentQuestionAnswer && selectedOption !== option.letter
-                ? 'border-[var(--student-border)] bg-[var(--student-surface)]/60 hover:bg-[var(--student-surface)] hover:border-purple-300'
-                : '',
-              currentQuestionAnswer ? 'cursor-default' : 'cursor-pointer'
+              // Se já respondeu
+              currentQuestionAnswer
+                ? opt.letter === currentQuestion.correctAnswer
+                  ? 'border-emerald-500 bg-emerald-500/10 text-emerald-950 dark:text-emerald-100 ring-2 ring-emerald-500/20'
+                  : currentQuestionAnswer.selected === opt.letter
+                    ? 'border-red-500 bg-red-500/10 text-red-950 dark:text-red-100 ring-2 ring-red-500/20'
+                    : 'border-[var(--student-border)] bg-[var(--student-card)] opacity-60'
+                // Se ainda está selecionando
+                : selectedOption === opt.letter
+                  ? 'border-purple-500 bg-purple-500/10 ring-2 ring-purple-500/20'
+                  : 'border-[var(--student-border)] bg-[var(--student-card)] hover:border-purple-300 hover:bg-[var(--student-surface)]'
             ]"
-            @click="selectOption(option.letter)"
+            :disabled="Boolean(currentQuestionAnswer)"
+            @click="selectOption(opt.letter)"
           >
-            <!-- LETTER BADGE -->
+            <!-- LETRA -->
             <span
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl font-black text-sm transition"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black transition"
               :class="[
-                currentQuestionAnswer && option.letter === currentQuestion.correctAnswer
-                  ? 'bg-emerald-600 text-white'
-                  : '',
-                currentQuestionAnswer && !currentQuestionAnswer.correct && option.letter === currentQuestionAnswer.selected
-                  ? 'bg-red-600 text-white'
-                  : '',
-                !currentQuestionAnswer && selectedOption === option.letter
-                  ? 'bg-[var(--student-primary-solid)] text-white'
-                  : '',
-                !currentQuestionAnswer && selectedOption !== option.letter
-                  ? 'border border-[var(--student-border)] bg-[var(--student-card)] text-[var(--student-text)]'
-                  : ''
+                currentQuestionAnswer
+                  ? opt.letter === currentQuestion.correctAnswer
+                    ? 'bg-emerald-500 text-white'
+                    : currentQuestionAnswer.selected === opt.letter
+                      ? 'bg-red-500 text-white'
+                      : 'border border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text-secondary)]'
+                  : selectedOption === opt.letter
+                    ? 'bg-purple-600 text-white'
+                    : 'border border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text-secondary)]'
               ]"
             >
-              {{ option.letter }}
+              {{ opt.letter }}
             </span>
 
-            <!-- OPTION CONTENT: TEXTO E/OU FOTO -->
-            <div class="flex-1 pt-1 text-sm font-medium leading-relaxed text-[var(--student-text)] space-y-2">
-              <div v-if="option.text">
-                {{ option.text }}
-              </div>
-              <div v-if="option.imageUrl" class="pt-0.5">
-                <img
-                  :src="option.imageUrl"
-                  alt="Imagem da alternativa"
-                  class="max-h-56 rounded-xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1.5 object-contain shadow-xs"
-                />
-              </div>
-              <div v-if="!option.text && !option.imageUrl" class="text-xs text-[var(--student-text-muted)] italic">
-                (Opção sem descrição)
-              </div>
+            <!-- TEXTO DA ALTERNATIVA -->
+            <div class="flex-1 pt-1 text-sm font-medium leading-relaxed text-[var(--student-text)]">
+              <span>{{ opt.text }}</span>
             </div>
 
-            <!-- RESULT ICON -->
-            <div v-if="currentQuestionAnswer" class="pt-1 shrink-0">
+            <!-- ÍCONE DE RESULTADO -->
+            <div v-if="currentQuestionAnswer" class="pt-1">
               <Icon
-                v-if="option.letter === currentQuestion.correctAnswer"
+                v-if="opt.letter === currentQuestion.correctAnswer"
                 name="material-symbols:check-circle-rounded"
-                class="text-emerald-500 text-xl"
+                class="text-xl text-emerald-500"
               />
               <Icon
-                v-else-if="option.letter === currentQuestionAnswer.selected"
+                v-else-if="currentQuestionAnswer.selected === opt.letter"
                 name="material-symbols:cancel-rounded"
-                class="text-red-500 text-xl"
+                class="text-xl text-red-500"
               />
             </div>
           </button>
         </div>
 
-        <!-- ACTIONS & CONFIRM BUTTON -->
-        <div class="mt-8 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-3 sm:gap-4 border-t border-[var(--student-border)] pt-6">
-          <div class="flex items-center justify-between sm:justify-start gap-2">
-            <button
-              type="button"
-              :disabled="currentIndex === 0"
-              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40 active:scale-98 cursor-pointer"
-              @click="prevQuestion"
+        <!-- BARRA DE AÇÃO / FEEDBACK -->
+        <div class="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--student-border)] pt-5">
+          <div>
+            <span
+              v-if="!currentQuestionAnswer && selectedOption"
+              class="text-xs font-semibold text-[var(--student-text-secondary)]"
             >
-              <Icon name="material-symbols:arrow-back-rounded" class="text-base" />
-              <span>Anterior</span>
-            </button>
-
-            <button
-              type="button"
-              :disabled="currentIndex >= filteredQuestions.length - 1"
-              class="flex-1 sm:flex-initial inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] disabled:opacity-40 active:scale-98 cursor-pointer"
-              @click="nextQuestion"
-            >
-              <span>Próxima</span>
-              <Icon name="material-symbols:arrow-forward-rounded" class="text-base" />
-            </button>
+              Alternativa <strong>{{ selectedOption }}</strong> selecionada
+            </span>
           </div>
 
           <div class="flex items-center gap-3">
+            <!-- BOTÃO DE RESETAR QUESTÃO -->
             <button
               v-if="currentQuestionAnswer"
               type="button"
-              class="w-full sm:w-auto inline-flex items-center justify-center gap-1 min-h-[44px] rounded-xl border border-[var(--student-border)] px-5 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:bg-[var(--student-surface)] active:scale-98 cursor-pointer"
+              class="inline-flex items-center gap-1.5 rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-4 py-2.5 text-xs font-bold text-[var(--student-text-secondary)] transition hover:text-[var(--student-text)] cursor-pointer"
               @click="resetCurrentQuestion"
             >
-              <Icon name="material-symbols:refresh-rounded" class="text-base" />
-              <span>Refazer questão</span>
+              <Icon name="material-symbols:restart-alt-rounded" class="text-sm" />
+              <span>Refazer Questão</span>
             </button>
 
+            <!-- BOTÃO DE CONFIRMAR RESPOSTA -->
             <button
               v-if="!currentQuestionAnswer"
               type="button"
+              class="inline-flex items-center gap-2 rounded-xl bg-[var(--student-primary-solid)] px-6 py-2.5 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-40 cursor-pointer"
               :disabled="!selectedOption"
-              class="w-full sm:w-auto inline-flex items-center justify-center gap-2 min-h-[44px] rounded-xl bg-[var(--student-primary-solid)] px-6 py-3 text-sm font-black text-white shadow-lg shadow-purple-900/15 transition hover:opacity-95 disabled:opacity-40 active:scale-98 cursor-pointer"
               @click="submitAnswer"
             >
-              <span>Confirmar resposta</span>
-              <Icon name="material-symbols:check-rounded" class="text-lg" />
+              <Icon name="material-symbols:check-rounded" class="text-base" />
+              <span>Confirmar Resposta</span>
             </button>
           </div>
         </div>
 
         <!-- RESOLUÇÃO COMENTADA -->
-        <Transition
-          enter-active-class="transition duration-300 ease-out"
-          enter-from-class="opacity-0 translate-y-2"
-          enter-to-class="opacity-100 translate-y-0"
+        <div
+          v-if="currentQuestionAnswer && currentQuestion.explanation"
+          class="mt-6 rounded-2xl border border-purple-200 bg-purple-500/5 p-5 dark:border-purple-900/40"
         >
-          <div
-            v-if="currentQuestionAnswer && currentQuestion.explanation"
-            class="mt-6 rounded-2xl border border-[var(--student-primary-solid)]/30 bg-[var(--student-primary-soft)] p-6"
-          >
-            <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-[var(--student-primary-text)]">
-              <Icon name="material-symbols:lightbulb-rounded" class="text-lg" />
-              <span>Resolução Comentada</span>
-            </div>
-            <p class="mt-2 text-sm leading-relaxed text-[var(--student-text)] whitespace-pre-line">
-              {{ currentQuestion.explanation }}
-            </p>
+          <div class="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300">
+            <Icon name="material-symbols:lightbulb-rounded" class="text-lg" />
+            <span>Resolução Comentada</span>
           </div>
-        </Transition>
+          <div class="mt-2 text-sm leading-relaxed text-[var(--student-text)] whitespace-pre-line">
+            {{ currentQuestion.explanation }}
+          </div>
+        </div>
       </section>
 
-      <!-- SIDEBAR DO MAPA DE QUESTÕES -->
-      <aside class="space-y-6">
-        <div class="student-card rounded-3xl border border-[var(--student-border)] bg-[var(--student-card)] p-5 shadow-xs">
-          <div class="flex items-center justify-between border-b border-[var(--student-border)] pb-3">
-            <h3 class="text-sm font-black text-[var(--student-text)]">
-              Navegação
-            </h3>
-            <span class="text-xs text-[var(--student-text-muted)] font-semibold">
-              {{ totalAnswered }}/{{ filteredQuestions.length }} feitas
+      <!-- SIDEBAR DO NAVEGADOR DE QUESTÕES -->
+      <aside class="space-y-4">
+        <!-- NAVEGADOR RÁPIDO (GRADE NUMÉRICA) -->
+        <div class="student-card rounded-3xl border border-[var(--student-border)] bg-[var(--student-card)] p-5 shadow-sm">
+          <div class="flex items-center justify-between pb-3 border-b border-[var(--student-border)]">
+            <span class="text-xs font-black uppercase tracking-wider text-[var(--student-text)]">
+              Navegador
+            </span>
+            <span class="text-xs font-bold text-[var(--student-text-secondary)]">
+              {{ filteredQuestions.length }} questões
             </span>
           </div>
 
-          <!-- GRID DE BOTÕES DE QUESTÃO -->
-          <div class="mt-4 grid grid-cols-5 gap-2">
+          <!-- GRADE -->
+          <div class="mt-4 grid grid-cols-5 gap-2 max-h-[360px] overflow-y-auto pr-1">
             <button
               v-for="(q, idx) in filteredQuestions"
               :key="q.id"
               type="button"
-              class="flex h-10 w-10 items-center justify-center rounded-xl text-xs font-bold transition"
+              class="flex h-9 items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer"
               :class="[
-                // Current selected
                 currentIndex === idx
-                  ? 'ring-2 ring-[var(--student-primary-solid)] ring-offset-2 font-black scale-105'
+                  ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-zinc-900'
                   : '',
-                // Answered correct
-                sessionAnswers[q.id]?.correct
-                  ? 'bg-emerald-500 text-white'
-                  : '',
-                // Answered wrong
-                sessionAnswers[q.id] && !sessionAnswers[q.id]?.correct
-                  ? 'bg-red-500 text-white'
-                  : '',
-                // Unanswered
-                !sessionAnswers[q.id]
-                  ? 'border border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text-secondary)] hover:border-purple-400'
-                  : ''
+                sessionAnswers[q.id]
+                  ? sessionAnswers[q.id].correct
+                    ? 'bg-emerald-500 text-white font-black'
+                    : 'bg-red-500 text-white font-black'
+                  : 'border border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text)] hover:border-purple-400'
               ]"
               @click="jumpToQuestion(idx)"
             >
@@ -1282,144 +867,172 @@ onMounted(() => {
           </div>
 
           <!-- LEGENDA -->
-          <div class="mt-5 space-y-2 border-t border-[var(--student-border)] pt-4 text-xs font-semibold text-[var(--student-text-secondary)]">
-            <div class="flex items-center gap-2">
-              <span class="h-3 w-3 rounded-full bg-emerald-500"></span>
+          <div class="mt-4 pt-3 border-t border-[var(--student-border)] flex items-center justify-between text-[11px] font-semibold text-[var(--student-text-secondary)]">
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-emerald-500"></span>
               <span>Acertou</span>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="h-3 w-3 rounded-full bg-red-500"></span>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full bg-red-500"></span>
               <span>Errou</span>
             </div>
-            <div class="flex items-center gap-2">
-              <span class="h-3 w-3 rounded-full border border-[var(--student-border)] bg-[var(--student-surface)]"></span>
-              <span>Não respondida</span>
+            <div class="flex items-center gap-1.5">
+              <span class="h-2.5 w-2.5 rounded-full border border-[var(--student-border)] bg-[var(--student-surface)]"></span>
+              <span>Pendente</span>
             </div>
           </div>
+        </div>
 
-          <!-- RESET BUTTON -->
+        <!-- BOTÕES PRÓXIMA / ANTERIOR -->
+        <div class="grid grid-cols-2 gap-2">
           <button
-            v-if="totalAnswered > 0"
             type="button"
-            class="mt-5 w-full rounded-xl border border-[var(--student-border)] py-2 text-xs font-bold text-[var(--student-text-muted)] hover:text-red-500 hover:border-red-300 transition"
-            @click="resetStats"
+            class="flex items-center justify-center gap-1.5 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] p-3 text-xs font-bold text-[var(--student-text)] transition hover:bg-[var(--student-surface)] disabled:opacity-40 cursor-pointer"
+            :disabled="currentIndex === 0"
+            @click="prevQuestion"
           >
-            Limpar progresso da sessão
+            <Icon name="material-symbols:arrow-back-rounded" class="text-base" />
+            <span>Anterior</span>
+          </button>
+
+          <button
+            type="button"
+            class="flex items-center justify-center gap-1.5 rounded-2xl bg-[var(--student-primary-solid)] p-3 text-xs font-bold text-white transition hover:opacity-90 disabled:opacity-40 cursor-pointer"
+            :disabled="currentIndex >= filteredQuestions.length - 1"
+            @click="nextQuestion"
+          >
+            <span>Próxima</span>
+            <Icon name="material-symbols:arrow-forward-rounded" class="text-base" />
           </button>
         </div>
+
+        <!-- REINICIAR ESTATÍSTICAS DA SESSÃO -->
+        <button
+          v-if="totalAnswered > 0"
+          type="button"
+          class="w-full flex items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50/50 p-2.5 text-xs font-bold text-red-600 transition hover:bg-red-100 dark:border-red-950 dark:bg-red-950/20 dark:text-red-400 cursor-pointer"
+          @click="resetStats"
+        >
+          <Icon name="material-symbols:delete-forever-rounded" class="text-base" />
+          <span>Limpar Histórico Local</span>
+        </button>
       </aside>
     </div>
 
     <!-- ==========================================
-         MODO LISTA (TODAS AS QUESTÕES)
+         MODO LISTA (VISUALIZAÇÃO COMPLETA)
     =========================================== -->
     <div
       v-else-if="viewMode === 'LIST'"
       class="mt-8 space-y-6"
     >
-      <div
+      <article
         v-for="(q, idx) in displayedListQuestions"
         :key="q.id"
-        class="student-card rounded-3xl border border-[var(--student-border)] bg-[var(--student-card)] p-6 shadow-xs"
+        class="student-card rounded-3xl border border-[var(--student-border)] bg-[var(--student-card)] p-6 shadow-sm transition hover:shadow-md"
       >
-        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--student-border)] pb-4">
+        <!-- CABEÇALHO -->
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--student-border)] pb-3">
           <div class="flex flex-wrap items-center gap-2">
-            <span class="rounded-lg bg-[var(--student-primary-soft)] px-2.5 py-1 text-xs font-bold text-[var(--student-primary-text)]">
+            <span class="rounded-xl bg-[var(--student-primary-soft)] px-3 py-1 text-xs font-black text-[var(--student-primary-text)]">
               {{ q.subject?.name || "ENEM" }}
             </span>
             <span
               v-if="difficultyLabels[q.difficulty]"
-              class="rounded-lg border px-2.5 py-1 text-xs font-bold"
+              class="rounded-xl border px-3 py-1 text-xs font-bold"
               :class="difficultyLabels[q.difficulty].class"
             >
               {{ difficultyLabels[q.difficulty].label }}
             </span>
             <span
               v-if="q.year"
-              class="rounded-lg border border-[var(--student-border)] bg-[var(--student-surface)] px-2.5 py-1 text-xs font-semibold text-[var(--student-text-secondary)]"
+              class="rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] px-3 py-1 text-xs font-semibold text-[var(--student-text-secondary)]"
             >
               ENEM {{ q.year }}
             </span>
           </div>
 
-          <div class="text-xs font-bold text-[var(--student-text-muted)]">
-            #{{ idx + 1 }}
-          </div>
+          <button
+            type="button"
+            class="inline-flex items-center gap-1.5 rounded-xl bg-[var(--student-primary-soft)] px-3 py-1.5 text-xs font-bold text-[var(--student-primary-text)] transition hover:opacity-80 cursor-pointer"
+            @click="jumpToQuestion(idx); viewMode = 'PRACTICE'"
+          >
+            <span>Resolver no Modo Prática</span>
+            <Icon name="material-symbols:play-arrow-rounded" class="text-base" />
+          </button>
         </div>
 
+        <!-- TÍTULO -->
+        <h3
+          v-if="q.title"
+          class="mt-4 text-base font-bold text-[var(--student-text)]"
+        >
+          {{ q.title }}
+        </h3>
+
+        <!-- ENUNCIADO -->
         <div
-          class="mt-4 text-sm sm:text-base leading-relaxed text-[var(--student-text)] whitespace-pre-line"
+          class="mt-3 text-sm leading-relaxed text-[var(--student-text)]"
           v-html="formatStatement(q.statement)"
         ></div>
 
-        <div v-if="getQuestionImages(q).length > 0" class="mt-4">
-          <div class="flex flex-wrap gap-3">
-            <div
-              v-for="(img, imgIdx) in getQuestionImages(q)"
-              :key="imgIdx"
-              class="relative overflow-hidden rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] p-2 space-y-1.5"
-            >
-              <div v-if="img.title" class="inline-flex items-center gap-1 rounded-md bg-[var(--student-primary-soft)] px-2 py-0.5 text-[11px] font-bold text-[var(--student-primary-text)]">
-                <Icon name="material-symbols:image-rounded" class="text-xs" />
-                <span>{{ img.title }}</span>
-              </div>
-              <img
-                :src="img.url"
-                :alt="img.title || 'Imagem da questão'"
-                class="max-h-64 rounded-lg object-contain"
-              />
+        <!-- IMAGENS DA QUESTÃO NO MODO LISTA -->
+        <div
+          v-if="getQuestionImages(q).length > 0"
+          class="mt-4 space-y-2"
+        >
+          <div
+            v-for="(img, imgIdx) in getQuestionImages(q)"
+            :key="imgIdx"
+            class="inline-block mr-3 mb-2"
+          >
+            <div class="text-[11px] font-bold text-[var(--student-text-muted)] mb-1">
+              {{ img.title || `Figura ${imgIdx + 1}` }}
             </div>
+            <img
+              :src="img.url"
+              :alt="img.title || 'Imagem da questão'"
+              class="max-h-64 w-auto rounded-xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1.5 shadow-2xs object-contain"
+            />
           </div>
         </div>
 
-        <!-- ALTERNATIVAS DO CARD -->
-        <div class="mt-4 space-y-2">
+        <!-- ALTERNATIVAS (MODO VISUALIZAÇÃO) -->
+        <div class="mt-4 grid gap-2 sm:grid-cols-2">
           <div
-            v-for="opt in (q.options || [])"
-            :key="opt.letter"
-            class="flex items-start gap-3 rounded-xl border border-[var(--student-border)] bg-[var(--student-surface)] p-3 text-xs text-[var(--student-text)] font-medium"
+            v-for="opt in q.options"
+            :key="opt.id || opt.letter"
+            class="flex items-start gap-2.5 rounded-xl border p-3 text-xs transition"
+            :class="[
+              sessionAnswers[q.id]
+                ? opt.letter === q.correctAnswer
+                  ? 'border-emerald-500 bg-emerald-500/10 font-bold text-emerald-950 dark:text-emerald-100'
+                  : sessionAnswers[q.id].selected === opt.letter
+                    ? 'border-red-500 bg-red-500/10 font-bold text-red-950 dark:text-red-100'
+                    : 'border-[var(--student-border)] bg-[var(--student-surface)] opacity-70'
+                : 'border-[var(--student-border)] bg-[var(--student-surface)]'
+            ]"
           >
-            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-[var(--student-card)] font-bold text-[var(--student-text)] border border-[var(--student-border)]">
+            <span
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded-md font-black"
+              :class="opt.letter === q.correctAnswer && sessionAnswers[q.id] ? 'bg-emerald-500 text-white' : 'bg-[var(--student-card)] text-[var(--student-text)]'"
+            >
               {{ opt.letter }}
             </span>
-            <div class="flex-1 pt-0.5 space-y-1">
-              <div v-if="opt.text">{{ opt.text }}</div>
-              <div v-if="opt.imageUrl">
-                <img
-                  :src="opt.imageUrl"
-                  alt="Imagem da alternativa"
-                  class="max-h-36 rounded-lg border border-[var(--student-border)] bg-white dark:bg-zinc-900 p-1 object-contain"
-                />
-              </div>
-            </div>
+            <span class="text-[var(--student-text)] leading-snug">{{ opt.text }}</span>
           </div>
         </div>
+      </article>
 
-        <!-- RESOLVER NO MODO PRÁTICA -->
-        <div class="mt-5 flex justify-end">
-          <button
-            type="button"
-            class="inline-flex items-center gap-2 rounded-xl bg-[var(--student-primary-solid)] px-4 py-2 text-xs font-bold text-white transition hover:opacity-90"
-            @click="jumpToQuestion(idx); viewMode = 'PRACTICE'"
-          >
-            <span>Resolver esta questão</span>
-            <Icon name="material-symbols:arrow-forward-rounded" class="text-sm" />
-          </button>
-        </div>
-      </div>
-
-      <!-- BOTÃO CARREGAR MAIS NO MODO LISTA -->
-      <div v-if="hasMoreListQuestions" class="flex flex-col items-center justify-center gap-2 pt-4 pb-6">
-        <p class="text-xs text-[var(--student-text-secondary)]">
-          Exibindo <strong>{{ displayedListQuestions.length }}</strong> de <strong>{{ filteredQuestions.length }}</strong> questões
-        </p>
+      <!-- BOTÃO DE CARREGAR MAIS NO MODO LISTA -->
+      <div v-if="hasMoreListQuestions" class="flex justify-center pt-4">
         <button
           type="button"
-          class="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[var(--student-card)] border border-[var(--student-border)] text-sm font-bold text-[var(--student-text)] shadow-xs hover:border-purple-400 hover:text-purple-600 transition cursor-pointer active:scale-98"
+          class="inline-flex items-center gap-2 rounded-2xl border border-[var(--student-border)] bg-[var(--student-card)] px-6 py-3 text-xs font-bold text-[var(--student-text)] transition hover:bg-[var(--student-surface)] shadow-xs cursor-pointer"
           @click="loadMoreListQuestions"
         >
-          <span class="material-symbols-rounded text-lg">expand_more</span>
-          <span>Carregar mais questões (+{{ Math.min(15, filteredQuestions.length - displayedListQuestions.length) }})</span>
+          <Icon name="material-symbols:expand-more-rounded" class="text-base" />
+          <span>Carregar mais 15 questões (Restam {{ filteredQuestions.length - displayedListQuestions.length }})</span>
         </button>
       </div>
     </div>

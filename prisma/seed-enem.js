@@ -2,6 +2,7 @@ import 'dotenv/config'
 import { PrismaClient } from '@prisma/client'
 import { PrismaMariaDb } from '@prisma/adapter-mariadb'
 import mariadb from 'mariadb'
+import { identifyQuestionSubject } from '../shared/utils/subject-classifier.js'
 
 // Matérias Específicas do Conecta-Enem (em vez de apenas 4 grandes áreas)
 const DETAILED_SUBJECTS = {
@@ -173,9 +174,7 @@ function countKeywords(text, keywords) {
 function identifyDetailedSubject(q) {
   const discipline = q.discipline
   const language = q.language?.toLowerCase()
-  const text = `${q.context || ''} ${q.alternativesIntroduction || ''} ${q.title || ''}`
 
-  // 1. Língua Estrangeira (Inglês ou Espanhol)
   if (language === 'ingles' || (discipline === 'linguagens' && q.index <= 5 && language === 'ingles')) {
     return 'ingles'
   }
@@ -183,55 +182,18 @@ function identifyDetailedSubject(q) {
     return 'espanhol'
   }
 
-  // 2. Matemática
   if (discipline === 'matematica') {
     return 'matematica'
   }
 
-  // 3. Ciências da Natureza: Física, Química ou Biologia
-  if (discipline === 'ciencias-natureza') {
-    const scoreFisica = countKeywords(text, NATUREZA_KEYWORDS.fisica)
-    const scoreQuimica = countKeywords(text, NATUREZA_KEYWORDS.quimica)
-    const scoreBiologia = countKeywords(text, NATUREZA_KEYWORDS.biologia)
-
-    if (scoreFisica > scoreQuimica && scoreFisica > scoreBiologia) return 'fisica'
-    if (scoreQuimica > scoreFisica && scoreQuimica > scoreBiologia) return 'quimica'
-    if (scoreBiologia > 0) return 'biologia'
-
-    // Heurística de fallback equilibrada
-    const mod = q.index % 3
-    if (mod === 0) return 'fisica'
-    if (mod === 1) return 'quimica'
-    return 'biologia'
+  const questionForClassifier = {
+    statement: `${q.context || ''} ${q.alternativesIntroduction || ''}`,
+    title: q.title || '',
+    options: (q.alternatives || []).map(a => ({ text: a.text || '' })),
+    language: q.language
   }
 
-  // 4. Ciências Humanas: História, Geografia, Filosofia ou Sociologia
-  if (discipline === 'ciencias-humanas') {
-    const scoreFilo = countKeywords(text, HUMANAS_KEYWORDS.filosofia)
-    const scoreSocio = countKeywords(text, HUMANAS_KEYWORDS.sociologia)
-    const scoreGeo = countKeywords(text, HUMANAS_KEYWORDS.geografia)
-    const scoreHist = countKeywords(text, HUMANAS_KEYWORDS.historia)
-
-    if (scoreFilo > scoreSocio && scoreFilo > scoreGeo && scoreFilo > scoreHist) return 'filosofia'
-    if (scoreSocio > scoreFilo && scoreSocio > scoreGeo && scoreSocio > scoreHist) return 'sociologia'
-    if (scoreGeo > scoreFilo && scoreGeo > scoreSocio && scoreGeo > scoreHist) return 'geografia'
-    if (scoreHist > 0) return 'historia'
-
-    const mod = q.index % 4
-    if (mod === 0) return 'historia'
-    if (mod === 1) return 'geografia'
-    if (mod === 2) return 'filosofia'
-    return 'sociologia'
-  }
-
-  // 5. Linguagens: Português & Literatura ou Artes
-  if (discipline === 'linguagens') {
-    const scoreArtes = countKeywords(text, LINGUAGENS_KEYWORDS.artes)
-    if (scoreArtes >= 2) return 'artes'
-    return 'portugues'
-  }
-
-  return 'portugues'
+  return identifyQuestionSubject(questionForClassifier, null)
 }
 
 // Avalia a Dificuldade da Questão (EASY, MEDIUM, HARD) de forma realista
