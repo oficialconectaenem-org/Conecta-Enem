@@ -187,6 +187,27 @@ function normalizeText(str) {
 }
 
 /**
+ * Cache e Pré-Compilação de Palavras-Chave para Performance Instantânea (60 FPS)
+ * Evita normalizar strings e compilar RegEx repetidamente em cada renderização
+ */
+const PRECOMPILED_KEYWORDS = {}
+for (const [subjectSlug, keywords] of Object.entries(SUBJECT_KEYWORDS)) {
+  PRECOMPILED_KEYWORDS[subjectSlug] = keywords.map(rawKw => {
+    const kw = normalizeText(rawKw)
+    const isShort = kw.length <= 3
+    return {
+      kw,
+      isShort,
+      regex: isShort ? new RegExp(`\\b${kw}\\b`, 'g') : null,
+      len: kw.length
+    }
+  })
+}
+
+const questionSubjectWeakCache = new WeakMap()
+const questionIdSubjectCache = new Map()
+
+/**
  * Mapeamento de sinônimos/aliases de slugs para a chave canônica
  */
 export const CANONICAL_SLUG_MAP = {
@@ -213,11 +234,21 @@ export const CANONICAL_SLUG_MAP = {
 }
 
 /**
- * Identifica e pontua a matéria correta de uma questão através do seu texto.
+ * Identifica e pontua a matéria correta de uma questão através do seu texto com memoização O(1).
  * Retorna o slug canônico da matéria mais provável com sua pontuação de confiança.
  */
 export function identifyQuestionSubject(question, existingSubjectSlug = null) {
   if (!question) return existingSubjectSlug || 'portugues'
+
+  // Retorno ultra rápido via cache memoizado
+  if (typeof question === 'object' && question !== null) {
+    if (questionSubjectWeakCache.has(question)) {
+      return questionSubjectWeakCache.get(question)
+    }
+    if (question.id && questionIdSubjectCache.has(question.id)) {
+      return questionIdSubjectCache.get(question.id)
+    }
+  }
 
   const statement = question.statement || question.context || ''
   const title = question.title || ''
@@ -228,30 +259,46 @@ export function identifyQuestionSubject(question, existingSubjectSlug = null) {
 
   const fullText = normalizeText(`${title} ${statement} ${optionsText} ${explanation}`)
   if (fullText.length < 20) {
-    return existingSubjectSlug || 'portugues'
+    const fallbackSlug = existingSubjectSlug || 'portugues'
+    if (typeof question === 'object' && question !== null) {
+      questionSubjectWeakCache.set(question, fallbackSlug)
+      if (question.id) questionIdSubjectCache.set(question.id, fallbackSlug)
+    }
+    return fallbackSlug
   }
 
   // Verifica se é questão de língua estrangeira
   const language = (question.language || '').toLowerCase()
-  if (language === 'ingles' || language === 'en') return 'ingles'
-  if (language === 'espanhol' || language === 'es') return 'espanhol'
+  if (language === 'ingles' || language === 'en') {
+    if (typeof question === 'object' && question !== null) {
+      questionSubjectWeakCache.set(question, 'ingles')
+      if (question.id) questionIdSubjectCache.set(question.id, 'ingles')
+    }
+    return 'ingles'
+  }
+  if (language === 'espanhol' || language === 'es') {
+    if (typeof question === 'object' && question !== null) {
+      questionSubjectWeakCache.set(question, 'espanhol')
+      if (question.id) questionIdSubjectCache.set(question.id, 'espanhol')
+    }
+    return 'espanhol'
+  }
 
-  // Pontua cada matéria
+  // Pontua cada matéria usando as palavras pré-compiladas
   const scores = {}
-  for (const [subjectSlug, keywords] of Object.entries(SUBJECT_KEYWORDS)) {
+  for (const [subjectSlug, precompiledList] of Object.entries(PRECOMPILED_KEYWORDS)) {
     let score = 0
-    for (const rawKw of keywords) {
-      const kw = normalizeText(rawKw)
-      if (kw.length <= 3) {
-        // Para termos curtos, usa fronteira de palavra
-        const regex = new RegExp(`\\b${kw}\\b`, 'g')
-        const matches = fullText.match(regex)
+    for (const item of precompiledList) {
+      if (item.isShort && item.regex) {
+        // Para termos curtos, usa regex pré-compilada
+        item.regex.lastIndex = 0
+        const matches = fullText.match(item.regex)
         if (matches) score += matches.length * 2
       } else {
         let pos = 0
-        while ((pos = fullText.indexOf(kw, pos)) !== -1) {
-          score += (kw.length > 8 ? 3 : 2)
-          pos += kw.length
+        while ((pos = fullText.indexOf(item.kw, pos)) !== -1) {
+          score += (item.len > 8 ? 3 : 2)
+          pos += item.len
         }
       }
     }
@@ -276,11 +323,17 @@ export function identifyQuestionSubject(question, existingSubjectSlug = null) {
   }
 
   // Se a pontuação máxima for suficiente, adota a melhor matéria
+  let finalResult = canonicalExisting || 'portugues'
   if (bestSlug && maxScore >= 4) {
-    return bestSlug
+    finalResult = bestSlug
   }
 
-  return canonicalExisting || 'portugues'
+  if (typeof question === 'object' && question !== null) {
+    questionSubjectWeakCache.set(question, finalResult)
+    if (question.id) questionIdSubjectCache.set(question.id, finalResult)
+  }
+
+  return finalResult
 }
 
 /**

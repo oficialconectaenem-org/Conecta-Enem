@@ -140,20 +140,25 @@ function matchQuestionToSelectedSubject(q, targetSub) {
   return false
 }
 
-// Lista Filtrada de Questões
+// Lista Filtrada de Questões (Ultra Otimizada)
 const filteredQuestions = computed(() => {
   const list = questions.value || []
-  if (!Array.isArray(list)) return []
+  if (!Array.isArray(list) || list.length === 0) return []
 
   const targetSub = selectedSubjectId.value
     ? subjects.value.find(s => s.id === selectedSubjectId.value)
     : null
 
+  const statusFilter = selectedStatusFilter.value
+  const diffFilter = selectedDifficulty.value
+  const yearFilter = selectedYear.value ? Number(selectedYear.value) : null
+  const term = searchQuery.value?.toLowerCase().trim()
+
   return list.filter((q) => {
     // Apenas questões ativas para alunos
     if (q.active === false) return false
 
-    // Filtro rigoroso de Matéria (sem vazamentos de outras disciplinas)
+    // Filtro rigoroso de Matéria (sem vazamentos de outras disciplinas, com cache instantâneo)
     if (targetSub) {
       if (!matchQuestionToSelectedSubject(q, targetSub)) {
         return false
@@ -161,29 +166,30 @@ const filteredQuestions = computed(() => {
     }
 
     // Dificuldade
-    if (selectedDifficulty.value && q.difficulty !== selectedDifficulty.value) {
+    if (diffFilter && q.difficulty !== diffFilter) {
       return false
     }
 
     // Ano do ENEM
-    if (selectedYear.value && q.year !== Number(selectedYear.value)) {
+    if (yearFilter && q.year !== yearFilter) {
       return false
     }
 
     // Busca inteligente no enunciado, título ou alternativas
-    if (searchQuery.value.trim()) {
-      const term = searchQuery.value.toLowerCase().trim()
+    if (term) {
       const inStatement = q.statement?.toLowerCase().includes(term)
       const inTitle = q.title?.toLowerCase().includes(term)
       const inOptions = Array.isArray(q.options) && q.options.some(opt => opt.text?.toLowerCase().includes(term))
       if (!inStatement && !inTitle && !inOptions) return false
     }
 
-    // Status no histórico do aluno
-    const ans = sessionAnswers[q.id]
-    if (selectedStatusFilter.value === 'UNANSWERED' && ans) return false
-    if (selectedStatusFilter.value === 'CORRECT' && (!ans || !ans.correct)) return false
-    if (selectedStatusFilter.value === 'INCORRECT' && (!ans || ans.correct)) return false
+    // Status no histórico do aluno: SOMENTE lê sessionAnswers se o filtro não for ALL (evita re-render de 100% da lista ao clicar)
+    if (statusFilter !== 'ALL') {
+      const ans = sessionAnswers[q.id]
+      if (statusFilter === 'UNANSWERED' && ans) return false
+      if (statusFilter === 'CORRECT' && (!ans || !ans.correct)) return false
+      if (statusFilter === 'INCORRECT' && (!ans || ans.correct)) return false
+    }
 
     return true
   })
@@ -194,6 +200,16 @@ const currentQuestion = computed(() => {
   if (filteredQuestions.value.length === 0) return null
   const idx = Math.min(currentIndex.value, filteredQuestions.value.length - 1)
   return filteredQuestions.value[idx] || null
+})
+
+// Enunciado formatado em cache reativo para evitar re-executar regex em cada clique de alternativa
+const formattedCurrentStatement = computed(() => {
+  return formatStatement(currentQuestion.value?.statement)
+})
+
+// Imagens da questão atual em cache reativo para evitar JSON.parse repetido no template
+const currentQuestionImages = computed(() => {
+  return getQuestionImages(currentQuestion.value)
 })
 
 // Current question answer state
@@ -214,8 +230,13 @@ const accuracyRate = computed(() => {
 // Images support
 const studentActiveImageIndex = ref(0)
 
+const questionImagesCache = new WeakMap()
 function getQuestionImages(q) {
   if (!q) return []
+  if (typeof q === 'object') {
+    const cached = questionImagesCache.get(q)
+    if (cached) return cached
+  }
   let list = []
   if (q.images) {
     try {
@@ -233,6 +254,9 @@ function getQuestionImages(q) {
   }
   if (list.length === 0 && q.imageUrl) {
     list = [{ url: q.imageUrl, title: 'Imagem 1' }]
+  }
+  if (typeof q === 'object') {
+    questionImagesCache.set(q, list)
   }
   return list
 }
@@ -256,10 +280,14 @@ function selectOption(letter) {
   selectedOption.value = letter
 }
 
+let saveStorageTimeout = null
 function saveAnswersToLocalStorage() {
-  try {
-    localStorage.setItem('conecta_student_answers', JSON.stringify(sessionAnswers))
-  } catch {}
+  if (saveStorageTimeout) clearTimeout(saveStorageTimeout)
+  saveStorageTimeout = setTimeout(() => {
+    try {
+      localStorage.setItem('conecta_student_answers', JSON.stringify(sessionAnswers))
+    } catch {}
+  }, 250)
 }
 
 async function submitAnswer() {
@@ -316,8 +344,12 @@ function nextQuestion() {
   }
 }
 
+const statementCache = new Map()
 function formatStatement(stmt) {
   if (!stmt) return ''
+  const cached = statementCache.get(stmt)
+  if (cached) return cached
+
   let html = stmt
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -339,6 +371,7 @@ function formatStatement(stmt) {
   // Transforma _itálico_
   html = html.replace(/_([^_]+)_/g, '<span class="italic text-xs opacity-75 block mt-1">$1</span>')
 
+  statementCache.set(stmt, html)
   return html
 }
 
@@ -665,31 +698,31 @@ onMounted(() => {
         <!-- ENUNCIADO -->
         <div
           class="mt-4 text-sm leading-7 sm:text-base text-[var(--student-text)] whitespace-pre-line"
-          v-html="formatStatement(currentQuestion.statement)"
+          v-html="formattedCurrentStatement"
         ></div>
 
         <!-- IMAGENS DA QUESTÃO -->
         <div
-          v-if="getQuestionImages(currentQuestion).length > 0"
+          v-if="currentQuestionImages.length > 0"
           class="mt-6 space-y-3"
         >
           <!-- IMAGEM EM DESTAQUE COM TÍTULO -->
           <div class="relative overflow-hidden rounded-2xl border border-[var(--student-border)] bg-white dark:bg-zinc-900 shadow-sm flex flex-col items-center">
             <div
-              v-if="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title"
+              v-if="currentQuestionImages[studentActiveImageIndex]?.title"
               class="w-full bg-[var(--student-surface)] px-4 py-2 border-b border-[var(--student-border)] flex items-center justify-between"
             >
               <span class="text-xs font-black text-[var(--student-primary-text)] uppercase tracking-wider">
-                {{ getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title }}
+                {{ currentQuestionImages[studentActiveImageIndex]?.title }}
               </span>
               <span class="text-[10px] font-bold text-[var(--student-text-muted)]">
-                {{ studentActiveImageIndex + 1 }} de {{ getQuestionImages(currentQuestion).length }}
+                {{ studentActiveImageIndex + 1 }} de {{ currentQuestionImages.length }}
               </span>
             </div>
             <div class="p-3 w-full flex items-center justify-center">
               <img
-                :src="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.url"
-                :alt="getQuestionImages(currentQuestion)[studentActiveImageIndex]?.title || 'Imagem da questão'"
+                :src="currentQuestionImages[studentActiveImageIndex]?.url"
+                :alt="currentQuestionImages[studentActiveImageIndex]?.title || 'Imagem da questão'"
                 class="max-h-96 w-auto object-contain rounded-xl transition-all duration-200"
               />
             </div>
@@ -697,14 +730,14 @@ onMounted(() => {
 
           <!-- MINIATURAS QUANDO HOUVER MAIS DE UMA IMAGEM -->
           <div
-            v-if="getQuestionImages(currentQuestion).length > 1"
+            v-if="currentQuestionImages.length > 1"
             class="flex items-center gap-2 overflow-x-auto pb-1"
           >
             <button
-              v-for="(img, idx) in getQuestionImages(currentQuestion)"
+              v-for="(img, idx) in currentQuestionImages"
               :key="idx"
               type="button"
-              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition cursor-pointer shrink-0"
+              class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-xs font-bold transition-colors cursor-pointer shrink-0"
               :class="studentActiveImageIndex === idx
                 ? 'border-[var(--student-primary-solid)] bg-[var(--student-primary-soft)] text-[var(--student-primary-text)] shadow-xs'
                 : 'border-[var(--student-border)] bg-[var(--student-surface)] text-[var(--student-text-secondary)] hover:border-purple-300'"
@@ -722,7 +755,7 @@ onMounted(() => {
             v-for="opt in currentQuestion.options"
             :key="opt.id || opt.letter"
             type="button"
-            class="flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition cursor-pointer"
+            class="flex w-full items-start gap-3.5 rounded-2xl border p-4 text-left transition-colors cursor-pointer"
             :class="[
               // Se já respondeu
               currentQuestionAnswer
@@ -741,7 +774,7 @@ onMounted(() => {
           >
             <!-- LETRA -->
             <span
-              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black transition"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-xs font-black transition-colors"
               :class="[
                 currentQuestionAnswer
                   ? opt.letter === currentQuestion.correctAnswer
@@ -849,7 +882,7 @@ onMounted(() => {
               v-for="(q, idx) in filteredQuestions"
               :key="q.id"
               type="button"
-              class="flex h-9 items-center justify-center rounded-xl text-xs font-bold transition cursor-pointer"
+              class="flex h-9 items-center justify-center rounded-xl text-xs font-bold transition-colors cursor-pointer"
               :class="[
                 currentIndex === idx
                   ? 'ring-2 ring-purple-500 ring-offset-2 dark:ring-offset-zinc-900'

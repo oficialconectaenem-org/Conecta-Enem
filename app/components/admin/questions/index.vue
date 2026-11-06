@@ -112,36 +112,46 @@ const filteredQuestions = computed(() => {
   const list = questions.value || []
   if (!Array.isArray(list)) return []
 
+  const term = filters.search?.toLowerCase().trim()
+  const targetSubId = filters.subjectId
+  const diff = filters.difficulty
+  const status = filters.status
+  const year = filters.year ? Number(filters.year) : null
+
   const result = list.filter((q) => {
-    if (filters.search) {
-      const term = filters.search.toLowerCase().trim()
+    if (term) {
       const inStatement = q.statement?.toLowerCase().includes(term)
       const inTitle = q.title?.toLowerCase().includes(term)
       const inOptions = Array.isArray(q.options) && q.options.some(opt => opt.text?.toLowerCase().includes(term))
       if (!inStatement && !inTitle && !inOptions) return false
     }
 
-    if (filters.subjectId) {
-      if (!matchQuestionToAdminSubject(q, filters.subjectId)) {
+    if (targetSubId) {
+      if (!matchQuestionToAdminSubject(q, targetSubId)) {
         return false
       }
     }
 
-    if (filters.difficulty) {
-      if (q.difficulty !== filters.difficulty) return false
+    if (diff && q.difficulty !== diff) {
+      return false
     }
 
-    if (filters.status === 'ACTIVE' && q.active === false) return false
-    if (filters.status === 'INACTIVE' && q.active === true) return false
+    if (status === 'ACTIVE' && q.active === false) return false
+    if (status === 'INACTIVE' && q.active === true) return false
 
-    if (filters.year && q.year !== Number(filters.year)) return false
+    if (year !== null && q.year !== year) return false
 
     return true
   })
 
   // Ordenação padrão: ano mais recente primeiro
   return result.sort((a, b) => {
-    return (b.year || 0) - (a.year || 0) || new Date(b.createdAt) - new Date(a.createdAt)
+    const yearDiff = (b.year || 0) - (a.year || 0)
+    if (yearDiff !== 0) return yearDiff
+    if (b.createdAt && a.createdAt) {
+      return b.createdAt > a.createdAt ? 1 : b.createdAt < a.createdAt ? -1 : 0
+    }
+    return 0
   })
 })
 
