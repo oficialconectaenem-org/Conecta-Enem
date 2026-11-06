@@ -161,20 +161,17 @@ function updateVisualLines() {
     mirror.style.pointerEvents = 'none'
     mirror.style.whiteSpace = 'pre-wrap'
     mirror.style.wordBreak = 'break-word'
+    mirror.style.overflowWrap = 'break-word'
     mirror.style.lineHeight = '36px'
     mirror.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
     mirror.style.letterSpacing = '0.01em'
     mirror.style.padding = '0 14px'
     mirror.style.boxSizing = 'border-box'
-    mirror.style.textAlign = 'justify'
-    mirror.style.textJustify = 'inter-word'
     document.body.appendChild(mirror)
   }
 
   mirror.style.width = `${effectiveWidth}px`
   mirror.style.fontSize = `${fontSize.value}px`
-  mirror.style.textAlign = 'justify'
-  mirror.style.textJustify = 'inter-word'
   const textToMeasure = essayText.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd()
   mirror.textContent = textToMeasure + (essayText.value.endsWith('\n') ? '\n ' : '')
 
@@ -196,6 +193,60 @@ const linesCount = computed(() => {
   }
   return essayMetrics.value.lines
 })
+
+const editorTotalLines = computed(() => Math.max(30, linesCount.value))
+
+// Detecção inteligente de linhas em branco vazias entre parágrafos
+const blankLinesCount = computed(() => {
+  if (!essayText.value) return 0
+  const lines = essayText.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  let count = 0
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].trim() === '' && i < lines.length - 1) {
+      count++
+    }
+  }
+  return count
+})
+
+const formatFeedbackToast = ref('')
+let toastTimeout = null
+
+// Formatação Padrão Oficial ENEM:
+// 1. Elimina linhas em branco vazias entre parágrafos (economizando linhas contra o limite de 30)
+// 2. Garante que cada parágrafo comece com recuo de 4 espaços (padrão oficial ENEM)
+// 3. Remove espaçamentos redundantes
+function formatEnemStandard() {
+  if (!essayText.value || !essayText.value.trim()) return
+
+  const normalized = essayText.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+  const blocks = normalized
+    .split(/\n+/)
+    .map(p => p.trim())
+    .filter(p => p.length > 0)
+
+  if (blocks.length === 0) return
+
+  const formatted = blocks.map(p => {
+    const cleanText = p.replace(/^[\s\t]+/, '')
+    return '    ' + cleanText
+  }).join('\n')
+
+  essayText.value = formatted
+  formatFeedbackToast.value = `Redação formatada no Padrão Oficial do ENEM! ${blocks.length} parágrafos alinhados com recuo de 4 espaços e linhas em branco eliminadas.`
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => {
+    formatFeedbackToast.value = ''
+  }, 4500)
+
+  nextTick(() => {
+    updateVisualLines()
+    const textarea = typeof document !== 'undefined' ? document.querySelector('textarea.enem-ruled-textarea') : null
+    if (textarea) {
+      textarea.scrollTop = 0
+    }
+  })
+}
 
 const lineStatus = computed(() => {
   const lines = linesCount.value
@@ -235,7 +286,7 @@ const lineStatus = computed(() => {
   }
 })
 
-// Suporte a recuo de parágrafo oficial ENEM (Tab e tecla Enter)
+// Suporte a recuo de parágrafo oficial ENEM (Tab e tecla Enter inteligente)
 function handleTextareaKeydown(e) {
   if (e.key === 'Tab') {
     e.preventDefault()
@@ -246,7 +297,79 @@ function handleTextareaKeydown(e) {
     essayText.value = essayText.value.substring(0, start) + indent + essayText.value.substring(end)
     nextTick(() => {
       textarea.selectionStart = textarea.selectionEnd = start + indent.length
+      updateVisualLines()
     })
+    return
+  }
+
+  if (e.key === 'Enter') {
+    const textarea = e.target
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const before = essayText.value.substring(0, start)
+    const after = essayText.value.substring(end)
+    const lastNewline = before.lastIndexOf('\n')
+    const currentLine = lastNewline === -1 ? before : before.substring(lastNewline + 1)
+
+    // Se o usuário pressionar Enter em uma linha que já está vazia ou só com espaços/recuo,
+    // não cria outra linha vazia consecutiva (para não inflar a contagem de linhas do ENEM)
+    if (currentLine.trim() === '' && before.endsWith('\n')) {
+      e.preventDefault()
+      return
+    }
+
+    // Ao teclar Enter no fim de um parágrafo, avança para a próxima linha já com o recuo oficial ENEM (4 espaços)
+    e.preventDefault()
+    const indent = '    '
+    const insertion = '\n' + indent
+    essayText.value = before + insertion + after
+    nextTick(() => {
+      textarea.selectionStart = textarea.selectionEnd = start + insertion.length
+      updateVisualLines()
+    })
+  }
+}
+
+// Ao colar texto no editor, converte inteligentemente múltiplas quebras de linha em parágrafos oficiais com recuo
+function handlePaste(e) {
+  const clipboardData = e.clipboardData || (typeof window !== 'undefined' ? window.clipboardData : null)
+  if (!clipboardData) return
+  const pastedText = clipboardData.getData('text')
+  if (!pastedText) return
+
+  // Se o texto colado tiver múltiplas quebras de linha entre parágrafos (\n\n+)
+  if (/\n\s*\n/.test(pastedText)) {
+    e.preventDefault()
+    const normalized = pastedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const blocks = normalized.split(/\n+/).map(p => p.trim()).filter(Boolean)
+    const formatted = blocks.map(p => '    ' + p.replace(/^[\s\t]+/, '')).join('\n')
+
+    const textarea = e.target
+    const start = textarea.selectionStart ?? 0
+    const end = textarea.selectionEnd ?? 0
+    const before = essayText.value.substring(0, start)
+    const after = essayText.value.substring(end)
+
+    essayText.value = before + formatted + after
+    formatFeedbackToast.value = 'Texto colado adaptado ao padrão oficial ENEM (linhas em branco eliminadas e recuo aplicado).'
+    if (toastTimeout) clearTimeout(toastTimeout)
+    toastTimeout = setTimeout(() => {
+      formatFeedbackToast.value = ''
+    }, 4500)
+
+    nextTick(() => {
+      if (textarea) {
+        textarea.selectionStart = textarea.selectionEnd = start + formatted.length
+      }
+      updateVisualLines()
+    })
+  }
+}
+
+// Previne qualquer rolagem interna indesejada no textarea que pudesse cortar a primeira linha
+function handleTextareaScroll(e) {
+  if (e.target && e.target.scrollTop !== 0) {
+    e.target.scrollTop = 0
   }
 }
 
@@ -264,6 +387,7 @@ function insertParagraphIndent() {
     nextTick(() => {
       textarea.focus()
       textarea.selectionStart = textarea.selectionEnd = start + insertion.length
+      updateVisualLines()
     })
   } else {
     if (!essayText.value) {
@@ -273,6 +397,9 @@ function insertParagraphIndent() {
     } else {
       essayText.value += '\n' + indent
     }
+    nextTick(() => {
+      updateVisualLines()
+    })
   }
 }
 
@@ -1438,6 +1565,17 @@ onUnmounted(() => {
                 <span>+ Novo Parágrafo</span>
               </button>
 
+              <!-- Formatar Padrão ENEM (Remove linhas vazias e indenta parágrafos) -->
+              <button
+                type="button"
+                @click="formatEnemStandard"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-indigo-500/10 hover:from-amber-500/20 hover:via-purple-500/20 hover:to-indigo-500/20 text-purple-700 dark:text-purple-300 border border-purple-200/80 dark:border-purple-800/80 transition text-xs font-black cursor-pointer shadow-2xs"
+                title="Remover linhas em branco e aplicar recuo de 4 espaços em todos os parágrafos (Padrão Oficial ENEM)"
+              >
+                <span class="material-symbols-rounded text-sm text-amber-500">auto_fix_high</span>
+                <span>Formatar Padrão ENEM</span>
+              </button>
+
               <!-- Alternador de Modo de Folha para Dispositivos Móveis -->
               <button
                 type="button"
@@ -1529,10 +1667,76 @@ onUnmounted(() => {
             </button>
           </div>
 
+          <!-- TOAST DE FEEDBACK DE FORMATAÇÃO -->
+          <transition
+            enter-active-class="transition duration-300 ease-out"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-200 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-2"
+          >
+            <div
+              v-if="formatFeedbackToast"
+              class="rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 p-3 text-white text-xs font-bold shadow-lg flex items-center justify-between gap-3"
+            >
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-rounded text-base">check_circle</span>
+                <span>{{ formatFeedbackToast }}</span>
+              </div>
+              <button
+                type="button"
+                @click="formatFeedbackToast = ''"
+                class="text-white/80 hover:text-white cursor-pointer"
+              >
+                <span class="material-symbols-rounded text-sm">close</span>
+              </button>
+            </div>
+          </transition>
+
+          <!-- BANNER INTELIGENTE: LINHAS EM BRANCO DETECTADAS -->
+          <div
+            v-if="blankLinesCount > 0"
+            class="rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900/80 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-2xs"
+          >
+            <div class="flex items-start sm:items-center gap-2.5">
+              <span class="material-symbols-rounded text-xl text-amber-600 shrink-0">info</span>
+              <div>
+                <p class="font-bold">
+                  Detectamos {{ blankLinesCount }} linha(s) em branco vazias entre parágrafos!
+                </p>
+                <p class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                  Na folha oficial do ENEM você não deve pular linhas. Cada linha vazia consome seu limite de 30 linhas.
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="formatEnemStandard"
+              class="shrink-0 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-sm">auto_fix_high</span>
+              <span>Remover Linhas Vazias e Recuperar {{ blankLinesCount }} Linha(s)</span>
+            </button>
+          </div>
+
           <!-- ALERTAS SOBRE AS LINHAS DO ENEM (Ocultos no Mobile para não poluir a tela) -->
-          <div v-if="linesCount > 30" class="hidden sm:flex rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900/80 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300 items-center gap-2.5">
-            <span class="material-symbols-rounded text-lg shrink-0">error</span>
-            <span>Atenção: sua redação possui <strong>{{ linesCount }} linhas</strong>. A folha oficial do ENEM possui exatamente <strong>30 linhas</strong>! Qualquer texto escrito a partir da linha 31 será desconsiderado pela banca avaliadora.</span>
+          <div v-if="linesCount > 30" class="hidden sm:flex rounded-2xl bg-rose-50 dark:bg-rose-950/60 border border-rose-300 dark:border-rose-900/80 p-3.5 text-xs font-bold text-rose-700 dark:text-rose-300 items-center justify-between gap-2.5 shadow-2xs">
+            <div class="flex items-center gap-2.5">
+              <span class="material-symbols-rounded text-lg shrink-0">error</span>
+              <span>
+                Atenção: sua redação possui <strong>{{ linesCount }} linhas</strong> (ultrapassou o limite em <strong>{{ linesCount - 30 }} linha(s)</strong>). Qualquer texto escrito a partir da linha 31 será desconsiderado pela banca avaliadora do ENEM.
+              </span>
+            </div>
+            <button
+              v-if="blankLinesCount > 0"
+              type="button"
+              @click="formatEnemStandard"
+              class="shrink-0 px-3 py-1.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs transition flex items-center gap-1 cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-sm">auto_fix_high</span>
+              <span>Ajustar Parágrafos</span>
+            </button>
           </div>
 
           <div v-else-if="linesCount > 0 && linesCount < 8" class="hidden sm:flex rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900/80 p-3.5 text-xs font-bold text-amber-800 dark:text-amber-300 items-center gap-2.5">
@@ -1580,18 +1784,19 @@ onUnmounted(() => {
                 />
               </div>
 
-              <!-- CORPO DA FOLHA COM TEXTAREA PAUTADO (No mobile: sem a coluna lateral de números para liberar espaço total da tela) -->
+              <!-- CORPO DA FOLHA COM TEXTAREA PAUTADO (Gutter e Textarea sempre com altura sincronizada milimétrica) -->
               <div class="flex px-2 sm:px-4 py-3 select-text relative">
-                <!-- Coluna de Números das Linhas (1 a 30) - Oculta no Mobile, visível no Desktop -->
+                <!-- Coluna de Números das Linhas (1 a 30+) - Oculta no Mobile, visível no Desktop -->
                 <div class="hidden sm:flex w-10 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-xs">
                   <div
-                    v-for="lineNum in Math.max(30, linesCount)"
+                    v-for="lineNum in editorTotalLines"
                     :key="lineNum"
                     class="h-[36px] flex items-center justify-end font-bold transition-colors select-none"
                     :class="{
                       'text-purple-600 dark:text-purple-400 font-black bg-purple-100/60 dark:bg-purple-950/40 rounded-l': lineNum <= linesCount && lineNum <= 30,
                       'text-slate-300 dark:text-zinc-700 font-normal': lineNum > linesCount && lineNum <= 30,
-                      'text-rose-600 dark:text-rose-400 font-black bg-rose-100/70 dark:bg-rose-950/40 rounded-l': lineNum > 30
+                      'text-rose-600 dark:text-rose-400 font-black bg-rose-100/90 dark:bg-rose-950/60 rounded-l border-l-2 border-rose-500': lineNum > 30,
+                      'border-b-2 border-rose-600': lineNum === 30 && linesCount > 30
                     }"
                     :title="lineNum <= 30 ? `Linha ${lineNum} do ENEM` : `Linha ${lineNum} (Excede o limite do ENEM)`"
                   >
@@ -1599,29 +1804,67 @@ onUnmounted(() => {
                   </div>
                 </div>
 
-                <!-- Textarea Assentado na Malha Pautada de 36px -->
+                <!-- Textarea Assentado na Malha Pautada de 36px (Sem rolagem interna, expansão suave sincronizada) -->
                 <div class="flex-1 relative">
+                  <!-- Sombra de aviso para Linhas 31+ que ultrapassam o limite oficial -->
+                  <div
+                    v-if="linesCount > 30"
+                    class="absolute inset-x-0 bottom-0 z-0 pointer-events-none bg-rose-500/5 dark:bg-rose-950/20"
+                    :style="{ top: `${30 * 36}px` }"
+                  ></div>
+
                   <textarea
                     v-model="essayText"
                     rows="30"
                     placeholder="Escreva sua redação aqui... Pressione Tab ou use '+ Novo Parágrafo' para iniciar o recuo."
-                    class="enem-ruled-textarea w-full text-slate-800 dark:text-zinc-100 select-text outline-none resize-none"
-                    :style="{ fontSize: `${fontSize}px` }"
+                    class="enem-ruled-textarea w-full text-slate-800 dark:text-zinc-100 select-text outline-none resize-none relative z-10"
+                    :style="{
+                      height: `${editorTotalLines * 36}px`,
+                      minHeight: '1080px',
+                      fontSize: `${fontSize}px`
+                    }"
                     @keydown="handleTextareaKeydown"
+                    @paste="handlePaste"
+                    @scroll="handleTextareaScroll"
                   ></textarea>
+
+                  <!-- Faixa Oficial de Corte exatamente após a Linha 30 -->
+                  <div
+                    v-if="linesCount > 30"
+                    class="absolute inset-x-0 z-20 pointer-events-none flex items-center justify-between px-3 py-1 bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 text-white text-[11px] font-black uppercase tracking-wider shadow-md rounded-md -translate-y-1/2"
+                    :style="{ top: `${30 * 36}px` }"
+                  >
+                    <div class="flex items-center gap-1.5">
+                      <span class="material-symbols-rounded text-sm">block</span>
+                      <span>Limite da Linha 30 Ultrapassado &bull; Linhas 31 a {{ linesCount }} desconsideradas</span>
+                    </div>
+                    <span class="hidden sm:inline-block font-mono text-[9px] bg-black/30 px-2 py-0.5 rounded">
+                      BANCA OFICIAL ENEM
+                    </span>
+                  </div>
                 </div>
 
                 <!-- Margem Direita ENEM (Guia visual sutil) -->
                 <div class="hidden sm:block w-2 shrink-0 border-l border-red-300/40 dark:border-red-900/40"></div>
               </div>
 
-              <!-- Demarcação do Limite da Linha 30 (Apenas no Desktop) -->
-              <div class="hidden sm:flex border-t-2 border-dashed border-red-400/70 dark:border-red-600/70 mx-4 my-2 px-3 py-1.5 bg-red-50/70 dark:bg-red-950/40 text-[11px] font-bold text-red-600 dark:text-red-400 rounded-xl items-center justify-between">
+              <!-- Rodapé da Folha: Demarcação do Limite Oficial de 30 Linhas -->
+              <div
+                class="hidden sm:flex mx-4 my-2 px-3 py-2 text-[11px] font-bold rounded-xl items-center justify-between border transition-colors"
+                :class="linesCount > 30 ? 'bg-rose-50 dark:bg-rose-950/60 text-rose-700 dark:text-rose-300 border-rose-300 dark:border-rose-900/80' : 'bg-slate-100/70 dark:bg-zinc-800/60 text-slate-600 dark:text-zinc-400 border-slate-200/80 dark:border-zinc-700/80'"
+              >
                 <span class="flex items-center gap-1.5">
-                  <span class="material-symbols-rounded text-sm">flag</span>
-                  <span>Limite Oficial da Folha de Redação do ENEM (30 Linhas)</span>
+                  <span class="material-symbols-rounded text-sm">{{ linesCount > 30 ? 'error' : 'flag' }}</span>
+                  <span v-if="linesCount > 30">
+                    A folha oficial possui 30 linhas. Use o botão <strong>"Formatar Padrão ENEM"</strong> acima para eliminar linhas em branco ou resuma seu texto.
+                  </span>
+                  <span v-else>
+                    Limite Oficial da Folha de Redação do ENEM (30 Linhas)
+                  </span>
                 </span>
-                <span class="text-[10px] uppercase font-mono">INEP / Banca Oficial</span>
+                <span class="text-[10px] uppercase font-mono font-bold" :class="linesCount > 30 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-zinc-400'">
+                  {{ linesCount }} / 30 Linhas &bull; INEP / Banca Oficial
+                </span>
               </div>
             </div>
           </div>
@@ -2442,6 +2685,8 @@ textarea.enem-ruled-textarea {
   outline: none !important;
   box-sizing: border-box !important;
   min-height: 1080px !important; /* 30 linhas do ENEM x 36px */
+  overflow-y: hidden !important;
+  overflow-x: hidden !important;
   background-color: transparent !important;
   background-image: repeating-linear-gradient(
     to bottom,
@@ -2456,8 +2701,8 @@ textarea.enem-ruled-textarea {
   resize: none !important;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: 0.01em;
-  text-align: justify !important;
-  text-justify: inter-word !important;
+  word-break: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 textarea.enem-ruled-textarea::placeholder {
