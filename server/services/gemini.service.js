@@ -13,12 +13,8 @@ import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.servi
  */
 
 export const GEMINI_MODELS = [
-  'gemini-2.0-flash',
-  'gemini-1.5-flash',
-  'gemini-1.5-flash-002',
-  'gemini-1.5-flash-001',
-  'gemini-1.5-flash-latest',
-  'gemini-2.0-flash-001'
+  'gemini-3.8-flash',
+  'gemini-3.8-flash-latest'
 ]
 
 const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
@@ -493,9 +489,9 @@ async function callAiProvider(keyObj, userContent, options = {}) {
   const rawKey = (keyObj.key || '').trim()
 
   if (provider === 'GEMINI') {
-    let preferredModel = keyObj.model
-    if (!preferredModel || preferredModel.includes('3.8') || preferredModel.includes('2.5') || preferredModel.includes('3.5') || preferredModel.includes('pro') || preferredModel.includes('lite') || preferredModel.includes('8b')) {
-      preferredModel = 'gemini-2.0-flash'
+    let preferredModel = (keyObj.model || '').trim()
+    if (!preferredModel || !preferredModel.includes('3.8')) {
+      preferredModel = 'gemini-3.8-flash'
     }
     const modelsToTry = [preferredModel, ...GEMINI_MODELS].filter((m, i, a) => m && a.indexOf(m) === i)
 

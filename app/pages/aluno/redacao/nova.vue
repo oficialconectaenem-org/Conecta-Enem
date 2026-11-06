@@ -210,13 +210,34 @@ const blankLinesCount = computed(() => {
   return count
 })
 
+// Detecta se existem espaços no início das linhas/parágrafos
+const hasLeadingSpaces = computed(() => {
+  if (!essayText.value) return false
+  return /^[ \t]+/m.test(essayText.value)
+})
+
+function removeLeadingSpaces() {
+  if (!essayText.value) return
+  essayText.value = essayText.value
+    .split('\n')
+    .map(l => l.replace(/^[ \t]+/, ''))
+    .join('\n')
+  formatFeedbackToast.value = 'Espaços no início dos parágrafos removidos!'
+  if (toastTimeout) clearTimeout(toastTimeout)
+  toastTimeout = setTimeout(() => {
+    formatFeedbackToast.value = ''
+  }, 4500)
+  nextTick(() => {
+    updateVisualLines()
+  })
+}
+
 const formatFeedbackToast = ref('')
 let toastTimeout = null
 
 // Formatação Padrão Oficial ENEM:
 // 1. Elimina linhas em branco vazias entre parágrafos (economizando linhas contra o limite de 30)
-// 2. Garante que cada parágrafo comece com recuo de 4 espaços (padrão oficial ENEM)
-// 3. Remove espaçamentos redundantes
+// 2. Remove todos os espaços desnecessários no início das linhas
 function formatEnemStandard() {
   if (!essayText.value || !essayText.value.trim()) return
 
@@ -228,13 +249,11 @@ function formatEnemStandard() {
 
   if (blocks.length === 0) return
 
-  const formatted = blocks.map(p => {
-    const cleanText = p.replace(/^[\s\t]+/, '')
-    return '    ' + cleanText
-  }).join('\n')
+  // Remove qualquer espaço no início ou fim dos parágrafos
+  const formatted = blocks.map(p => p.replace(/^[\s\t]+/, '').trim()).join('\n')
 
   essayText.value = formatted
-  formatFeedbackToast.value = `Redação formatada no Padrão Oficial do ENEM! ${blocks.length} parágrafos alinhados com recuo de 4 espaços e linhas em branco eliminadas.`
+  formatFeedbackToast.value = 'Texto alinhado à margem: linhas vazias e espaços no início foram removidos!'
   if (toastTimeout) clearTimeout(toastTimeout)
   toastTimeout = setTimeout(() => {
     formatFeedbackToast.value = ''
@@ -291,15 +310,6 @@ const lineStatus = computed(() => {
 function handleTextareaKeydown(e) {
   if (e.key === 'Tab') {
     e.preventDefault()
-    const textarea = e.target
-    const start = textarea.selectionStart
-    const end = textarea.selectionEnd
-    const indent = '    ' // 4 espaços para recuo de parágrafo oficial ENEM
-    essayText.value = essayText.value.substring(0, start) + indent + essayText.value.substring(end)
-    nextTick(() => {
-      textarea.selectionStart = textarea.selectionEnd = start + indent.length
-      updateVisualLines()
-    })
     return
   }
 
@@ -312,17 +322,15 @@ function handleTextareaKeydown(e) {
     const lastNewline = before.lastIndexOf('\n')
     const currentLine = lastNewline === -1 ? before : before.substring(lastNewline + 1)
 
-    // Se o usuário pressionar Enter em uma linha que já está vazia ou só com espaços/recuo,
-    // não cria outra linha vazia consecutiva (para não inflar a contagem de linhas do ENEM)
+    // Se o usuário pressionar Enter em uma linha que já está vazia, não cria outra linha vazia consecutiva
     if (currentLine.trim() === '' && before.endsWith('\n')) {
       e.preventDefault()
       return
     }
 
-    // Ao teclar Enter no fim de um parágrafo, avança para a próxima linha já com o recuo oficial ENEM (4 espaços)
+    // Enter cria nova linha sem inserir espaços
     e.preventDefault()
-    const indent = '    '
-    const insertion = '\n' + indent
+    const insertion = '\n'
     essayText.value = before + insertion + after
     nextTick(() => {
       textarea.selectionStart = textarea.selectionEnd = start + insertion.length
@@ -331,19 +339,20 @@ function handleTextareaKeydown(e) {
   }
 }
 
-// Ao colar texto no editor, converte inteligentemente múltiplas quebras de linha em parágrafos oficiais com recuo
+// Ao colar texto no editor, remove linhas em branco e remove espaços redundantes no início
 function handlePaste(e) {
   const clipboardData = e.clipboardData || (typeof window !== 'undefined' ? window.clipboardData : null)
   if (!clipboardData) return
   const pastedText = clipboardData.getData('text')
   if (!pastedText) return
 
-  // Se o texto colado tiver múltiplas quebras de linha entre parágrafos (\n\n+)
-  if (/\n\s*\n/.test(pastedText)) {
+  // Se o texto colado tiver múltiplas quebras de linha entre parágrafos (\n\n+) ou espaços no início
+  if (/\n\s*\n/.test(pastedText) || /^[ \t]+/m.test(pastedText)) {
     e.preventDefault()
     const normalized = pastedText.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     const blocks = normalized.split(/\n+/).map(p => p.trim()).filter(Boolean)
-    const formatted = blocks.map(p => '    ' + p.replace(/^[\s\t]+/, '')).join('\n')
+    // Sem espaços forçados no início
+    const formatted = blocks.map(p => p.replace(/^[\s\t]+/, '')).join('\n')
 
     const textarea = e.target
     const start = textarea.selectionStart ?? 0
@@ -352,7 +361,7 @@ function handlePaste(e) {
     const after = essayText.value.substring(end)
 
     essayText.value = before + formatted + after
-    formatFeedbackToast.value = 'Texto colado adaptado ao padrão oficial ENEM (linhas em branco eliminadas e recuo aplicado).'
+    formatFeedbackToast.value = 'Texto colado sem linhas vazias e alinhado à margem.'
     if (toastTimeout) clearTimeout(toastTimeout)
     toastTimeout = setTimeout(() => {
       formatFeedbackToast.value = ''
@@ -375,28 +384,24 @@ function handleTextareaScroll(e) {
 }
 
 function insertParagraphIndent() {
-  const indent = '    '
   const textarea = typeof document !== 'undefined' ? document.querySelector('textarea.enem-ruled-textarea') : null
   if (textarea) {
     const start = textarea.selectionStart ?? essayText.value.length
     const end = textarea.selectionEnd ?? essayText.value.length
     const before = essayText.value.substring(0, start)
     const after = essayText.value.substring(end)
-    const prefix = (!before || before.endsWith('\n')) ? '' : '\n'
-    const insertion = prefix + indent
-    essayText.value = before + insertion + after
-    nextTick(() => {
-      textarea.focus()
-      textarea.selectionStart = textarea.selectionEnd = start + insertion.length
-      updateVisualLines()
-    })
+    const insertion = (!before || before.endsWith('\n')) ? '' : '\n'
+    if (insertion) {
+      essayText.value = before + insertion + after
+      nextTick(() => {
+        textarea.focus()
+        textarea.selectionStart = textarea.selectionEnd = start + insertion.length
+        updateVisualLines()
+      })
+    }
   } else {
-    if (!essayText.value) {
-      essayText.value = indent
-    } else if (essayText.value.endsWith('\n')) {
-      essayText.value += indent
-    } else {
-      essayText.value += '\n' + indent
+    if (essayText.value && !essayText.value.endsWith('\n')) {
+      essayText.value += '\n'
     }
     nextTick(() => {
       updateVisualLines()
@@ -1915,6 +1920,32 @@ onUnmounted(() => {
             >
               <span class="material-symbols-rounded text-sm">auto_fix_high</span>
               <span>Remover Linhas Vazias e Recuperar {{ blankLinesCount }} Linha(s)</span>
+            </button>
+          </div>
+
+          <!-- BANNER INTELIGENTE: ESPAÇOS NO INÍCIO DETECTADOS -->
+          <div
+            v-if="hasLeadingSpaces"
+            class="rounded-2xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-900/80 p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 dark:text-amber-200 shadow-2xs"
+          >
+            <div class="flex items-start sm:items-center gap-2.5">
+              <span class="material-symbols-rounded text-xl text-amber-600 shrink-0">space_bar</span>
+              <div>
+                <p class="font-bold">
+                  Detectamos espaços no início de alguns parágrafos.
+                </p>
+                <p class="text-[11px] text-amber-700 dark:text-amber-300 mt-0.5">
+                  Deseja remover esses espaços e alinhar o texto perfeitamente à margem?
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              @click="removeLeadingSpaces"
+              class="shrink-0 px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-xs shadow-xs transition flex items-center justify-center gap-1.5 cursor-pointer"
+            >
+              <span class="material-symbols-rounded text-sm">backspace</span>
+              <span>Remover Espaços no Início</span>
             </button>
           </div>
 

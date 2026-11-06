@@ -26,8 +26,7 @@ export function calculateEnemLines(text, charsPerLine = 116) {
 
   for (const paragraph of paragraphs) {
     const words = paragraph.split(/\s+/)
-    // Todo parágrafo do ENEM inicia com recuo de parágrafo (~4 caracteres)
-    let currentLineLen = 4
+    let currentLineLen = 0
     let paragraphLines = 1
 
     for (const word of words) {
