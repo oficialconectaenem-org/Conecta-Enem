@@ -1257,18 +1257,18 @@ onUnmounted(() => {
           </div>
 
           <!-- Opção 2: Tema do Banco de Dados -->
-          <div class="rounded-2xl border-2 border-purple-200 dark:border-purple-800/80 bg-[var(--student-card)] p-5 space-y-4 shadow-xs">
+          <div class="rounded-2xl border-2 border-purple-200 dark:border-purple-800/80 bg-[var(--student-card)] p-4 sm:p-5 space-y-4 shadow-xs overflow-hidden min-w-0">
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-3.5">
+              <div class="flex items-center gap-3.5 min-w-0">
                 <div class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-purple-100 text-purple-700 dark:bg-purple-950 dark:text-purple-300">
                   <span class="material-symbols-rounded text-2xl">database</span>
                 </div>
-                <div>
-                  <div class="flex items-center gap-2">
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
                     <h3 class="text-base font-black text-[var(--student-text)]">
                       Tema do Banco de Dados
                     </h3>
-                    <span class="rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-[10px] font-black uppercase">
+                    <span class="rounded-full bg-purple-100 dark:bg-purple-950 text-purple-700 dark:text-purple-300 px-2.5 py-0.5 text-[10px] font-black uppercase shrink-0">
                       {{ suggestedThemes.length }} no banco
                     </span>
                   </div>
@@ -1281,7 +1281,7 @@ onUnmounted(() => {
               <button
                 type="button"
                 @click="selectCatalogThemeFlow"
-                class="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer"
+                class="hidden sm:inline-flex items-center gap-1 text-xs font-bold text-purple-700 dark:text-purple-300 hover:underline cursor-pointer shrink-0"
               >
                 <span>Ver todas</span>
                 <span class="material-symbols-rounded text-base">arrow_forward</span>
@@ -1293,15 +1293,18 @@ onUnmounted(() => {
               <span class="text-[11px] font-bold text-[var(--student-text-secondary)] uppercase tracking-wider block">
                 Selecione uma proposta do banco para praticar:
               </span>
-              <div class="flex flex-wrap gap-2">
+              <div class="flex flex-col gap-2 w-full min-w-0">
                 <button
                   type="button"
                   @click="generateRandomAiTheme()"
                   :disabled="isGeneratingAiTheme"
-                  class="rounded-xl border border-dashed border-purple-400 bg-purple-100/60 dark:bg-purple-950/40 px-3.5 py-2 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center gap-2"
+                  class="w-full max-w-full rounded-xl border border-dashed border-purple-400 bg-purple-100/60 dark:bg-purple-950/40 px-3.5 py-2.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center justify-between gap-2.5 min-w-0"
                 >
-                  <span class="material-symbols-rounded text-sm">auto_awesome</span>
-                  <span>✨ Sortear com IA</span>
+                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span class="material-symbols-rounded text-sm shrink-0">auto_awesome</span>
+                    <span class="truncate min-w-0 flex-1">✨ Sortear com IA</span>
+                  </div>
+                  <span class="material-symbols-rounded text-sm opacity-50 shrink-0">casino</span>
                 </button>
 
                 <button
@@ -1309,10 +1312,14 @@ onUnmounted(() => {
                   :key="theme.id"
                   type="button"
                   @click="openThemeDetail(theme)"
-                  class="rounded-xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/50 dark:bg-zinc-800/80 px-3.5 py-2 text-xs font-bold text-[var(--student-text)] hover:border-purple-600 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 dark:hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center gap-2"
+                  :title="theme.title"
+                  class="w-full max-w-full rounded-xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/50 dark:bg-zinc-800/80 px-3.5 py-2.5 text-xs font-bold text-[var(--student-text)] hover:border-purple-600 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 dark:hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center justify-between gap-2.5 min-w-0"
                 >
-                  <span class="material-symbols-rounded text-sm text-purple-600 dark:text-purple-400">article</span>
-                  <span class="truncate max-w-xs">{{ theme.title }}</span>
+                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span class="material-symbols-rounded text-sm text-purple-600 dark:text-purple-400 shrink-0">article</span>
+                    <span class="truncate min-w-0 flex-1">{{ theme.title }}</span>
+                  </div>
+                  <span class="material-symbols-rounded text-sm opacity-40 shrink-0">arrow_forward</span>
                 </button>
               </div>
             </div>
