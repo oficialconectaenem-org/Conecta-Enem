@@ -286,15 +286,29 @@ const copiedAiReport = ref(false)
 const saveAiToHistory = ref(true)
 const savedAiEssayId = ref(null)
 
-const aiSteps = [
-  'Conectando com o cérebro de Inteligência Artificial...',
-  'Analisando a modalidade escrita e desvios gramaticais (C1)...',
-  'Avaliando adequação temática e repertório sociocultural (C2)...',
-  'Examinando projeto de texto, coerência e argumentação (C3)...',
-  'Verificando operadores argumentativos e coesão textual (C4)...',
-  'Auditando os 5 elementos da proposta de intervenção social (C5)...',
-  'Calculando nota final de 0 a 1000 e gerando diagnóstico...'
+const detailedAiSteps = [
+  { id: 'start', title: 'Calibrando Matriz INEP 2026', icon: 'auto_awesome', desc: 'Carregando critérios oficiais do manual do corretor' },
+  { id: 'c1', title: 'C1: Sintaxe & Gramática', icon: 'spellcheck', desc: 'Auditando truncamentos, justaposições e desvios formais' },
+  { id: 'c2', title: 'C2: Tema & Repertório Sociocultural', icon: 'menu_book', desc: 'Verificando se o repertório é legitimado, pertinente e produtivo' },
+  { id: 'c3', title: 'C3: Projeto de Texto & Autoria', icon: 'architecture', desc: 'Investigando lacunas argumentativas e coerência da tese' },
+  { id: 'c4', title: 'C4: Conectivos & Mecanismos Coesivos', icon: 'link', desc: 'Auditando operadores interparágrafos obrigatórios e repetições' },
+  { id: 'c5', title: 'C5: 5 Elementos da Proposta de Intervenção', icon: 'fact_check', desc: 'Contabilizando Agente, Ação, Meio, Efeito e Detalhamento (40 pts cada)' },
+  { id: 'final', title: 'Gerando Reescrita Pedagógica Nota 1000', icon: 'star', desc: 'Reescrevendo parágrafo fraco e consolidando nota final' }
 ]
+
+const aiSteps = detailedAiSteps.map(s => s.title)
+
+const enemTips = [
+  { title: 'Regra Oficial da C1', text: 'No ENEM, cometer 3 desvios já derruba a nota de 200 para 160 na C1. Revise sempre vírgulas, crases e concordância!' },
+  { title: 'Repertório Nota 1000 na C2', text: 'Para o repertório valer 200 pontos, ele precisa ser Legitimado por área do saber, Pertinente ao tema E Produtivo na defesa da sua tese.' },
+  { title: 'Cuidado com Lacunas na C3', text: 'Nunca faça uma afirmação sem explicar o porquê dela acontecer e qual é a sua consequência prática. Isso evita perda de pontos por lacuna.' },
+  { title: 'Operadores Interparágrafos na C4', text: 'É obrigatório iniciar pelo menos 2 parágrafos com conectivos interparágrafos expressivos (como "Ademais" no D2 e "Portanto" na Conclusão).' },
+  { title: 'Os 5 Elementos da C5 (200 pts)', text: 'A nota da C5 é puramente matemática: Agente (40), Ação (40), Meio/Modo (40), Efeito (40) e Detalhamento (40) somam os 200 pontos!' }
+]
+
+const currentTipIndex = ref(0)
+let tipInterval = null
+const activeHighlightFilter = ref('ALL') // 'ALL', 'C1', 'C2', 'C3', 'C4', 'C5'
 let aiStepInterval = null
 
 async function correctWithAi() {
@@ -319,13 +333,18 @@ async function correctWithAi() {
 
   isAnalyzingAI.value = true
   aiAnalysisStep.value = 0
+  currentTipIndex.value = 0
   editorViewMode.value = 'AI_FEEDBACK'
 
   aiStepInterval = setInterval(() => {
-    if (aiAnalysisStep.value < aiSteps.length - 1) {
+    if (aiAnalysisStep.value < detailedAiSteps.length - 1) {
       aiAnalysisStep.value++
     }
-  }, 1300)
+  }, 1400)
+
+  tipInterval = setInterval(() => {
+    currentTipIndex.value = (currentTipIndex.value + 1) % enemTips.length
+  }, 3500)
 
   try {
     const res = await $fetch('/api/ai/corrigir-redacao', {
@@ -349,6 +368,7 @@ async function correctWithAi() {
     aiErrorMessage.value = err.data?.statusMessage || err.message || 'Erro ao conectar com o serviço de IA.'
   } finally {
     if (aiStepInterval) clearInterval(aiStepInterval)
+    if (tipInterval) clearInterval(tipInterval)
     isAnalyzingAI.value = false
   }
 }
@@ -1735,30 +1755,136 @@ onUnmounted(() => {
 
         <!-- VISUALIZAÇÃO 2: RELATÓRIO DA INTELIGÊNCIA ARTIFICIAL DENTRO DE NOVA REDAÇÃO -->
         <div v-else class="space-y-6">
-          <!-- ESTADO DE CARREGAMENTO ANIMADO DA IA -->
+          <!-- ESTADO DE CARREGAMENTO ANIMADO DA IA (STUDIO DE CORREÇÃO ULTRA MODERNO) -->
           <div
             v-if="isAnalyzingAI"
-            class="rounded-3xl border border-purple-200 dark:border-purple-900/40 bg-purple-50/50 dark:bg-purple-950/20 p-8 sm:p-12 text-center"
+            class="rounded-3xl border border-purple-200 dark:border-purple-900/60 bg-gradient-to-b from-purple-50/80 via-white to-purple-50/40 dark:from-purple-950/40 dark:via-zinc-900 dark:to-zinc-950 p-6 sm:p-10 shadow-xl shadow-purple-900/5 relative overflow-hidden text-center"
           >
-            <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/30">
-              <span class="material-symbols-rounded text-3xl animate-bounce">
-                neurology
-              </span>
+            <!-- Background Glow Decorativo -->
+            <div class="pointer-events-none absolute -top-24 -left-24 h-64 w-64 rounded-full bg-purple-500/15 blur-3xl"></div>
+            <div class="pointer-events-none absolute -bottom-24 -right-24 h-64 w-64 rounded-full bg-indigo-500/15 blur-3xl"></div>
+
+            <!-- Cabeçalho do Carregamento -->
+            <div class="relative flex flex-col items-center">
+              <!-- Radar Icon Animado -->
+              <div class="relative flex h-20 w-20 items-center justify-center">
+                <div class="absolute inset-0 animate-ping rounded-full bg-purple-500/20 duration-1000"></div>
+                <div class="absolute inset-1 animate-spin rounded-full border-2 border-dashed border-purple-500/50"></div>
+                <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-purple-600 to-indigo-600 text-white shadow-lg shadow-purple-600/35">
+                  <span class="material-symbols-rounded text-3xl animate-pulse">
+                    psychology
+                  </span>
+                </div>
+              </div>
+
+              <div class="mt-4 flex items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-purple-100 dark:bg-purple-950/80 px-3 py-1 text-xs font-black uppercase tracking-wider text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800">
+                  <span class="h-2 w-2 rounded-full bg-purple-600 animate-ping"></span>
+                  Banca IA em Ação
+                </span>
+                <span class="text-xs font-black text-purple-600 dark:text-purple-400">
+                  {{ Math.round(((aiAnalysisStep + 1) / detailedAiSteps.length) * 100) }}%
+                </span>
+              </div>
+
+              <h3 class="mt-2 text-xl sm:text-2xl font-black text-[var(--student-text)] tracking-tight">
+                Auditando Redação nos Critérios Oficiais do ENEM
+              </h3>
+              <p class="mt-1 text-xs sm:text-sm text-[var(--student-text-secondary)] max-w-md font-medium">
+                {{ detailedAiSteps[aiAnalysisStep]?.desc || 'Avaliando estrutura textual e competências...' }}
+              </p>
+
+              <!-- Barra de Progresso com Brilho -->
+              <div class="mx-auto mt-5 h-2.5 w-full max-w-lg overflow-hidden rounded-full bg-purple-100 dark:bg-zinc-800 p-0.5 border border-purple-200 dark:border-purple-900/50">
+                <div
+                  class="h-full rounded-full bg-gradient-to-r from-purple-600 via-indigo-600 to-emerald-500 transition-all duration-700 ease-out shadow-xs"
+                  :style="{ width: `${((aiAnalysisStep + 1) / detailedAiSteps.length) * 100}%` }"
+                ></div>
+              </div>
             </div>
 
-            <h3 class="mt-5 text-xl font-black text-[var(--student-text)]">
-              Corretor IA Analisando sua Redação
-            </h3>
-            <p class="mt-1.5 text-sm font-bold text-purple-600 dark:text-purple-400">
-              {{ aiSteps[aiAnalysisStep] }}
-            </p>
-
-            <!-- Barra de Progresso -->
-            <div class="mx-auto mt-6 h-2 w-full max-w-md overflow-hidden rounded-full bg-purple-200 dark:bg-purple-900">
+            <!-- Stepper dos 7 Estágios de Avaliação -->
+            <div class="relative mt-8 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
               <div
-                class="h-full bg-gradient-to-r from-purple-600 to-indigo-600 transition-all duration-700 ease-out"
-                :style="{ width: `${((aiAnalysisStep + 1) / aiSteps.length) * 100}%` }"
-              ></div>
+                v-for="(step, idx) in detailedAiSteps"
+                :key="step.id"
+                class="flex items-center gap-3 rounded-2xl p-3 border text-left transition-all duration-300"
+                :class="
+                  idx < aiAnalysisStep
+                    ? 'border-emerald-200 dark:border-emerald-900/40 bg-emerald-50/50 dark:bg-emerald-950/20'
+                    : idx === aiAnalysisStep
+                      ? 'border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-950/40 ring-2 ring-purple-500/20 scale-102 shadow-sm'
+                      : 'border-slate-200/70 dark:border-zinc-800 bg-white/70 dark:bg-zinc-900/50 opacity-60'
+                "
+              >
+                <!-- Status Icon -->
+                <div
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-black"
+                  :class="
+                    idx < aiAnalysisStep
+                      ? 'bg-emerald-500 text-white'
+                      : idx === aiAnalysisStep
+                        ? 'bg-purple-600 text-white animate-pulse'
+                        : 'bg-slate-200 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'
+                  "
+                >
+                  <span v-if="idx < aiAnalysisStep" class="material-symbols-rounded text-base">check</span>
+                  <span v-else-if="idx === aiAnalysisStep" class="material-symbols-rounded text-base animate-spin">progress_activity</span>
+                  <span v-else class="text-xs">{{ idx + 1 }}</span>
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <p
+                    class="text-xs font-bold truncate"
+                    :class="idx === aiAnalysisStep ? 'text-purple-700 dark:text-purple-300 font-black' : 'text-[var(--student-text)]'"
+                  >
+                    {{ step.title }}
+                  </p>
+                  <p class="text-[10px] text-[var(--student-text-secondary)] truncate">
+                    {{ step.desc }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card de Dica de Ouro Oficial do ENEM (Rotativo a cada 3.5s) -->
+            <div class="relative mt-7 rounded-2xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/70 dark:bg-amber-950/30 p-4 text-left transition-all">
+              <div class="flex items-start gap-3">
+                <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-amber-500 text-white shadow-xs">
+                  <span class="material-symbols-rounded text-lg">lightbulb</span>
+                </span>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center justify-between gap-2">
+                    <span class="text-xs font-black uppercase text-amber-800 dark:text-amber-300 tracking-wide">
+                      💡 {{ enemTips[currentTipIndex].title }}
+                    </span>
+                    <span class="text-[10px] font-bold text-amber-700 dark:text-amber-400">
+                      Dica {{ currentTipIndex + 1 }} de {{ enemTips.length }}
+                    </span>
+                  </div>
+                  <p class="mt-1 text-xs sm:text-sm font-medium text-amber-900 dark:text-amber-200 leading-relaxed">
+                    {{ enemTips[currentTipIndex].text }}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rodapé informativo -->
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-4 text-[11px] font-semibold text-[var(--student-text-secondary)]">
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-rounded text-sm text-emerald-600">verified</span>
+                Matriz Oficial do INEP
+              </span>
+              <span>&bull;</span>
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-rounded text-sm text-purple-600">description</span>
+                {{ wordCount }} palavras analisadas
+              </span>
+              <span>&bull;</span>
+              <span class="flex items-center gap-1">
+                <span class="material-symbols-rounded text-sm text-indigo-600">tune</span>
+                Padrão de Correção 2026
+              </span>
             </div>
           </div>
 
@@ -1884,6 +2010,75 @@ onUnmounted(() => {
               </div>
             </div>
 
+            <!-- SEÇÃO: 🌟 REESCRITA NOTA 1000 PEDAGÓGICA DO PARÁGRAFO MAIS FRACO -->
+            <div
+              v-if="aiResult.weakestParagraph && aiResult.weakestParagraph.reescritaNota1000"
+              class="rounded-3xl border-2 border-amber-300 dark:border-amber-800 bg-gradient-to-b from-amber-50/70 via-white to-amber-50/30 dark:from-amber-950/40 dark:via-zinc-900 dark:to-zinc-950 p-6 sm:p-8 shadow-md shadow-amber-900/5 space-y-5"
+            >
+              <div class="flex flex-wrap items-center justify-between gap-3 border-b border-amber-200/60 dark:border-amber-900/50 pb-4">
+                <div class="flex items-center gap-2.5">
+                  <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-600 text-white shadow-md shadow-amber-500/20">
+                    <span class="material-symbols-rounded text-2xl">star</span>
+                  </span>
+                  <div>
+                    <span class="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                      Pedagogia Ativa &bull; Salto para a Nota 1000
+                    </span>
+                    <h3 class="text-base sm:text-lg font-black text-slate-900 dark:text-zinc-100">
+                      Como transformar seu {{ aiResult.weakestParagraph.titulo }} em Nota 1000
+                    </h3>
+                  </div>
+                </div>
+
+                <span class="rounded-xl bg-amber-100 dark:bg-amber-950 px-3 py-1 text-xs font-black text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800">
+                  Parágrafo mais fraco detectado
+                </span>
+              </div>
+
+              <!-- Diagnóstico do Parágrafo -->
+              <div class="rounded-2xl bg-amber-100/60 dark:bg-amber-950/60 p-3.5 border border-amber-200/70 dark:border-amber-900/50 text-xs sm:text-sm text-amber-950 dark:text-amber-200">
+                <strong>O que limitou sua nota neste parágrafo:</strong> {{ aiResult.weakestParagraph.motivoPerdaNota }}
+              </div>
+
+              <!-- Comparativo Lado a Lado -->
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <!-- Original -->
+                <div class="rounded-2xl border border-red-200 dark:border-red-900/40 bg-red-50/40 dark:bg-red-950/20 p-5 space-y-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-black uppercase text-red-700 dark:text-red-400 flex items-center gap-1">
+                      <span class="material-symbols-rounded text-base">close</span>
+                      Seu texto original
+                    </span>
+                  </div>
+                  <p class="font-serif text-xs sm:text-sm text-slate-800 dark:text-zinc-200 leading-relaxed italic">
+                    "{{ aiResult.weakestParagraph.textoOriginal || 'Trecho original do desenvolvimento' }}"
+                  </p>
+                </div>
+
+                <!-- Reescrita Nota 1000 -->
+                <div class="rounded-2xl border-2 border-emerald-300 dark:border-emerald-700 bg-emerald-50/50 dark:bg-emerald-950/30 p-5 space-y-2 shadow-xs">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs font-black uppercase text-emerald-700 dark:text-emerald-400 flex items-center gap-1">
+                      <span class="material-symbols-rounded text-base">check_circle</span>
+                      Versão reescrita Nota 1000
+                    </span>
+                    <span class="text-[10px] font-black uppercase bg-emerald-100 dark:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 px-2 py-0.5 rounded-md">
+                      Modelo INEP
+                    </span>
+                  </div>
+                  <p class="font-serif text-xs sm:text-sm text-emerald-950 dark:text-emerald-100 font-medium leading-relaxed">
+                    {{ aiResult.weakestParagraph.reescritaNota1000 }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Explicação Pedagógica -->
+              <div v-if="aiResult.weakestParagraph.explicacaoPedagogica" class="rounded-2xl bg-white dark:bg-zinc-900 p-4 border border-slate-200 dark:border-zinc-800 text-xs sm:text-sm text-slate-700 dark:text-zinc-300">
+                <span class="font-bold text-amber-700 dark:text-amber-400 block mb-1">💡 Lição Pedagógica para as próximas redações:</span>
+                {{ aiResult.weakestParagraph.explicacaoPedagogica }}
+              </div>
+            </div>
+
             <!-- DETALHAMENTO DAS 5 COMPETÊNCIAS -->
             <div class="space-y-4">
               <h3 class="text-lg font-black text-[var(--student-text)] flex items-center gap-2">
@@ -1931,26 +2126,138 @@ onUnmounted(() => {
                     {{ comp.feedback }}
                   </p>
 
-                  <!-- Checklist C5 -->
-                  <div
-                    v-if="key === 'c5' && comp.interventionElements"
-                    class="mt-4 rounded-xl bg-[var(--student-bg)] p-3.5 border border-[var(--student-border)]"
-                  >
-                    <span class="text-xs font-black uppercase text-[var(--student-text-secondary)] block mb-2">
-                      Checklist dos 5 Elementos da Proposta de Intervenção (C5):
+                  <!-- C1: Falhas Estruturais (Truncamento / Justaposição) -->
+                  <div v-if="key === 'c1' && comp.falhasSintaticas && comp.falhasSintaticas.length > 0" class="mt-3.5 rounded-xl bg-rose-50/70 dark:bg-rose-950/30 p-3 border border-rose-200 dark:border-rose-900/50">
+                    <span class="text-xs font-black uppercase text-rose-700 dark:text-rose-400 block mb-1.5 flex items-center gap-1">
+                      <span class="material-symbols-rounded text-sm">warning</span>
+                      Falha na Estrutura Sintática (Truncamento / Justaposição):
                     </span>
-                    <div class="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-                      <div
-                        v-for="(val, elemName) in comp.interventionElements"
-                        :key="elemName"
-                        class="flex items-center gap-1.5 font-bold"
-                        :class="val ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'"
+                    <div v-for="(fs, fidx) in comp.falhasSintaticas" :key="fidx" class="text-xs text-rose-900 dark:text-rose-200 mt-1">
+                      <p class="font-semibold italic">"{{ fs.trecho }}"</p>
+                      <p class="text-[11px] opacity-80">{{ fs.tipo }}: {{ fs.explicacao }}</p>
+                    </div>
+                  </div>
+
+                  <!-- C2: Abordagem Temática e Repertórios Socioculturais -->
+                  <div v-if="key === 'c2'" class="mt-3.5 space-y-2.5">
+                    <div v-if="comp.temaStatus" class="flex flex-wrap items-center gap-2 text-xs">
+                      <span class="font-bold text-[var(--student-text-secondary)]">Abordagem Temática:</span>
+                      <span
+                        class="rounded-lg px-2.5 py-0.5 font-black uppercase text-[10px]"
+                        :class="comp.temaStatus === 'COMPLETA' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-300'"
                       >
-                        <span class="material-symbols-rounded text-base">
-                          {{ val ? 'check_circle' : 'cancel' }}
-                        </span>
-                        <span class="capitalize">{{ elemName }}</span>
+                        {{ comp.temaStatus === 'COMPLETA' ? 'Abordagem Completa' : 'Alerta de Tangenciamento' }}
+                      </span>
+                      <span v-if="comp.temaAnalise" class="text-slate-600 dark:text-zinc-400 text-[11px]">{{ comp.temaAnalise }}</span>
+                    </div>
+
+                    <div v-if="comp.repertorios && comp.repertorios.length > 0" class="rounded-xl bg-purple-50/50 dark:bg-purple-950/20 p-3 border border-purple-200/60 dark:border-purple-900/40 space-y-2">
+                      <span class="text-xs font-black uppercase text-purple-700 dark:text-purple-300 block">
+                        Repertórios Socioculturais Auditados (Tríade INEP):
+                      </span>
+                      <div v-for="(rep, ridx) in comp.repertorios" :key="ridx" class="rounded-lg bg-white dark:bg-zinc-900 p-2.5 border border-purple-100 dark:border-purple-900/40 text-xs space-y-1">
+                        <div class="flex flex-wrap items-center justify-between gap-1">
+                          <span class="font-bold text-purple-900 dark:text-purple-200 italic">"{{ rep.texto }}"</span>
+                          <span class="text-[10px] font-semibold text-purple-600 dark:text-purple-400 bg-purple-100 dark:bg-purple-950 px-2 py-0.5 rounded">{{ rep.fonteArea }}</span>
+                        </div>
+                        <div class="flex items-center gap-3 text-[10px] font-black pt-1">
+                          <span :class="rep.legitimado ? 'text-emerald-600' : 'text-slate-400'">Legitimado: {{ rep.legitimado ? 'Sim' : 'Não' }}</span>
+                          <span :class="rep.pertinente ? 'text-emerald-600' : 'text-slate-400'">Pertinente: {{ rep.pertinente ? 'Sim' : 'Não' }}</span>
+                          <span :class="rep.produtivo ? 'text-emerald-600' : 'text-amber-500'">Produtivo: {{ rep.produtivo ? 'Sim' : 'Pouco produtivo' }}</span>
+                        </div>
+                        <p v-if="rep.analise" class="text-[11px] text-[var(--student-text-secondary)]">{{ rep.analise }}</p>
                       </div>
+                    </div>
+                  </div>
+
+                  <!-- C3: Tese e Lacunas Argumentativas -->
+                  <div v-if="key === 'c3'" class="mt-3.5 space-y-2">
+                    <div v-if="comp.teseIdentificada" class="rounded-xl bg-amber-50/60 dark:bg-amber-950/30 p-2.5 border border-amber-200/60 dark:border-amber-900/40 text-xs">
+                      <span class="font-black text-amber-800 dark:text-amber-300 block mb-0.5">Tese Central Identificada:</span>
+                      <p class="font-medium text-amber-900 dark:text-amber-200 italic">"{{ comp.teseIdentificada }}"</p>
+                    </div>
+
+                    <div v-if="comp.lacunasArgumentativas && comp.lacunasArgumentativas.length > 0" class="rounded-xl bg-rose-50/60 dark:bg-rose-950/20 p-3 border border-rose-200 dark:border-rose-900/40 space-y-2">
+                      <span class="text-xs font-black uppercase text-rose-700 dark:text-rose-400 block flex items-center gap-1">
+                        <span class="material-symbols-rounded text-sm">report_problem</span>
+                        Lacunas Argumentativas (Ideias sem causa/consequência explicada):
+                      </span>
+                      <div v-for="(lac, lidx) in comp.lacunasArgumentativas" :key="lidx" class="rounded-lg bg-white dark:bg-zinc-900 p-2.5 border border-rose-100 dark:border-rose-900/40 text-xs space-y-1">
+                        <p class="font-bold text-rose-900 dark:text-rose-300 italic">"{{ lac.trecho }}"</p>
+                        <p class="text-[11px] text-slate-700 dark:text-zinc-300"><strong>Problema:</strong> {{ lac.explicacao }}</p>
+                        <p class="text-[11px] text-emerald-700 dark:text-emerald-400 font-semibold"><strong>Como resolver:</strong> {{ lac.comoResolver }}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- C4: Conectivos Interparágrafos e Repetições -->
+                  <div v-if="key === 'c4'" class="mt-3.5 space-y-2.5">
+                    <div v-if="comp.conectivosInter" class="rounded-xl bg-blue-50/60 dark:bg-blue-950/30 p-3 border border-blue-200/60 dark:border-blue-900/40 text-xs space-y-2">
+                      <div class="flex items-center justify-between">
+                        <span class="font-black uppercase text-blue-800 dark:text-blue-300">Conectivos Interparágrafos (Exigência do INEP):</span>
+                        <span
+                          class="rounded px-2 py-0.5 text-[10px] font-black uppercase"
+                          :class="comp.conectivosInter.atendeMinimoDois ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300' : 'bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300'"
+                        >
+                          {{ comp.conectivosInter.atendeMinimoDois ? 'Atende ao Mínimo (2+)' : 'Abaixo do Mínimo' }}
+                        </span>
+                      </div>
+                      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+                        <div class="p-2 rounded bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-900/40">
+                          <span class="text-[10px] font-bold text-slate-500 block">Início D1:</span>
+                          <span class="font-black text-blue-700 dark:text-blue-300">{{ comp.conectivosInter.d1 || 'Não detectado' }}</span>
+                        </div>
+                        <div class="p-2 rounded bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-900/40">
+                          <span class="text-[10px] font-bold text-slate-500 block">Início D2 (Obrigatório):</span>
+                          <span class="font-black" :class="comp.conectivosInter.d2 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'">{{ comp.conectivosInter.d2 || 'Ausente' }}</span>
+                        </div>
+                        <div class="p-2 rounded bg-white dark:bg-zinc-900 border border-blue-100 dark:border-blue-900/40">
+                          <span class="text-[10px] font-bold text-slate-500 block">Início Conclusão (Obrigatório):</span>
+                          <span class="font-black" :class="comp.conectivosInter.conclusao ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'">{{ comp.conectivosInter.conclusao || 'Ausente' }}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div v-if="comp.repeticoesViciosas && comp.repeticoesViciosas.length > 0" class="rounded-xl bg-amber-50/60 dark:bg-amber-950/20 p-2.5 border border-amber-200 dark:border-amber-900/40 text-xs">
+                      <span class="font-black text-amber-800 dark:text-amber-300 block mb-1">Repetições Viciosas Identificadas:</span>
+                      <div class="flex flex-wrap gap-2">
+                        <span v-for="(rep, repIdx) in comp.repeticoesViciosas" :key="repIdx" class="bg-white dark:bg-zinc-900 px-2 py-1 rounded border border-amber-200 text-[11px]">
+                          <strong>"{{ rep.palavra }}"</strong> ({{ rep.ocorrencias }}x) &bull; Sinônimos: {{ rep.sinonimos?.slice(0, 3).join(', ') }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- C5: Detalhamento dos 5 Elementos Obrigatórios -->
+                  <div v-if="key === 'c5'" class="mt-4 space-y-3">
+                    <div class="rounded-xl bg-[var(--student-bg)] p-3.5 border border-[var(--student-border)]">
+                      <span class="text-xs font-black uppercase text-[var(--student-text-secondary)] block mb-2.5">
+                        Auditoria dos 5 Elementos Obrigatórios (40 pontos cada):
+                      </span>
+                      <div class="grid grid-cols-1 sm:grid-cols-5 gap-2 text-xs">
+                        <div
+                          v-for="(elem, eName) in comp.elementosDetalhados || {}"
+                          :key="eName"
+                          class="p-2.5 rounded-lg border text-left"
+                          :class="elem.presente ? 'bg-emerald-50/50 border-emerald-200 dark:bg-emerald-950/30 dark:border-emerald-800' : 'bg-red-50/50 border-red-200 dark:bg-red-950/30 dark:border-red-900'"
+                        >
+                          <div class="flex items-center justify-between mb-1">
+                            <span class="font-black capitalize text-[11px]" :class="elem.presente ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'">
+                              {{ eName }}
+                            </span>
+                            <span class="text-[10px] font-black" :class="elem.presente ? 'text-emerald-600' : 'text-red-500'">
+                              {{ elem.presente ? '40 pts' : '0 pts' }}
+                            </span>
+                          </div>
+                          <p v-if="elem.trecho" class="text-[10px] text-slate-700 dark:text-zinc-300 italic truncate font-serif">"{{ elem.trecho }}"</p>
+                          <p v-else class="text-[10px] text-red-600 dark:text-red-400 italic">Não identificado</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div v-if="comp.propostaCompletaSugerida" class="rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 p-3 border border-emerald-200 dark:border-emerald-800 text-xs">
+                      <span class="font-black text-emerald-800 dark:text-emerald-300 block mb-1">💡 Sugestão de Proposta Nota 200 Completa:</span>
+                      <p class="font-serif text-slate-800 dark:text-zinc-200 leading-relaxed italic">"{{ comp.propostaCompletaSugerida }}"</p>
                     </div>
                   </div>
                 </div>

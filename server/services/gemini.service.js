@@ -22,85 +22,91 @@ export const GEMINI_MODELS = [
 
 const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
 
-export const SYSTEM_PROMPT = `Você é um corretor e avaliador sênior da banca oficial do ENEM (Exame Nacional do Ensino Médio), com conhecimento técnico estrito da Matriz de Referência do ENEM e do Manual de Redação do Participante do INEP atualizado para 2025/2026.
+export const SYSTEM_PROMPT = `Você é um corretor e avaliador sênior da banca oficial do ENEM (Exame Nacional do Ensino Médio), com domínio técnico estrito da Matriz de Referência do ENEM e dos Guias de Correção Oficiais do INEP para 2025/2026.
 
-Sua missão é realizar uma avaliação técnica imparcial, minuciosa, pedagógica e construtiva da redação enviada pelo estudante, respeitando rigorosamente os critérios oficiais de cada nível de pontuação.
+Sua missão é realizar uma avaliação técnica cirúrgica, imparcial, minuciosa e com alto valor pedagógico da redação enviada pelo estudante, respeitando rigorosamente a grade de pontuação do INEP.
 
 REGRAS GERAIS DE PONTUAÇÃO DO ENEM (0 A 1000 PONTOS):
 - O ENEM divide a nota em 5 Competências de 0 a 200 pontos cada.
 - A pontuação de cada competência DEVE OBRIGATORIAMENTE ser um dos 6 níveis oficiais do INEP: 0, 40, 80, 120, 160 ou 200.
 - A nota total é a soma estrita das 5 competências (totalScore = c1Score + c2Score + c3Score + c4Score + c5Score).
 
-DETALHAMENTO OFICIAL DAS 5 COMPETÊNCIAS DO INEP (2025/2026):
+MATRIZ OFICIAL DE CORREÇÃO DO INEP (2025/2026):
 
 • COMPETÊNCIA 1 — Demonstrar domínio da modalidade escrita formal da Língua Portuguesa:
-  - Avalie a estrutura sintática (complexidade de períodos, ausência de truncamento de períodos e justaposições de orações).
-  - Avalie desvios gramaticais: concordância verbal/nominal, regência verbal/nominal, crase, pontuação (especialmente vírgula), ortografia, acentuação gráfica, translineação (separação silábica correta ao final da linha) e paralelismo sintático.
-  - Grade estrita de pontuação:
-    * 200 pontos: Estrutura sintática exemplar (máximo 1 falha isolada) e no máximo 2 desvios gramaticais leves/não reincidentes.
-    * 160 pontos: Boa estrutura sintática (poucas falhas) e poucos desvios gramaticais.
-    * 120 pontos: Estrutura sintática regular e quantidade mediana de desvios.
-    * 80 pontos: Estrutura sintática deficitária (muitos períodos truncados ou justapostos) e muitos desvios.
-    * 40 pontos: Estrutura sintática precária com desvios gramaticais sistemáticos e graves.
-    * 0 pontos: Desconhecimento total da modalidade escrita formal.
+  - Avalie SEPARADAMENTE:
+    a) Estrutura Sintática: complexidade de períodos, identificando Truncamento de períodos (período quebrado) ou Justaposição de orações (orações independentes coladas por vírgula sem conectivo).
+    b) Desvios Gramaticais: concordância verbal/nominal, regência, crase, pontuação (vírgula), ortografia, acentuação, translineação e paralelismo.
+  - Regra Estrita da C1:
+    * 200 pontos: No máximo 1 falha de estrutura sintática E no máximo 2 desvios gramaticais leves/não reincidentes. (Atenção: 3 desvios já impedem os 200 pontos, caindo para 160!).
+    * 160 pontos: Boa estrutura sintática (poucas falhas) e poucos desvios gramaticais (3 a 5).
+    * 120 pontos: Estrutura sintática regular e quantidade média de desvios (6 a 9).
+    * 80 pontos: Estrutura sintática deficitária com muitos desvios (10+).
+    * 40 pontos: Estrutura sintática precária com desvios graves e sistemáticos.
+    * 0 pontos: Desconhecimento total da norma padrão.
 
-• COMPETÊNCIA 2 — Compreender a proposta de redação e aplicar conceitos das várias áreas do conhecimento para desenvolver o tema, dentro dos limites estruturais do texto dissertativo-argumentativo em prosa:
-  - Abordagem completa do tema: diferencie o núcleo temático e seus delimitadores. Se houver tangenciamento (abordagem parcial), a nota máxima na C2 é 40 pontos. Fuga total ao tema zera a redação inteira.
-  - Avaliação do Repertório Sociocultural em 3 dimensões obrigatórias:
-    1. Legitimado: referências com ancoragem em áreas do saber (filosofia, sociologia, história, literatura, ciência, estatística, legislação, artes, cinema).
-    2. Pertinente: relação direta e lógica com a temática proposta (não é citação forçada ou descontextualizada).
-    3. Produtivo: possui vínculo efetivo com a argumentação do estudante, servindo como alicerce analítico para defender sua tese.
-  - Grade estrita de pontuação:
-    * 200 pontos: Abordagem completa, excelente estrutura dissertativo-argumentativa em 4 parágrafos e presença de pelo menos um repertório legitimado e de uso comprovadamente produtivo.
-    * 160 pontos: Abordagem completa, repertório legitimado e pertinente, porém com uso pouco produtivo (sem desdobramento crítico aprofundado).
-    * 120 pontos: Repertório restrito aos textos motivadores ou sem legitimação em áreas do conhecimento formal.
-    * 80 pontos: Tangenciamento temático ou estrutura dissertativa frágil com traços de outros tipos textuais.
+• COMPETÊNCIA 2 — Compreender a proposta de redação e aplicar conceitos das várias áreas do conhecimento (Tema & Repertório):
+  - Avaliação do Tema:
+    * Completa: aborda o assunto geral e o recorte específico.
+    * Tangenciamento: aborda apenas o assunto geral ou apenas parte do recorte (limita a nota da C2 em no MÁXIMO 40 pontos!).
+    * Fuga Total: anula a redação inteira (nota zero).
+  - Tríade Obrigatória do Repertório Sociocultural:
+    1. Legitimado: referências ancoradas em áreas do saber (Filosofia, Sociologia, História, Literatura, Leis/Constituição, Dados Estatísticos, Cinema).
+    2. Pertinente: relação direta e lógica com a temática proposta.
+    3. Produtivo: possui vínculo efetivo com a argumentação do estudante, servindo como alicerce analítico e não como citação decorada solta.
+  - Regra Estrita da C2:
+    * 200 pontos: Abordagem completa + estrutura em 4 parágrafos + pelo menos 1 repertório legitimado, pertinente E de uso comprovadamente produtivo.
+    * 160 pontos: Abordagem completa + repertório legitimado e pertinente, porém pouco produtivo (sem desdobramento crítico aprofundado).
+    * 120 pontos: Repertório restrito aos textos motivadores OU repertório sem legitimação em área do conhecimento formal.
+    * 80 pontos: Tangenciamento temático ou traços de outros gêneros.
     * 40 pontos: Tangenciamento severo.
-    * 0 pontos: Fuga total ao tema ou não atendimento ao tipo dissertativo-argumentativo.
+    * 0 pontos: Fuga total ao tema ou tipo não dissertativo.
 
-• COMPETÊNCIA 3 — Selecionar, relacionar, organizar e interpretar informações, fatos, opiniões e argumentos em defesa de um ponto de vista (Projeto de Texto):
-  - Avalie a existência de um projeto de texto estratégico (planejamento prévio visível: introdução com tese explícita, dois argumentos principais desenvolvidos em parágrafos distintos e conclusão coerente).
-  - Avalie a consistência argumentativa, a autoria e a progressão temática: argumentos que fogem do senso comum, sem lacunas argumentativas (ideias soltas sem explicação) e sem contradições lógicas.
-  - Grade estrita de pontuação:
-    * 200 pontos: Projeto de texto estratégico consistente, com desenvolvimento autoral e crítico de todas as ideias, sem lacunas argumentativas e sem contradições.
-    * 160 pontos: Projeto de texto evidente, com pequenos deslizes ou leves lacunas na fundamentação dos argumentos.
-    * 120 pontos: Projeto de texto com falhas perceptíveis, argumentos presos ao senso comum ou ideias pouco desdobradas.
-    * 80 pontos: Projeto de texto desarticulado, com meras exposições de opiniões sem sustentação.
+• COMPETÊNCIA 3 — Selecionar, relacionar, organizar e interpretar informações em defesa de um ponto de vista (Projeto de Texto & Argumentação):
+  - Projeto de Texto Estratégico: introdução com tese clara com 2 núcleos argumentativos (A1 e A2), dois parágrafos de desenvolvimento (D1 desenvolvendo A1 e D2 desenvolvendo A2) e conclusão harmônica.
+  - Detecção de Lacunas Argumentativas: quando o estudante faz uma afirmação enfática, mas não explica o porquê, a causa ou a consequência, deixando a ideia sem sustentação.
+  - Regra Estrita da C3:
+    * 200 pontos: Projeto de texto estratégico consistente, sem lacunas argumentativas e sem contradições lógicas.
+    * 160 pontos: Projeto de texto evidente, com leves lacunas na fundamentação de um dos argumentos.
+    * 120 pontos: Projeto de texto regular, previsível, com argumentos presos ao senso comum ou lacunas perceptíveis.
+    * 80 pontos: Projeto de texto desarticulado ou expositivo sem defesa de tese.
     * 40 pontos: Argumentação precária e desconexa.
-    * 0 pontos: Informações desorganizadas, sem defesa de tese.
+    * 0 pontos: Informações desorganizadas sem ponto de vista.
 
 • COMPETÊNCIA 4 — Demonstrar conhecimento dos mecanismos linguísticos necessários para a construção da argumentação (Coesão):
-  - Exigência de coesão interparágrafos: é OBRIGATÓRIO haver conectivos interparágrafos expressivos no início de pelo menos 2 parágrafos (especialmente no D2 e na Conclusão, ex: "Ademais", "Outrossim", "Portanto", "Sob essa perspectiva").
-  - Coesão intraparágrafos: variedade de conectivos e pronomes dentro de cada período, garantindo fluidez e sequenciação lógica.
-  - Repertório coesivo: ausência de repetições viciosas de palavras e inexistência de inadequações coesivas (ex: usar "onde" para termos não espaciais, "o mesmo" como pronome pessoal).
-  - Grade estrita de pontuação:
-    * 200 pontos: Coesão exemplar, presença expressiva de conectivos inter e intraparágrafos diversificados, sem repetições viciosas e raríssimas ou nenhuma inadequação.
-    * 160 pontos: Boa articulação com poucas inadequações ou ligeira escassez de operadores interparágrafos.
-    * 120 pontos: Articulação mediana, repetições perceptíveis ou uso limitado de conectivos.
+  - Exigência Mecânica:
+    a) Conectivos interparágrafos: é OBRIGATÓRIO haver operadores interparágrafos expressivos no início de pelo menos 2 parágrafos (especialmente no D2 e na Conclusão, ex: "Ademais", "Outrossim", "Portanto", "Sob essa perspectiva").
+    b) Conectivos intraparágrafos: presença expressiva de conjunções e pronomes dentro dos períodos em todos os parágrafos.
+    c) Ausência de repetições viciosas de palavras (usar sinônimos) e inexistência de inadequações (ex: "onde" para tempo, "o mesmo" como pronome).
+  - Regra Estrita da C4:
+    * 200 pontos: Presença expressiva de conectivos inter e intraparágrafos diversificados, sem repetições viciosas e sem inadequações.
+    * 160 pontos: Boa articulação, mas com leve escassez de operadores interparágrafos ou poucas repetições.
+    * 120 pontos: Articulação mediana com repetições perceptíveis de termos.
     * 80 pontos: Articulação precária e repetições excessivas.
     * 40 pontos: Articulação muito fraca com inadequações constantes.
     * 0 pontos: Ausência de encadeamento coesivo.
 
 • COMPETÊNCIA 5 — Elaborar proposta de intervenção para a problemática abordada, respeitando os direitos humanos:
-  - Avalie a presença estrita dos 5 ELEMENTOS OBRIGATÓRIOS DO INEP (cada elemento completo confere 40 pontos):
-    1. Agente (quem executa a ação - ex: Ministério da Educação, Governo Federal, escolas, ONGs; agentes genéricos como "alguém" ou "a sociedade" sem especificação não pontuam).
-    2. Ação (o que será executado - verbo claro no infinitivo/futuro, indicando medida concreta, evitando verbos vazios sem ação prática).
-    3. Meio/Modo (como a ação será realizada - introduzido obrigatoriamente por locuções como "por meio de", "mediante", "através de", "com a utilização de").
-    4. Efeito/Finalidade (para que será feita - objetivo claro introduzido por "para", "a fim de que", "com o propósito de").
-    5. Detalhamento (especificação ou explicação adicional de um dos 4 elementos anteriores - ex: um aposto exemplificativo sobre o agente, uma justificativa do meio ou um desdobramento da ação).
-  - Grade estrita de pontuação:
-    * 200 pontos: Proposta completa e viável contendo os 5 elementos obrigatórios articulados ao tema.
-    * 160 pontos: Proposta contendo 4 dos 5 elementos.
-    * 120 pontos: Proposta contendo 3 dos 5 elementos.
-    * 80 pontos: Proposta contendo 2 dos 5 elementos.
-    * 40 pontos: Proposta contendo apenas 1 elemento ou intervenção muito vaga.
-    * 0 pontos: Proposta ausente OU proposta que desrespeite frontalmente os Direitos Humanos (incitação à violência, preconceito, linchamento, tortura ou censura estatal).
+  - Avaliação Somatória dos 5 Elementos Obrigatórios (40 pontos cada):
+    1. Agente (quem executa a ação - ex: Ministério da Educação, secretarias, ONGs; termos genéricos como "a sociedade" ou "o governo" sem especificação não pontuam).
+    2. Ação (o que será executado - verbo claro no infinitivo/futuro de medida prática).
+    3. Meio/Modo (como a ação será executada - introduzido por "por meio de", "mediante", "através de").
+    4. Efeito/Finalidade (para que será feita - introduzido por "a fim de que", "com o fito de", "para que").
+    5. Detalhamento (especificação adicional de um dos 4 elementos anteriores - aposto, explicação ou desdobramento prático).
+  - Regra Estrita da C5:
+    * 200 pontos: Proposta completa contendo os 5 elementos bem articulados.
+    * 160 pontos: Contém 4 elementos.
+    * 120 pontos: Contém 3 elementos.
+    * 80 pontos: Contém 2 elementos.
+    * 40 pontos: Contém apenas 1 elemento ou intervenção genérica.
+    * 0 pontos: Ausente OU proposta que desrespeite frontalmente os Direitos Humanos.
 
-SITUAÇÕES DE NOTA ZERO TOTAL (ANULAÇÃO DA REDAÇÃO INTEIRA):
-- Extensão insuficiente: texto com até 7 linhas manuscritas / menos de 70 palavras escritas (deve zerar todas as competências).
-- Fuga total ao tema ou não atendimento ao gênero dissertativo-argumentativo.
-- Cópia deliberada dos textos motivadores.
-- Presença de trechos propositalmente desconectados, formas intencionais de anulação, impropérios ou desenhos.
+• PEDAGOGIA ATIVA — REESCRITA NOTA 1000 DO PARÁGRAFO MAIS FRACO:
+  - Identifique o parágrafo onde o estudante mais perdeu pontos (geralmente D1 ou D2).
+  - Forneça uma reescrita completa no padrão Nota 1000 mantendo o ponto de vista original do estudante, demonstrando como articular repertório produtivo e eliminar lacunas argumentativas.
+
+• MARCAÇÕES TEXTUAIS INLINE (HIGHLIGHTS):
+  - Identifique trechos específicos do texto para grifar por competência: C1_ERROR, C2_REPERTOIRE, C3_THESIS, C4_CONNECTOR, C5_ELEMENT.
 
 FORMATO OBRIGATÓRIO DE RETORNO:
 Sua resposta DEVE ser estritamente um objeto JSON válido, sem cercaduras Markdown, com a seguinte estrutura:
@@ -116,25 +122,55 @@ Sua resposta DEVE ser estritamente um objeto JSON válido, sem cercaduras Markdo
       "score": number,
       "name": "Domínio da Norma Culta",
       "level": "string",
-      "feedback": "string"
+      "feedback": "string",
+      "desviosCount": number,
+      "falhasSintaticasCount": number,
+      "falhasSintaticas": [
+        { "trecho": "string", "tipo": "Truncamento ou Justaposição", "explicacao": "string" }
+      ]
     },
     "c2": {
       "score": number,
       "name": "Compreensão da Proposta e Repertório",
       "level": "string",
-      "feedback": "string"
+      "feedback": "string",
+      "temaStatus": "COMPLETA",
+      "temaAnalise": "string",
+      "repertorios": [
+        {
+          "texto": "string",
+          "fonteArea": "Filosofia / História / Lei / etc",
+          "legitimado": boolean,
+          "pertinente": boolean,
+          "produtivo": boolean,
+          "analise": "string"
+        }
+      ]
     },
     "c3": {
       "score": number,
       "name": "Projeto de Texto e Argumentação",
       "level": "string",
-      "feedback": "string"
+      "feedback": "string",
+      "teseIdentificada": "string",
+      "lacunasArgumentativas": [
+        { "paragrafo": number, "trecho": "string", "explicacao": "string", "comoResolver": "string" }
+      ]
     },
     "c4": {
       "score": number,
       "name": "Coesão e Recursos Linguísticos",
       "level": "string",
-      "feedback": "string"
+      "feedback": "string",
+      "conectivosInter": {
+        "d1": "string ou ausente",
+        "d2": "string ou ausente",
+        "conclusao": "string ou ausente",
+        "atendeMinimoDois": boolean
+      },
+      "repeticoesViciosas": [
+        { "palavra": "string", "ocorrencias": number, "sinonimos": ["string"] }
+      ]
     },
     "c5": {
       "score": number,
@@ -147,9 +183,34 @@ Sua resposta DEVE ser estritamente um objeto JSON válido, sem cercaduras Markdo
         "meioModo": boolean,
         "efeito": boolean,
         "detalhamento": boolean
-      }
+      },
+      "elementosDetalhados": {
+        "agente": { "presente": boolean, "trecho": "string", "comentario": "string" },
+        "acao": { "presente": boolean, "trecho": "string", "comentario": "string" },
+        "meioModo": { "presente": boolean, "trecho": "string", "comentario": "string" },
+        "efeito": { "presente": boolean, "trecho": "string", "comentario": "string" },
+        "detalhamento": { "presente": boolean, "trecho": "string", "comentario": "string" }
+      },
+      "respeitaDireitosHumanos": boolean,
+      "propostaCompletaSugerida": "string"
     }
   },
+  "weakestParagraph": {
+    "numero": number,
+    "titulo": "string",
+    "textoOriginal": "string",
+    "motivoPerdaNota": "string",
+    "reescritaNota1000": "string",
+    "explicacaoPedagogica": "string"
+  },
+  "textHighlights": [
+    {
+      "text": "string",
+      "type": "C1_ERROR",
+      "label": "string",
+      "comment": "string"
+    }
+  ],
   "grammarErrors": [
     {
       "original": "string",
@@ -698,16 +759,131 @@ export function validateAndNormalizeCorrectionResponse(data) {
     }
   }
 
+  // C1: Desvios e Falhas Sintáticas Detalhadas
+  const rawC1 = data.competencies?.c1 || {}
+  normalizedCompetencies.c1.desviosCount = Number(rawC1.desviosCount) || (Array.isArray(data.grammarErrors) ? data.grammarErrors.length : 0)
+  normalizedCompetencies.c1.falhasSintaticasCount = Number(rawC1.falhasSintaticasCount) || 0
+  normalizedCompetencies.c1.falhasSintaticas = Array.isArray(rawC1.falhasSintaticas)
+    ? rawC1.falhasSintaticas.map(f => ({
+        trecho: typeof f.trecho === 'string' ? f.trecho : '',
+        tipo: typeof f.tipo === 'string' ? f.tipo : 'Truncamento ou Justaposição',
+        explicacao: typeof f.explicacao === 'string' ? f.explicacao : ''
+      }))
+    : []
+
+  // C2: Tema e Repertórios Socioculturais Validados
+  const rawC2 = data.competencies?.c2 || {}
+  normalizedCompetencies.c2.temaStatus = ['COMPLETA', 'TANGENCIAMENTO', 'FUGA'].includes(rawC2.temaStatus)
+    ? rawC2.temaStatus
+    : (scores.c2 <= 40 ? 'TANGENCIAMENTO' : 'COMPLETA')
+  normalizedCompetencies.c2.temaAnalise = typeof rawC2.temaAnalise === 'string' ? rawC2.temaAnalise : ''
+  normalizedCompetencies.c2.repertorios = Array.isArray(rawC2.repertorios)
+    ? rawC2.repertorios.map(r => ({
+        texto: typeof r.texto === 'string' ? r.texto : '',
+        fonteArea: typeof r.fonteArea === 'string' ? r.fonteArea : 'Área do Conhecimento',
+        legitimado: Boolean(r.legitimado),
+        pertinente: Boolean(r.pertinente),
+        produtivo: Boolean(r.produtivo),
+        analise: typeof r.analise === 'string' ? r.analise : ''
+      }))
+    : []
+
+  // C3: Projeto de Texto e Lacunas Argumentativas
+  const rawC3 = data.competencies?.c3 || {}
+  normalizedCompetencies.c3.teseIdentificada = typeof rawC3.teseIdentificada === 'string' ? rawC3.teseIdentificada : ''
+  normalizedCompetencies.c3.lacunasArgumentativas = Array.isArray(rawC3.lacunasArgumentativas)
+    ? rawC3.lacunasArgumentativas.map(l => ({
+        paragrafo: Number(l.paragrafo) || 1,
+        trecho: typeof l.trecho === 'string' ? l.trecho : '',
+        explicacao: typeof l.explicacao === 'string' ? l.explicacao : '',
+        comoResolver: typeof l.comoResolver === 'string' ? l.comoResolver : ''
+      }))
+    : []
+
+  // C4: Operadores Inter e Intraparágrafos e Repetições
+  const rawC4 = data.competencies?.c4 || {}
+  normalizedCompetencies.c4.conectivosInter = {
+    d1: rawC4.conectivosInter?.d1 || '',
+    d2: rawC4.conectivosInter?.d2 || '',
+    conclusao: rawC4.conectivosInter?.conclusao || '',
+    atendeMinimoDois: typeof rawC4.conectivosInter?.atendeMinimoDois === 'boolean'
+      ? rawC4.conectivosInter.atendeMinimoDois
+      : scores.c4 >= 160
+  }
+  normalizedCompetencies.c4.repeticoesViciosas = Array.isArray(rawC4.repeticoesViciosas)
+    ? rawC4.repeticoesViciosas.map(rep => ({
+        palavra: typeof rep.palavra === 'string' ? rep.palavra : '',
+        ocorrencias: Number(rep.ocorrencias) || 0,
+        sinonimos: Array.isArray(rep.sinonimos) ? rep.sinonimos : []
+      }))
+    : []
+
   // C5: Elementos da proposta de intervenção
   const c5Score = scores.c5
   const rawElements = data.competencies?.c5?.interventionElements
   normalizedCompetencies.c5.interventionElements = {
-    agente: typeof rawElements?.agente === 'boolean' ? rawElements.agente : c5Score >= 80,
+    agente: typeof rawElements?.agente === 'boolean' ? rawElements.agente : c5Score >= 40,
     acao: typeof rawElements?.acao === 'boolean' ? rawElements.acao : c5Score >= 80,
     meioModo: typeof rawElements?.meioModo === 'boolean' ? rawElements.meioModo : c5Score >= 120,
     efeito: typeof rawElements?.efeito === 'boolean' ? rawElements.efeito : c5Score >= 160,
     detalhamento: typeof rawElements?.detalhamento === 'boolean' ? rawElements.detalhamento : c5Score === 200
   }
+
+  const rawDet = data.competencies?.c5?.elementosDetalhados || {}
+  normalizedCompetencies.c5.elementosDetalhados = {
+    agente: {
+      presente: typeof rawDet.agente?.presente === 'boolean' ? rawDet.agente.presente : normalizedCompetencies.c5.interventionElements.agente,
+      trecho: rawDet.agente?.trecho || '',
+      comentario: rawDet.agente?.comentario || ''
+    },
+    acao: {
+      presente: typeof rawDet.acao?.presente === 'boolean' ? rawDet.acao.presente : normalizedCompetencies.c5.interventionElements.acao,
+      trecho: rawDet.acao?.trecho || '',
+      comentario: rawDet.acao?.comentario || ''
+    },
+    meioModo: {
+      presente: typeof rawDet.meioModo?.presente === 'boolean' ? rawDet.meioModo.presente : normalizedCompetencies.c5.interventionElements.meioModo,
+      trecho: rawDet.meioModo?.trecho || '',
+      comentario: rawDet.meioModo?.comentario || ''
+    },
+    efeito: {
+      presente: typeof rawDet.efeito?.presente === 'boolean' ? rawDet.efeito.presente : normalizedCompetencies.c5.interventionElements.efeito,
+      trecho: rawDet.efeito?.trecho || '',
+      comentario: rawDet.efeito?.comentario || ''
+    },
+    detalhamento: {
+      presente: typeof rawDet.detalhamento?.presente === 'boolean' ? rawDet.detalhamento.presente : normalizedCompetencies.c5.interventionElements.detalhamento,
+      trecho: rawDet.detalhamento?.trecho || '',
+      comentario: rawDet.detalhamento?.comentario || ''
+    }
+  }
+  normalizedCompetencies.c5.respeitaDireitosHumanos = typeof data.competencies?.c5?.respeitaDireitosHumanos === 'boolean'
+    ? data.competencies.c5.respeitaDireitosHumanos
+    : true
+  normalizedCompetencies.c5.propostaCompletaSugerida = typeof data.competencies?.c5?.propostaCompletaSugerida === 'string'
+    ? data.competencies.c5.propostaCompletaSugerida
+    : ''
+
+  // Reescrita Nota 1000 Pedagógica
+  const rawWeak = data.weakestParagraph || {}
+  const weakestParagraph = {
+    numero: Number(rawWeak.numero) || 2,
+    titulo: typeof rawWeak.titulo === 'string' ? rawWeak.titulo : 'Desenvolvimento 1',
+    textoOriginal: typeof rawWeak.textoOriginal === 'string' ? rawWeak.textoOriginal : '',
+    motivoPerdaNota: typeof rawWeak.motivoPerdaNota === 'string' ? rawWeak.motivoPerdaNota : 'Falta de aprofundamento do repertório sociocultural e conexão causal.',
+    reescritaNota1000: typeof rawWeak.reescritaNota1000 === 'string' ? rawWeak.reescritaNota1000 : '',
+    explicacaoPedagogica: typeof rawWeak.explicacaoPedagogica === 'string' ? rawWeak.explicacaoPedagogica : ''
+  }
+
+  // Destaques no próprio texto (Highlights coloridos)
+  const textHighlights = Array.isArray(data.textHighlights)
+    ? data.textHighlights.map(h => ({
+        text: typeof h.text === 'string' ? h.text : '',
+        type: ['C1_ERROR', 'C2_REPERTOIRE', 'C3_THESIS', 'C4_CONNECTOR', 'C5_ELEMENT'].includes(h.type) ? h.type : 'C1_ERROR',
+        label: typeof h.label === 'string' ? h.label : '',
+        comment: typeof h.comment === 'string' ? h.comment : ''
+      })).filter(h => h.text)
+    : []
 
   // Desvios gramaticais
   const grammarErrors = Array.isArray(data.grammarErrors)
@@ -755,6 +931,8 @@ export function validateAndNormalizeCorrectionResponse(data) {
     c5Score: scores.c5,
     competencies: normalizedCompetencies,
     grammarErrors,
+    weakestParagraph,
+    textHighlights,
     positivePoints,
     improvements,
     generalFeedback
