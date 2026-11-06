@@ -200,7 +200,7 @@ function measureLines() {
   if (ruledContentEl.value && props.content?.trim()) {
     const isNarrow = typeof window !== 'undefined' && (window.innerWidth < 768 || ruledContentEl.value.clientWidth < 640)
     if (isNarrow) {
-      measuredVisualLines.value = calculateEnemLines(props.content, 110)
+      measuredVisualLines.value = calculateEnemLines(props.content, 116)
       return
     }
     const h = ruledContentEl.value.clientHeight || ruledContentEl.value.offsetHeight

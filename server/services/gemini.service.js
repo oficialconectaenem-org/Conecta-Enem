@@ -13,11 +13,11 @@ import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.servi
  */
 
 export const GEMINI_MODELS = [
-  'gemini-3.8-flash',
   'gemini-2.0-flash',
   'gemini-1.5-flash',
-  'gemini-2.5-flash',
-  'gemini-3.5-flash'
+  'gemini-2.0-flash-lite',
+  'gemini-1.5-flash-8b',
+  'gemini-1.5-pro'
 ]
 
 const AI_TIMEOUT_MS = 50000 // 50 segundos de tempo limite por chamada
@@ -424,58 +424,73 @@ async function callAiProvider(keyObj, userContent) {
 
   if (provider === 'GEMINI') {
     let preferredModel = keyObj.model
-    if (preferredModel === 'gemini-2.5-flash') {
-      preferredModel = 'gemini-3.8-flash'
+    if (!preferredModel || preferredModel.includes('3.8') || preferredModel.includes('2.5') || preferredModel.includes('3.5')) {
+      preferredModel = 'gemini-2.0-flash'
     }
-    const modelsToTry = preferredModel
-      ? [preferredModel, ...GEMINI_MODELS.filter(m => m !== preferredModel)]
-      : GEMINI_MODELS
+    const modelsToTry = [preferredModel, ...GEMINI_MODELS].filter((m, i, a) => m && a.indexOf(m) === i)
 
     let lastGeminiErr = null
     for (const model of modelsToTry) {
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
-      try {
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`
-        const payload = {
-          systemInstruction: {
-            parts: [{ text: SYSTEM_PROMPT }]
-          },
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: userContent }]
+      // Tenta até 2 vezes para o modelo atual se encontrar sobrecarga temporária (503 / 429)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        if (attempt > 0) {
+          console.info(`[AI Gemini] Aguardando 1.5s antes de nova tentativa no modelo ${model}...`)
+          await new Promise(resolve => setTimeout(resolve, 1500))
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`
+          const payload = {
+            systemInstruction: {
+              parts: [{ text: SYSTEM_PROMPT }]
+            },
+            contents: [
+              {
+                role: 'user',
+                parts: [{ text: userContent }]
+              }
+            ],
+            generationConfig: {
+              responseMimeType: 'application/json',
+              responseSchema: GEMINI_RESPONSE_SCHEMA,
+              temperature: 0.2
             }
-          ],
-          generationConfig: {
-            responseMimeType: 'application/json',
-            responseSchema: GEMINI_RESPONSE_SCHEMA,
-            temperature: 0.2
           }
+
+          const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          })
+
+          clearTimeout(timeoutId)
+
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}))
+            const msg = errData.error?.message || `Erro HTTP ${res.status}`
+            lastGeminiErr = new Error(msg)
+
+            const isHighDemand = res.status === 503 || res.status === 429 ||
+              msg.includes('high demand') || msg.includes('Resource has been exhausted') || msg.includes('spikes in demand')
+
+            if (isHighDemand && attempt === 0) {
+              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária (${msg}). Retentando...`)
+              continue
+            }
+            break
+          }
+
+          const data = await res.json()
+          const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
+          return parseAiJsonResponse(rawText)
+        } catch (err) {
+          clearTimeout(timeoutId)
+          lastGeminiErr = err
+          if (attempt === 0) continue
         }
-
-        const res = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        })
-
-        clearTimeout(timeoutId)
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}))
-          const msg = errData.error?.message || `Erro HTTP ${res.status}`
-          lastGeminiErr = new Error(msg)
-          continue
-        }
-
-        const data = await res.json()
-        const rawText = data.candidates?.[0]?.content?.parts?.[0]?.text
-        return parseAiJsonResponse(rawText)
-      } catch (err) {
-        clearTimeout(timeoutId)
-        lastGeminiErr = err
       }
     }
     throw lastGeminiErr || new Error('Falha em todos os modelos do Google Gemini.')
@@ -686,6 +701,8 @@ Realize a correção completa e retorne apenas o objeto JSON conforme instruído
     userFriendlyMessage = 'A chave de API de IA configurada é inválida ou expirou. Atualize-a no Painel do Administrador.'
   } else if (userFriendlyMessage.includes('RESOURCE_EXHAUSTED') || userFriendlyMessage.includes('Quota exceeded') || userFriendlyMessage.includes('insufficient_quota')) {
     userFriendlyMessage = 'O limite de cota das chaves de IA cadastradas foi atingido temporariamente. Cadastre uma chave adicional ou aguarde a liberação da cota.'
+  } else if (userFriendlyMessage.includes('high demand') || userFriendlyMessage.includes('Spikes in demand') || userFriendlyMessage.includes('503') || userFriendlyMessage.includes('Resource has been exhausted')) {
+    userFriendlyMessage = 'Os servidores do Google Gemini estão enfrentando alta demanda temporária. O sistema realizou tentativas em múltiplos modelos alternativos; por favor, aguarde alguns instantes e tente novamente.'
   }
 
   throw new Error(`Não foi possível corrigir a redação no momento: ${userFriendlyMessage}`)

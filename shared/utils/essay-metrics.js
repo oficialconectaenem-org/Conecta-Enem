@@ -7,7 +7,7 @@
  * Calcula linhas estimadas com quebra de palavras realista e justificada (word wrapping).
  * Calibrado precisamente para a folha padrão ENEM com texto justificado (110 caracteres por linha).
  */
-export function calculateEnemLines(text, charsPerLine = 110) {
+export function calculateEnemLines(text, charsPerLine = 116) {
   if (!text || typeof text !== 'string') return 0
   const trimmed = text.trim()
   if (!trimmed) return 0
@@ -16,13 +16,19 @@ export function calculateEnemLines(text, charsPerLine = 110) {
   const normalized = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trimEnd()
   const paragraphs = normalized.split('\n')
   let totalLines = 0
+  let prevWasEmpty = false
 
   for (const rawParagraph of paragraphs) {
     // Linha vazia intencional (espaço entre parágrafos)
     if (!rawParagraph.trim()) {
-      totalLines += 1
+      if (!prevWasEmpty) {
+        totalLines += 1
+        prevWasEmpty = true
+      }
       continue
     }
+
+    prevWasEmpty = false
 
     // Simula quebra de linha real por palavras
     const words = rawParagraph.trim().split(/\s+/)

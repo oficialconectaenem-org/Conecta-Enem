@@ -1,8 +1,10 @@
 import { defineEventHandler, readBody, createError } from "h3"
 import prisma from "#server/utils/prisma"
 import { ensureQuestionsSchema } from "#server/utils/ensure-schema"
+import { requireAdmin } from "#server/utils/require-admin"
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event)
   await ensureQuestionsSchema()
   const id = event.context.params.id
   const body = await readBody(event)

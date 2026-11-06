@@ -5,8 +5,8 @@ let tableInitialized = false
 export const PROVIDER_CONFIGS = {
   GEMINI: {
     name: 'Google Gemini',
-    defaultModel: 'gemini-3.8-flash',
-    fallbackModels: ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.5-flash'],
+    defaultModel: 'gemini-2.0-flash',
+    fallbackModels: ['gemini-1.5-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash-8b', 'gemini-1.5-pro'],
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   OPENAI: {
@@ -95,11 +95,11 @@ export async function ensureApiKeysTable() {
         await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`provider\` VARCHAR(191) NOT NULL DEFAULT 'GEMINI';`).catch(() => null)
       }
 
-      // Atualiza automaticamente chaves antigas do Gemini de 2.5 para 3.8
+      // Atualiza automaticamente chaves com modelos inválidos ou descontinuados para o padrão oficial ativo
       await prisma.$executeRawUnsafe(`
         UPDATE \`api_keys\`
-        SET \`model\` = 'gemini-3.8-flash', \`error_count\` = 0, \`last_error\` = NULL
-        WHERE \`provider\` = 'GEMINI' AND (\`model\` IS NULL OR \`model\` = 'gemini-2.5-flash');
+        SET \`model\` = 'gemini-2.0-flash', \`error_count\` = 0, \`last_error\` = NULL
+        WHERE \`provider\` = 'GEMINI' AND (\`model\` IS NULL OR \`model\` LIKE '%3.8%' OR \`model\` LIKE '%2.5%' OR \`model\` LIKE '%3.5%');
       `).catch(() => null)
     } catch {
       // Fallback com ALTER direto caso SHOW COLUMNS falhe
@@ -286,8 +286,8 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
   const normalizedProvider = (provider || 'GEMINI').toUpperCase()
   const cfg = PROVIDER_CONFIGS[normalizedProvider] || PROVIDER_CONFIGS.CUSTOM
   let resolvedModel = model?.trim() || cfg.defaultModel
-  if (normalizedProvider === 'GEMINI' && (!resolvedModel || resolvedModel === 'gemini-2.5-flash')) {
-    resolvedModel = 'gemini-3.8-flash'
+  if (normalizedProvider === 'GEMINI' && (!resolvedModel || resolvedModel.includes('3.8') || resolvedModel.includes('2.5') || resolvedModel.includes('3.5'))) {
+    resolvedModel = 'gemini-2.0-flash'
   }
   const resolvedBaseUrl = (baseUrl?.trim() || cfg.defaultBaseUrl || '').replace(/\/+$/, '')
 
@@ -301,9 +301,9 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
     if (normalizedProvider === 'GEMINI') {
       const geminiModelsToTry = [
         resolvedModel,
-        'gemini-3.8-flash',
         'gemini-2.0-flash',
-        'gemini-1.5-flash'
+        'gemini-1.5-flash',
+        'gemini-2.0-flash-lite'
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx)
 
       let lastErrText = ''

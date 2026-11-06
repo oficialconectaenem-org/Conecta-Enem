@@ -143,12 +143,10 @@ function updateVisualLines() {
     return
   }
 
-  // Em dispositivos móveis ou janelas compactas (< 640px),
-  // fixamos a medição na largura padrão da folha A4 oficial (720px), garantindo
-  // que o número de linhas oficiais do ENEM seja idêntico e consistente
-  // em qualquer dispositivo (desktop, tablet ou smartphone).
-  const isNarrowScreen = (typeof window !== 'undefined' && window.innerWidth < 768) || (textarea.clientWidth < 640)
-  const effectiveWidth = isNarrowScreen ? 720 : textarea.clientWidth
+  // Largura oficial padrão da folha A4 de redação do ENEM (calibrada para o padrão oficial INEP/Glau de 116 caracteres por linha)
+  const standardA4Width = 860
+  const isNarrowScreen = (typeof window !== 'undefined' && window.innerWidth < 1024) || (textarea.clientWidth < 800)
+  const effectiveWidth = isNarrowScreen ? standardA4Width : textarea.clientWidth
 
   let mirror = document.getElementById('enem-text-measurer')
   if (!mirror) {
@@ -164,8 +162,8 @@ function updateVisualLines() {
     mirror.style.overflowWrap = 'break-word'
     mirror.style.lineHeight = '36px'
     mirror.style.fontFamily = 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
-    mirror.style.letterSpacing = '0.01em'
-    mirror.style.padding = '0 14px'
+    mirror.style.letterSpacing = '-0.005em'
+    mirror.style.padding = '0 16px'
     mirror.style.boxSizing = 'border-box'
     document.body.appendChild(mirror)
   }
@@ -188,13 +186,13 @@ watch([essayText, fontSize, mobileViewMode], () => {
 })
 
 const linesCount = computed(() => {
-  if (measuredVisualLines.value !== null && essayText.value.trim()) {
-    return measuredVisualLines.value
-  }
-  return essayMetrics.value.lines
+  // A métrica oficial unificada calibrada (116 caracteres por linha no padrão Glau / INEP)
+  // é a autoridade máxima oficial, estável em qualquer dispositivo ou zoom
+  const officialLines = essayMetrics.value.lines
+  return officialLines
 })
 
-const editorTotalLines = computed(() => Math.max(30, linesCount.value))
+const editorTotalLines = computed(() => Math.max(30, Math.max(linesCount.value, measuredVisualLines.value || 0)))
 
 // Detecção inteligente de linhas em branco vazias entre parágrafos
 const blankLinesCount = computed(() => {
@@ -1744,11 +1742,32 @@ onUnmounted(() => {
             <span>Critério do ENEM: Textos com menos de 8 linhas recebem <strong>NOTA ZERO</strong> por extensão insuficiente. Escreva ao menos 8 linhas.</span>
           </div>
 
+          <!-- Alerta Educativo de Linhas em Branco entre parágrafos (economizador oficial de linhas) -->
+          <div
+            v-if="blankLinesCount > 0"
+            class="rounded-2xl bg-amber-50 dark:bg-amber-950/50 border border-amber-300 dark:border-amber-800 p-3 text-xs font-medium text-amber-900 dark:text-amber-200 flex flex-wrap items-center justify-between gap-2 shadow-2xs"
+          >
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-rounded text-base text-amber-600 dark:text-amber-400">info</span>
+              <span>
+                Identificamos <strong>{{ blankLinesCount }} linha(s) em branco</strong> entre parágrafos. No ENEM não se pula linha, pois isso consome espaço valioso da folha de 30 linhas!
+              </span>
+            </div>
+            <button
+              type="button"
+              @click="formatEnemStandard"
+              class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-black text-[11px] uppercase transition cursor-pointer shadow-xs"
+            >
+              <span class="material-symbols-rounded text-xs">auto_fix_high</span>
+              <span>Formatar Padrão Oficial ENEM</span>
+            </button>
+          </div>
+
           <!-- FOLHA PAUTADA OFICIAL ENEM COM ROLAGEM HORIZONTAL EM DISPOSITIVOS MÓVEIS -->
           <div v-if="submissionMode === 'TEXT'" class="w-full overflow-x-auto pb-3 -mx-1 px-1 sm:mx-0 sm:px-0">
             <div
               class="enem-sheet mx-auto rounded-3xl border border-slate-300 dark:border-zinc-800 bg-[#fdfbf7] dark:bg-zinc-900 shadow-md shadow-slate-200/50 dark:shadow-black/20 overflow-hidden transition-all duration-200"
-              :class="mobileViewMode === 'A4' ? 'min-w-[700px] max-w-[850px]' : 'w-full max-w-[850px]'"
+              :class="mobileViewMode === 'A4' ? 'min-w-[700px] max-w-[960px]' : 'w-full max-w-[960px]'"
             >
               <!-- CABEÇALHO DA FOLHA OFICIAL -->
               <div class="border-b border-slate-200 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-800/70 px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
@@ -2145,14 +2164,27 @@ onUnmounted(() => {
             <p class="mt-2 text-sm text-slate-700 dark:text-zinc-300 max-w-md mx-auto">
               {{ aiErrorMessage }}
             </p>
-            <button
-              type="button"
-              @click="editorViewMode = 'WRITE'"
-              class="mt-6 inline-flex items-center gap-2 rounded-2xl bg-slate-900 dark:bg-zinc-100 text-white dark:text-zinc-900 px-6 py-2.5 text-xs font-black uppercase cursor-pointer"
-            >
-              <span class="material-symbols-rounded text-sm">arrow_back</span>
-              <span>Voltar ao Editor</span>
-            </button>
+
+            <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                @click="correctWithAi"
+                :disabled="isAnalyzingAI"
+                class="inline-flex items-center gap-2 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 text-xs font-black uppercase tracking-wider transition shadow-md shadow-purple-600/30 cursor-pointer disabled:opacity-50"
+              >
+                <span class="material-symbols-rounded text-sm">refresh</span>
+                <span>Tentar Novamente Agora</span>
+              </button>
+
+              <button
+                type="button"
+                @click="editorViewMode = 'WRITE'"
+                class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer"
+              >
+                <span class="material-symbols-rounded text-sm">arrow_back</span>
+                <span>Voltar ao Editor</span>
+              </button>
+            </div>
           </div>
 
           <!-- RELATÓRIO COMPLETO GERADO PELA IA -->
@@ -2679,7 +2711,7 @@ textarea.enem-ruled-textarea {
   display: block;
   width: 100%;
   line-height: 36px !important;
-  padding: 0 14px !important;
+  padding: 0 16px !important;
   margin: 0 !important;
   border: none !important;
   outline: none !important;
@@ -2700,7 +2732,7 @@ textarea.enem-ruled-textarea {
   background-attachment: local !important;
   resize: none !important;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  letter-spacing: 0.01em;
+  letter-spacing: -0.005em;
   word-break: break-word !important;
   overflow-wrap: break-word !important;
 }
