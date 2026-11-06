@@ -6,7 +6,7 @@ export const PROVIDER_CONFIGS = {
   GEMINI: {
     name: 'Google Gemini',
     defaultModel: 'gemini-3.8-flash',
-    fallbackModels: ['gemini-3.8-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+    fallbackModels: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   OPENAI: {
@@ -302,19 +302,24 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
       const geminiModelsToTry = [
         resolvedModel,
         'gemini-3.8-flash',
+        'gemini-3.6-flash',
         'gemini-2.0-flash',
         'gemini-1.5-flash'
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx)
 
       let lastErrText = ''
       for (const curModel of geminiModelsToTry) {
+        const isGemini3 = curModel.includes('3.')
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${curModel}:generateContent?key=${rawKey}`
         response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: 'ping' }] }],
-            generationConfig: { maxOutputTokens: 2 }
+            generationConfig: {
+              maxOutputTokens: 2,
+              ...(isGemini3 ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {})
+            }
           }),
           signal: controller.signal
         })

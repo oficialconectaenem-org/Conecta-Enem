@@ -419,6 +419,18 @@ const copiedAiReport = ref(false)
 const saveAiToHistory = ref(true)
 const savedAiEssayId = ref(null)
 
+// Reconexão automática em caso de sobrecarga temporária da IA do Google
+const autoRetryCountdown = ref(0)
+let autoRetryTimer = null
+
+function cancelAutoRetry() {
+  if (autoRetryTimer) {
+    clearInterval(autoRetryTimer)
+    autoRetryTimer = null
+  }
+  autoRetryCountdown.value = 0
+}
+
 const detailedAiSteps = [
   { id: 'start', title: 'Calibrando Matriz INEP 2026', icon: 'auto_awesome', desc: 'Carregando critérios oficiais do manual do corretor' },
   { id: 'c1', title: 'C1: Sintaxe & Gramática', icon: 'spellcheck', desc: 'Auditando truncamentos, justaposições e desvios formais' },
@@ -445,6 +457,7 @@ const activeHighlightFilter = ref('ALL') // 'ALL', 'C1', 'C2', 'C3', 'C4', 'C5'
 let aiStepInterval = null
 
 async function correctWithAi() {
+  cancelAutoRetry()
   aiErrorMessage.value = ''
 
   if (submissionMode.value === 'PHOTO') {
@@ -491,6 +504,7 @@ async function correctWithAi() {
     })
 
     if (res?.success && res.correction) {
+      cancelAutoRetry()
       aiResult.value = res.correction
       savedAiEssayId.value = res.savedEssayId || null
     } else {
@@ -498,7 +512,23 @@ async function correctWithAi() {
     }
   } catch (err) {
     console.error('Erro na correção com IA:', err)
-    aiErrorMessage.value = err.data?.statusMessage || err.message || 'Erro ao conectar com o serviço de IA.'
+    const rawMsg = err.data?.statusMessage || err.message || 'Erro ao conectar com o serviço de IA.'
+    aiErrorMessage.value = rawMsg
+
+    // Se for sobrecarga temporária da API do Google, inicia reconexão automática com contagem regressiva
+    const isDemandSpike = /alta demanda|high demand|spikes in demand|temporar|503|Resource has been exhausted/i.test(rawMsg)
+    if (isDemandSpike) {
+      cancelAutoRetry()
+      autoRetryCountdown.value = 4
+      autoRetryTimer = setInterval(() => {
+        if (autoRetryCountdown.value > 1) {
+          autoRetryCountdown.value--
+        } else {
+          cancelAutoRetry()
+          correctWithAi()
+        }
+      }, 1000)
+    }
   } finally {
     if (aiStepInterval) clearInterval(aiStepInterval)
     if (tipInterval) clearInterval(tipInterval)
@@ -905,7 +935,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  cancelAutoRetry()
   if (timerInterval) clearInterval(timerInterval)
+  if (aiStepInterval) clearInterval(aiStepInterval)
+  if (tipInterval) clearInterval(tipInterval)
   window.removeEventListener('resize', updateVisualLines)
   const mirror = document.getElementById('enem-text-measurer')
   if (mirror) mirror.remove()
@@ -2398,10 +2431,19 @@ onUnmounted(() => {
               {{ aiErrorMessage }}
             </p>
 
+            <!-- Pill de Reconexão Automática durante alta demanda temporária -->
+            <div
+              v-if="autoRetryCountdown > 0"
+              class="mt-4 inline-flex items-center gap-2 rounded-full bg-purple-100 dark:bg-purple-950/70 border border-purple-300 dark:border-purple-700 px-4 py-2 text-xs font-black text-purple-700 dark:text-purple-300 shadow-sm animate-pulse"
+            >
+              <span class="material-symbols-rounded text-base animate-spin">sync</span>
+              <span>Reconectando aos servidores da IA em {{ autoRetryCountdown }}s...</span>
+            </div>
+
             <div class="mt-6 flex flex-wrap items-center justify-center gap-3">
               <button
                 type="button"
-                @click="correctWithAi"
+                @click="cancelAutoRetry(); correctWithAi()"
                 :disabled="isAnalyzingAI"
                 class="inline-flex items-center gap-2 rounded-2xl bg-purple-600 hover:bg-purple-700 text-white px-6 py-2.5 text-xs font-black uppercase tracking-wider transition shadow-md shadow-purple-600/30 cursor-pointer disabled:opacity-50"
               >
@@ -2411,7 +2453,7 @@ onUnmounted(() => {
 
               <button
                 type="button"
-                @click="editorViewMode = 'WRITE'"
+                @click="cancelAutoRetry(); editorViewMode = 'WRITE'"
                 class="inline-flex items-center gap-2 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 px-6 py-2.5 text-xs font-black uppercase tracking-wider transition cursor-pointer"
               >
                 <span class="material-symbols-rounded text-sm">arrow_back</span>
