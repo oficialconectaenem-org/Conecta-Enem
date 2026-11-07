@@ -716,12 +716,22 @@ async function generateRandomAiTheme(customAxis) {
       }
       chosenTheme.value = t.title
       currentStep.value = 'THEME_DETAIL'
+    } else if (suggestedThemes.value?.length > 0) {
+      // Fallback gracioso para tema do banco em caso de sobrecarga da IA
+      const fallback = suggestedThemes.value[Math.floor(Math.random() * suggestedThemes.value.length)]
+      openThemeDetail(fallback)
     } else {
       aiThemeError.value = 'Não foi possível gerar um tema no momento. Tente novamente.'
     }
   } catch (err) {
     console.error('Erro ao gerar tema com IA:', err)
-    aiThemeError.value = err.data?.statusMessage || err.message || 'Falha ao conectar com o serviço de IA para gerar tema.'
+    if (suggestedThemes.value?.length > 0) {
+      // Fallback resiliente imediato: se a IA falhar ou sofrer alta demanda, sorteia do acervo
+      const fallback = suggestedThemes.value[Math.floor(Math.random() * suggestedThemes.value.length)]
+      openThemeDetail(fallback)
+    } else {
+      aiThemeError.value = err.data?.statusMessage || err.message || 'Falha ao conectar com o serviço de IA para gerar tema.'
+    }
   } finally {
     isGeneratingAiTheme.value = false
   }
@@ -1214,18 +1224,22 @@ onUnmounted(() => {
               <span class="text-[11px] font-bold text-[var(--student-text-secondary)] uppercase tracking-wider block">
                 Selecione uma proposta do banco para praticar:
               </span>
-              <div class="flex flex-col gap-2 w-full min-w-0">
+              <div class="flex flex-col gap-2.5 w-full min-w-0">
                 <button
                   type="button"
                   @click="generateRandomAiTheme()"
                   :disabled="isGeneratingAiTheme"
-                  class="w-full max-w-full rounded-xl border border-dashed border-purple-400 bg-purple-100/60 dark:bg-purple-950/40 px-3.5 py-2.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center justify-between gap-2.5 min-w-0"
+                  class="group w-full max-w-full rounded-2xl border-2 border-dashed border-purple-400 dark:border-purple-600 bg-purple-100/60 dark:bg-purple-950/40 p-3 sm:px-4 sm:py-3.5 text-xs font-bold text-purple-700 dark:text-purple-300 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 dark:hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center justify-between gap-3 min-w-0 disabled:opacity-50"
                 >
                   <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span class="material-symbols-rounded text-sm shrink-0">auto_awesome</span>
-                    <span class="truncate min-w-0 flex-1">✨ Sortear com IA</span>
+                    <span class="material-symbols-rounded text-base text-purple-600 dark:text-purple-400 group-hover:text-white shrink-0" :class="{ 'animate-spin': isGeneratingAiTheme }">
+                      {{ isGeneratingAiTheme ? 'progress_activity' : 'auto_awesome' }}
+                    </span>
+                    <span class="font-black text-xs sm:text-sm min-w-0 flex-1">
+                      {{ isGeneratingAiTheme ? 'Gerando Proposta Inédita com IA...' : 'Sortear Tema com IA' }}
+                    </span>
                   </div>
-                  <span class="material-symbols-rounded text-sm opacity-50 shrink-0">casino</span>
+                  <span class="material-symbols-rounded text-base opacity-60 group-hover:opacity-100 shrink-0">casino</span>
                 </button>
 
                 <button
@@ -1234,13 +1248,22 @@ onUnmounted(() => {
                   type="button"
                   @click="openThemeDetail(theme)"
                   :title="theme.title"
-                  class="w-full max-w-full rounded-xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/50 dark:bg-zinc-800/80 px-3.5 py-2.5 text-xs font-bold text-[var(--student-text)] hover:border-purple-600 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 dark:hover:text-white transition text-left cursor-pointer shadow-2xs flex items-center justify-between gap-2.5 min-w-0"
+                  class="group w-full max-w-full rounded-2xl border border-purple-200 dark:border-purple-800/80 bg-purple-50/40 dark:bg-zinc-800/80 p-3 sm:px-4 sm:py-3 text-left transition hover:border-purple-600 hover:bg-purple-600 hover:text-white dark:hover:bg-purple-600 dark:hover:text-white cursor-pointer shadow-2xs flex items-center justify-between gap-3 min-w-0"
                 >
-                  <div class="flex items-center gap-2.5 min-w-0 flex-1">
-                    <span class="material-symbols-rounded text-sm text-purple-600 dark:text-purple-400 shrink-0">article</span>
-                    <span class="truncate min-w-0 flex-1">{{ theme.title }}</span>
+                  <div class="flex items-start gap-2.5 min-w-0 flex-1">
+                    <span class="material-symbols-rounded text-base text-purple-600 dark:text-purple-400 group-hover:text-white shrink-0 mt-0.5">article</span>
+                    <div class="min-w-0 flex-1 space-y-1">
+                      <span v-if="theme.category || theme.axis" class="inline-block text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-700 dark:bg-purple-950/80 dark:text-purple-300 group-hover:bg-white/20 group-hover:text-white">
+                        {{ theme.category || theme.axis }}
+                      </span>
+                      <p class="text-xs sm:text-sm font-bold text-[var(--student-text)] group-hover:text-white leading-snug break-words whitespace-normal">
+                        {{ theme.title }}
+                      </p>
+                    </div>
                   </div>
-                  <span class="material-symbols-rounded text-sm opacity-40 shrink-0">arrow_forward</span>
+                  <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-purple-100/70 dark:bg-zinc-700/60 text-purple-700 dark:text-purple-300 group-hover:bg-white/20 group-hover:text-white transition">
+                    <span class="material-symbols-rounded text-base">arrow_forward</span>
+                  </div>
                 </button>
               </div>
             </div>
@@ -1739,17 +1762,6 @@ onUnmounted(() => {
                 <span class="material-symbols-rounded text-sm text-amber-500">auto_fix_high</span>
                 <span>Formatar Padrão ENEM</span>
               </button>
-
-              <!-- Alternador de Modo de Folha para Dispositivos Móveis -->
-              <button
-                type="button"
-                @click="mobileViewMode = mobileViewMode === 'A4' ? 'FIT' : 'A4'"
-                class="sm:hidden inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-300 dark:border-purple-800 text-xs font-black transition cursor-pointer"
-                :title="mobileViewMode === 'A4' ? 'Alternar para modo tela cheia do celular' : 'Alternar para folha oficial A4 com 30 linhas'"
-              >
-                <span class="material-symbols-rounded text-sm">{{ mobileViewMode === 'A4' ? 'fit_screen' : 'description' }}</span>
-                <span>{{ mobileViewMode === 'A4' ? 'Ajustar Tela' : 'Folha A4' }}</span>
-              </button>
             </div>
 
             <div class="flex items-center gap-2">
@@ -1814,21 +1826,6 @@ onUnmounted(() => {
               </div>
               <span class="text-[10px] text-slate-400 font-medium block">Fluidez sintática</span>
             </div>
-          </div>
-
-          <!-- BANNER INFORMATIVO PARA DISPOSITIVOS MÓVEIS -->
-          <div class="sm:hidden flex items-center justify-between p-2.5 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/60 text-xs">
-            <div class="flex items-center gap-1.5 font-bold text-purple-900 dark:text-purple-200">
-              <span class="material-symbols-rounded text-purple-600 dark:text-purple-400 text-base">devices</span>
-              <span>Modo: {{ mobileViewMode === 'A4' ? 'Folha Oficial A4 (30 Linhas)' : 'Ajustado ao Celular' }}</span>
-            </div>
-            <button
-              type="button"
-              @click="mobileViewMode = mobileViewMode === 'A4' ? 'FIT' : 'A4'"
-              class="px-2.5 py-1 rounded-xl bg-purple-600 text-white font-black text-[11px] shadow-xs active:scale-95 transition cursor-pointer"
-            >
-              {{ mobileViewMode === 'A4' ? 'Ajustar à Tela' : 'Ver Folha A4' }}
-            </button>
           </div>
 
           <!-- TOAST DE FEEDBACK DE FORMATAÇÃO -->
@@ -1908,50 +1905,45 @@ onUnmounted(() => {
             <span>Critério do ENEM: Textos com menos de 8 linhas recebem <strong>NOTA ZERO</strong> por extensão insuficiente. Escreva ao menos 8 linhas.</span>
           </div>
 
-          <!-- FOLHA PAUTADA OFICIAL ENEM COM ROLAGEM HORIZONTAL EM DISPOSITIVOS MÓVEIS -->
-          <div v-if="submissionMode === 'TEXT'" class="w-full overflow-x-auto pb-3 -mx-1 px-1 sm:mx-0 sm:px-0">
+          <!-- FOLHA PAUTADA OFICIAL ENEM -->
+          <div v-if="submissionMode === 'TEXT'" class="w-full pb-3">
             <div
-              class="enem-sheet mx-auto rounded-3xl border border-slate-300 dark:border-zinc-800 bg-[#fdfbf7] dark:bg-zinc-900 shadow-md shadow-slate-200/50 dark:shadow-black/20 overflow-hidden transition-all duration-200"
-              :class="mobileViewMode === 'A4' ? 'min-w-[700px] max-w-[960px]' : 'w-full max-w-[960px]'"
+              class="enem-sheet mx-auto rounded-2xl sm:rounded-3xl border border-slate-300 dark:border-zinc-800 bg-[#fdfbf7] dark:bg-zinc-900 shadow-md shadow-slate-200/50 dark:shadow-black/20 overflow-hidden transition-all duration-200 w-full max-w-[960px]"
             >
               <!-- CABEÇALHO DA FOLHA OFICIAL -->
-              <div class="border-b border-slate-200 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-800/70 px-4 py-3 flex flex-wrap items-center justify-between gap-2.5 text-xs">
-                <div class="flex items-center gap-2 text-purple-700 dark:text-purple-300 font-black uppercase tracking-wider">
-                  <span class="material-symbols-rounded text-lg">school</span>
+              <div class="border-b border-slate-200 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-800/70 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                <div class="flex items-center gap-1.5 sm:gap-2 text-purple-700 dark:text-purple-300 font-black uppercase tracking-wider text-[11px] sm:text-xs">
+                  <span class="material-symbols-rounded text-base sm:text-lg">school</span>
                   <span>Folha Oficial de Redação ENEM &bull; 30 Linhas</span>
                 </div>
 
                 <!-- Indicadores de Linhas -->
                 <div class="flex items-center gap-2">
-                  <span v-if="mobileViewMode === 'A4'" class="sm:hidden text-[10px] text-slate-400 font-bold flex items-center gap-0.5">
-                    <span class="material-symbols-rounded text-xs">swipe</span> Deslize lateral
-                  </span>
-
                   <!-- Indicador de Linhas -->
                   <div
-                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold shadow-2xs"
+                    class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold shadow-2xs"
                     :class="lineStatus.class"
                   >
-                    <span class="material-symbols-rounded text-sm">{{ lineStatus.icon }}</span>
+                    <span class="material-symbols-rounded text-xs sm:text-sm">{{ lineStatus.icon }}</span>
                     <span>{{ lineStatus.text }} &bull; {{ lineStatus.badge }}</span>
                   </div>
                 </div>
               </div>
 
               <!-- TÍTULO DA REDAÇÃO (CENTRALIZADO) -->
-              <div class="px-6 pt-4 pb-2 border-b border-slate-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
+              <div class="px-4 sm:px-6 pt-3 sm:pt-4 pb-2 border-b border-slate-200/60 dark:border-zinc-800/60 bg-white/40 dark:bg-zinc-900/40">
                 <input
                   v-model="essayTitle"
                   type="text"
                   placeholder="Título (opcional)"
-                  class="w-full text-center text-sm font-bold text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none bg-transparent pb-1 focus:border-b-2 focus:border-purple-600 transition"
+                  class="w-full text-center text-xs sm:text-sm font-bold text-slate-800 dark:text-zinc-100 placeholder-slate-400 dark:placeholder-zinc-500 outline-none bg-transparent pb-1 focus:border-b-2 focus:border-purple-600 transition"
                 />
               </div>
 
               <!-- CORPO DA FOLHA COM TEXTAREA PAUTADO -->
-              <div class="flex px-2 sm:px-4 py-3 select-text relative">
+              <div class="flex px-1.5 sm:px-4 py-2 sm:py-3 select-text relative">
                 <!-- Coluna de Números das Linhas (1 a 30+) -->
-                <div class="flex w-8 sm:w-12 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-[10px] sm:text-xs">
+                <div class="flex w-7 sm:w-11 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-[10px] sm:text-xs">
                   <div
                     v-for="lineNum in editorTotalLines"
                     :key="lineNum"
@@ -1969,7 +1961,7 @@ onUnmounted(() => {
                 </div>
 
                 <!-- Textarea Assentado na Malha Pautada de 36px -->
-                <div class="flex-1 relative">
+                <div class="flex-1 relative min-w-0">
                   <!-- Sombra de aviso para Linhas 31+ que ultrapassam o limite oficial -->
                   <div
                     v-if="activeLines > 30"
@@ -1999,8 +1991,8 @@ onUnmounted(() => {
                   ></textarea>
                 </div>
 
-                <!-- Margem Direita ENEM (Guia visual sutil) -->
-                <div class="hidden sm:block w-2 shrink-0 border-l border-red-300/40 dark:border-red-900/40"></div>
+                <!-- Margem Direita ENEM -->
+                <div class="w-1.5 sm:w-2 shrink-0 border-l-2 border-red-400/60 dark:border-red-600/60"></div>
               </div>
 
               <!-- Rodapé da Folha: Demarcação do Limite Oficial de 30 Linhas -->
@@ -2856,7 +2848,7 @@ textarea.enem-ruled-textarea {
   display: block;
   width: 100%;
   line-height: 36px !important;
-  padding: 0 16px !important;
+  padding: 0 8px !important;
   margin: 0 !important;
   border: none !important;
   outline: none !important;
@@ -2876,8 +2868,20 @@ textarea.enem-ruled-textarea {
   resize: none !important;
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.005em;
-  word-break: break-word !important;
+  text-align: justify !important;
+  text-justify: inter-word !important;
+  text-align-last: left !important;
+  hyphens: auto !important;
+  -webkit-hyphens: auto !important;
+  -ms-hyphens: auto !important;
+  word-break: normal !important;
   overflow-wrap: break-word !important;
+}
+
+@media (min-width: 640px) {
+  textarea.enem-ruled-textarea {
+    padding: 0 12px !important;
+  }
 }
 
 :global(.dark) textarea.enem-ruled-textarea {
@@ -2893,6 +2897,7 @@ textarea.enem-ruled-textarea {
 textarea.enem-ruled-textarea::placeholder {
   color: #94a3b8;
   line-height: 36px !important;
+  text-align: left !important;
 }
 
 </style>

@@ -5,8 +5,8 @@ let tableInitialized = false
 export const PROVIDER_CONFIGS = {
   GEMINI: {
     name: 'Google Gemini',
-    defaultModel: 'gemini-3.8-flash',
-    fallbackModels: ['gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'],
+    defaultModel: 'gemini-2.5-flash',
+    fallbackModels: ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-3.8-flash', 'gemini-3.6-flash'],
     docsUrl: 'https://aistudio.google.com/app/apikey'
   },
   OPENAI: {
@@ -95,11 +95,11 @@ export async function ensureApiKeysTable() {
         await prisma.$executeRawUnsafe(`ALTER TABLE \`api_keys\` ADD COLUMN \`provider\` VARCHAR(191) NOT NULL DEFAULT 'GEMINI';`).catch(() => null)
       }
 
-      // Atualiza automaticamente as chaves do Gemini para o modelo solicitado gemini-3.8-flash
+      // Se houver chaves antigas sem modelo definido, define modelo padrão estável gemini-2.5-flash
       await prisma.$executeRawUnsafe(`
         UPDATE \`api_keys\`
-        SET \`model\` = 'gemini-3.8-flash', \`error_count\` = 0, \`last_error\` = NULL
-        WHERE \`provider\` = 'GEMINI' AND (\`model\` IS NULL OR \`model\` NOT LIKE '%3.8%');
+        SET \`model\` = 'gemini-2.5-flash', \`error_count\` = 0, \`last_error\` = NULL
+        WHERE \`provider\` = 'GEMINI' AND (\`model\` IS NULL OR \`model\` = '');
       `).catch(() => null)
     } catch {
       // Fallback com ALTER direto caso SHOW COLUMNS falhe
@@ -285,15 +285,13 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
 
   const normalizedProvider = (provider || 'GEMINI').toUpperCase()
   const cfg = PROVIDER_CONFIGS[normalizedProvider] || PROVIDER_CONFIGS.CUSTOM
-  let resolvedModel = model?.trim() || cfg.defaultModel || 'gemini-3.8-flash'
-  if (normalizedProvider === 'GEMINI' && (!resolvedModel || !resolvedModel.includes('3.8'))) {
-    resolvedModel = 'gemini-3.8-flash'
-  }
+  let resolvedModel = model?.trim() || cfg.defaultModel || 'gemini-2.5-flash'
   const resolvedBaseUrl = (baseUrl?.trim() || cfg.defaultBaseUrl || '').replace(/\/+$/, '')
 
   const startTime = Date.now()
+  const overallTimeoutMs = 25000
   const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), 14000)
+  const timeoutId = setTimeout(() => controller.abort(), overallTimeoutMs)
 
   try {
     let response = null
@@ -301,39 +299,56 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
     if (normalizedProvider === 'GEMINI') {
       const geminiModelsToTry = [
         resolvedModel,
-        'gemini-3.8-flash',
-        'gemini-3.6-flash',
+        'gemini-2.5-flash',
         'gemini-2.0-flash',
-        'gemini-1.5-flash'
+        'gemini-1.5-flash',
+        'gemini-3.8-flash',
+        'gemini-3.6-flash'
       ].filter((m, idx, arr) => m && arr.indexOf(m) === idx)
 
       let lastErrText = ''
       for (const curModel of geminiModelsToTry) {
-        const isGemini3 = curModel.includes('3.')
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/${curModel}:generateContent?key=${rawKey}`
-        response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: 'ping' }] }],
-            generationConfig: {
-              maxOutputTokens: 2,
-              ...(isGemini3 ? { thinkingConfig: { thinkingLevel: 'LOW' } } : {})
-            }
-          }),
-          signal: controller.signal
-        })
+        if (controller.signal.aborted) break
 
-        if (response.ok) {
-          resolvedModel = curModel
-          break
-        }
+        // Timeout individual de 6s para não prender o teste se um modelo estiver sobrecarregado
+        const modelController = new AbortController()
+        const modelTimeoutId = setTimeout(() => modelController.abort(), 6000)
 
-        const cloneErr = await response.clone().json().catch(() => ({}))
-        lastErrText = cloneErr.error?.message || cloneErr.message || ''
-        // Se o erro for de modelo indisponível/descontinuado, tenta o próximo modelo
-        if (!lastErrText.includes('no longer available') && !lastErrText.includes('not found') && !lastErrText.includes('is not supported')) {
-          break
+        try {
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${curModel}:generateContent?key=${encodeURIComponent(rawKey)}`
+          response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': rawKey
+            },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: 'ping' }] }],
+              generationConfig: {
+                maxOutputTokens: 2
+              }
+            }),
+            signal: modelController.signal
+          })
+          clearTimeout(modelTimeoutId)
+
+          if (response.ok) {
+            resolvedModel = curModel
+            break
+          }
+
+          const cloneErr = await response.clone().json().catch(() => ({}))
+          lastErrText = cloneErr.error?.message || cloneErr.message || `Erro HTTP ${response.status}`
+
+          // Se a chave for comprovadamente inválida (auth), interrompe imediatamente
+          if (lastErrText.includes('API key not valid') || lastErrText.includes('invalid_api_key') || response.status === 401 || response.status === 403) {
+            break
+          }
+          // Caso contrário (404, 503 alta demanda, modelo indisponível), tenta o próximo modelo da lista
+        } catch (modelErr) {
+          clearTimeout(modelTimeoutId)
+          lastErrText = modelErr.message || 'Tempo esgotado no modelo'
+          continue
         }
       }
     } else if (normalizedProvider === 'ANTHROPIC') {
@@ -424,7 +439,7 @@ export async function testUniversalApiKey({ key, provider = 'GEMINI', model = nu
     return {
       valid: false,
       error: isTimeout
-        ? 'Tempo limite de conexão esgotado (14s). Verifique a URL e a internet.'
+        ? 'Tempo limite de conexão esgotado (25s). Verifique a chave ou o status do provedor.'
         : `Falha na requisição: ${err.message}`
     }
   }

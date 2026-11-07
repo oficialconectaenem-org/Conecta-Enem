@@ -13,11 +13,12 @@ import { getActiveApiKeys, recordKeyUsage } from '#server/services/api-key.servi
  */
 
 export const GEMINI_MODELS = [
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
   'gemini-3.8-flash',
   'gemini-3.6-flash',
-  'gemini-2.0-flash',
   'gemini-2.0-flash-lite',
-  'gemini-1.5-flash',
   'gemini-1.5-flash-8b',
   'gemini-1.5-flash-002',
   'gemini-1.5-flash-latest'
@@ -511,12 +512,15 @@ async function callAiProvider(keyObj, userContent, options = {}) {
   if (provider === 'GEMINI') {
     let preferredModel = (keyObj.model || '').trim()
     if (preferredModel && (preferredModel.includes('pro') || preferredModel.includes('1.0'))) {
-      preferredModel = 'gemini-3.8-flash'
+      preferredModel = 'gemini-2.5-flash'
     }
     const modelsToTry = [
+      preferredModel,
+      'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
       'gemini-3.8-flash',
       'gemini-3.6-flash',
-      preferredModel,
       ...GEMINI_MODELS
     ].filter((m, i, a) => m && !m.includes('pro') && a.indexOf(m) === i)
 
@@ -524,16 +528,12 @@ async function callAiProvider(keyObj, userContent, options = {}) {
     let primaryOverloadErr = null
 
     for (const model of modelsToTry) {
-      // Tenta até 2 vezes para sobrecarga temporária
+      // Tenta até 1 vez por modelo caso sobrecarregado (failover veloz para o próximo modelo da lista)
       for (let attempt = 0; attempt < 2; attempt++) {
-        if (attempt > 0) {
-          console.info(`[AI Gemini] Aguardando retentativa do modelo ${model}...`)
-        }
-
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
         try {
-          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${rawKey}`
+          const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(rawKey)}`
           
           let useSchema = responseSchema
           let res = null
@@ -565,7 +565,10 @@ async function callAiProvider(keyObj, userContent, options = {}) {
 
             res = await fetch(url, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': rawKey
+              },
               body: JSON.stringify(payload),
               signal: controller.signal
             })
@@ -604,12 +607,10 @@ async function callAiProvider(keyObj, userContent, options = {}) {
               rawMsg.includes('temporarily unavailable')
 
             if (isHighDemand) {
-              primaryOverloadErr = new Error('Os servidores da IA do Google estão enfrentando alta demanda temporária neste momento (Spikes in demand). Reconexão automática em andamento.')
-              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária: ${rawMsg}`)
-              if (attempt < 1) {
-                await new Promise(resolve => setTimeout(resolve, 2000))
-                continue
-              }
+              console.warn(`[AI Gemini] Modelo ${model} sob alta demanda temporária: ${rawMsg}. Avançando imediatamente para modelo reserva...`)
+              lastGeminiErr = new Error(rawMsg)
+              primaryOverloadErr = new Error('Os servidores da IA do Google estão enfrentando alta demanda temporária. Tentando modelo reserva.')
+              // Não trava esperando o mesmo modelo! Avança imediatamente para o próximo modelo reserva da lista!
               break
             }
 
