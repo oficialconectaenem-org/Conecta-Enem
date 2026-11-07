@@ -1781,10 +1781,10 @@ onUnmounted(() => {
             </div>
           </div>
 
-          <!-- VISÃO GERAL: 4 MÉTRICAS RIGOROSAS -->
-          <div class="grid grid-cols-3 sm:grid-cols-4 gap-2 sm:gap-2.5">
-            <!-- Linhas ENEM -->
-            <div class="block rounded-2xl bg-white dark:bg-zinc-800/80 p-3 sm:p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
+          <!-- VISÃO GERAL: MÉTRICAS RIGOROSAS -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-2.5">
+            <!-- Linhas ENEM (Oculto no Mobile a pedido do usuário) -->
+            <div class="hidden sm:block rounded-2xl bg-white dark:bg-zinc-800/80 p-3 sm:p-3.5 border border-slate-200/80 dark:border-zinc-700/80 shadow-2xs">
               <span class="text-[11px] font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wide block">Linhas ENEM</span>
               <div class="flex items-baseline gap-1 mt-1">
                 <span
@@ -1914,11 +1914,11 @@ onUnmounted(() => {
               <div class="border-b border-slate-200 dark:border-zinc-800 bg-slate-100/80 dark:bg-zinc-800/70 px-3 sm:px-4 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-2 text-xs">
                 <div class="flex items-center gap-1.5 sm:gap-2 text-purple-700 dark:text-purple-300 font-black uppercase tracking-wider text-[11px] sm:text-xs">
                   <span class="material-symbols-rounded text-base sm:text-lg">school</span>
-                  <span>Folha Oficial de Redação ENEM &bull; 30 Linhas</span>
+                  <span>Folha Oficial de Redação ENEM<span class="hidden sm:inline"> &bull; 30 Linhas</span></span>
                 </div>
 
-                <!-- Indicadores de Linhas -->
-                <div class="flex items-center gap-2">
+                <!-- Indicadores de Linhas (Oculto no Mobile a pedido do usuário) -->
+                <div class="hidden sm:flex items-center gap-2">
                   <!-- Indicador de Linhas -->
                   <div
                     class="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full text-[11px] sm:text-xs font-bold shadow-2xs"
@@ -1941,9 +1941,9 @@ onUnmounted(() => {
               </div>
 
               <!-- CORPO DA FOLHA COM TEXTAREA PAUTADO -->
-              <div class="flex px-1.5 sm:px-4 py-2 sm:py-3 select-text relative">
-                <!-- Coluna de Números das Linhas (1 a 30+) -->
-                <div class="flex w-7 sm:w-11 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-1 sm:pr-2 flex-col font-mono text-[10px] sm:text-xs">
+              <div class="flex px-0 sm:px-4 py-1 sm:py-3 select-text relative">
+                <!-- Coluna de Números das Linhas (1 a 30+) (Oculto no Mobile para as linhas irem de ponta a ponta) -->
+                <div class="hidden sm:flex w-11 shrink-0 select-none border-r-2 border-red-500/80 dark:border-red-600/80 pr-2 flex-col font-mono text-xs">
                   <div
                     v-for="lineNum in editorTotalLines"
                     :key="lineNum"
@@ -1991,8 +1991,8 @@ onUnmounted(() => {
                   ></textarea>
                 </div>
 
-                <!-- Margem Direita ENEM -->
-                <div class="w-1.5 sm:w-2 shrink-0 border-l-2 border-red-400/60 dark:border-red-600/60"></div>
+                <!-- Margem Direita ENEM (Oculto no Mobile para as linhas irem de ponta a ponta) -->
+                <div class="hidden sm:block w-2 shrink-0 border-l-2 border-red-400/60 dark:border-red-600/60"></div>
               </div>
 
               <!-- Rodapé da Folha: Demarcação do Limite Oficial de 30 Linhas -->
@@ -2009,7 +2009,7 @@ onUnmounted(() => {
                     Limite Oficial da Folha de Redação do ENEM (30 Linhas)
                   </span>
                 </span>
-                <span class="text-[10px] uppercase font-mono font-bold shrink-0" :class="linesCount > 30 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-zinc-400'">
+                <span class="hidden sm:inline-block text-[10px] uppercase font-mono font-bold shrink-0" :class="linesCount > 30 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-500 dark:text-zinc-400'">
                   {{ linesCount }} / 30 Linhas &bull; INEP / Banca Oficial
                 </span>
               </div>
@@ -2848,7 +2848,7 @@ textarea.enem-ruled-textarea {
   display: block;
   width: 100%;
   line-height: 36px !important;
-  padding: 0 8px !important;
+  padding: 0 4px !important;
   margin: 0 !important;
   border: none !important;
   outline: none !important;
@@ -2869,13 +2869,10 @@ textarea.enem-ruled-textarea {
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   letter-spacing: -0.005em;
   text-align: justify !important;
-  text-justify: inter-word !important;
+  text-justify: inter-character !important;
   text-align-last: left !important;
-  hyphens: auto !important;
-  -webkit-hyphens: auto !important;
-  -ms-hyphens: auto !important;
-  word-break: normal !important;
-  overflow-wrap: break-word !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
 }
 
 @media (min-width: 640px) {
